@@ -36,4 +36,29 @@ Other than breaks, you can also get the manic meter down by feeding the creature
 
 
 
-When website is first open the creature gets a art preference which sets all the value to a random amount, when they get more tired these values start to drift more towards their preferences
+When website is first open the creature gets a art preference which sets all the value to a random amount, when they get more tired these values start to drift more towards their preferences.
+
+But first, fix UI to work with a visual novel text system where you press a talk Icon above the creature where you can give it advice and ideas for references, or even just talk to it.
+
+Then make the art for the creature with some simple frames for -
+Painting
+Resting
+Sleeping
+Thinking
+Talking
+Sad
+Angry
+Happy
+Proud
+Determined
+
+Then try and add AI chatbot functions allowing the NPC to talk freely and also recieve advice if what the player writes to it fits within one of it's functions.
+
+Then add things like hunger and energy meters as well as a shop so you can buy it things like new canvases, more color pallette slots, food, and coffee (which boosts the draw speed and increases energy though it can quickly diminish)
+
+You may also be able to buy things like decorations in the room around the creature, including one which puts a random painting which best matches the creatures preferred style the most from the saved paintings. Selling this one will instantly make the creature sad.
+
+Add an AFK mode where the creature will continue making pieces at a much slower rate based on the style and colour of the past liked paintings.
+
+
+

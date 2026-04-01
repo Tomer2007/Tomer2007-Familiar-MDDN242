@@ -15,6 +15,7 @@
 new p5(function(p) {
 
     const USE_REFERENCE_SPRITE_OVERRIDE = true;
+    const OPENVERSE_IMAGE_SEARCH_URL = 'https://api.openverse.org/v1/images/';
     const REFERENCE_SPRITE_PATHS = [
         'References/FamiliarBallReference.png',
         'References/FamiliarBirdReference.png',
@@ -51,9 +52,15 @@ new p5(function(p) {
     let GRID_SIZE      = 16;
     let GRID_GAP       = 2;
     let GRID_MARGIN    = 26;
-    let GRID_LEFT_SHIFT = 28;
+    let GRID_LEFT_SHIFT = 350;
 
-    let GRID_RANDOM_INTERVAL_MS = 0.1;
+    let GRID_MAX_COLS = 220;
+    let GRID_MAX_ROWS = 220;
+    let GRID_MAX_TOTAL_CELLS = 32000;
+    let GRID_UPDATES_PER_SECOND = 300;
+    let GRID_MAX_UPDATES_PER_FRAME = 120;
+
+    let GRID_RANDOM_INTERVAL_MS = 0.01;
    
     let COLOR_SCHEME_COUNT = 6;
     let COLOR_SCHEME_OFFSET_RANGE = 20;
@@ -72,6 +79,65 @@ new p5(function(p) {
 
     let GENERATION_THUMB_WIDTH = 100;
     let GENERATION_THUMB_HEIGHT = 100;
+
+    let SALE_ANNOUNCEMENT_DURATION_MS = 2200;
+    let SALE_ANNOUNCEMENT_FADE_IN_MS = 260;
+    let SALE_ANNOUNCEMENT_FADE_OUT_MS = 520;
+
+    // Openverse prompt-search tuning.
+    let OPENVERSE_SEARCH_RESULT_COUNT = 20;
+    let OPENVERSE_RANDOM_POOL_SIZE = 6;
+
+    // Art market preferences. Add new buyers by appending objects with these fields.
+    const BUYER_PROFILES = [
+        {
+            id: 'realist',
+            name: 'Realist',
+            weight: 1.0,    //effects probability of being the random buyer
+
+            baseMin: 10,    //Base buying price min
+            baseMax: 95,    //Base buying price max
+
+            precisionTarget: 0.95, //The target precision value
+            precisionTolerance: 0.05, //The tolerance around precison target
+
+            rangeTarget: 0.12, //The target for noisiness (color range)
+            rangeTolerance: 0.1,
+
+            styleWeight: 0.85, //The impact style factors have to the buyer's price
+           
+            harmonyWeight: 0.15, //The impact of colour theory to the buyers price
+            harmonyLikes: { complementary: 1.0, similar: 0.25, contrasting: 0.45 }, //How much the color theory effects things based of types
+        },
+        {
+            id: 'abstractist',
+            name: 'Abstractist',
+            weight: 1.0,
+            baseMin: 10,
+            baseMax: 90,
+            precisionTarget: 0.25,
+            precisionTolerance: 0.5,
+            rangeTarget: 0.82,
+            rangeTolerance: 0.28,
+            styleWeight: 0.70,
+            harmonyWeight: 0.30,
+            harmonyLikes: { complementary: 0.4, similar: 0.95, contrasting: 0.95 },
+        },
+        {
+            id: 'confetti-enthusiast',
+            name: 'Confetti Enthusiast',
+            weight: 0.7,
+            baseMin: 15,
+            baseMax: 105,
+            precisionTarget: 0.6,
+            precisionTolerance: 0.2,
+            rangeTarget: 0.97,
+            rangeTolerance: 0.12,
+            styleWeight: 0.35,
+            harmonyWeight: 0.65,
+            harmonyLikes: { complementary: 0.25, similar: 0.3, contrasting: 1.0 },
+        },
+    ];
 
     // Colours — also editable via sidebar colour pickers
     let bgColour   = [220, 242, 210];  // background (r, g, b)
@@ -175,6 +241,14 @@ new p5(function(p) {
     let archivedGenerationSerial = 0;
     let generationHistory = [];
     let selectedHistorySerial = null;
+    let galleryCoins = 0;
+    let saleAnnouncement = null;
+    let referenceSearchPending = false;
+    let queuedReferenceForNextGeneration = null;
+    let activeReferencePreview = {
+        imageUrl: '',
+        caption: 'Using default local references.',
+    };
 
 
     // Cached DOM refs — populated in setup, never queried again
@@ -197,6 +271,28 @@ new p5(function(p) {
             w: SHOW_UI ? p.windowWidth - 320 : p.windowWidth - 20,
             h: p.windowHeight - 20,
         };
+    }
+
+    function setGridDimensions(cols, rows) {
+        cols = Math.max(10, Math.min(GRID_MAX_COLS, Math.floor(cols)));
+        rows = Math.max(10, Math.min(GRID_MAX_ROWS, Math.floor(rows)));
+
+        // Keep total cells bounded so very large grids do not tank performance.
+        let totalCells = cols * rows;
+        if (totalCells > GRID_MAX_TOTAL_CELLS) {
+            rows = Math.max(10, Math.floor(GRID_MAX_TOTAL_CELLS / cols));
+        }
+
+        GRID_COLS = cols;
+        GRID_ROWS = rows;
+        saveGridDimensions(cols, rows);
+        if (ui.gridColsInput) ui.gridColsInput.value = cols;
+        if (ui.gridRowsInput) ui.gridRowsInput.value = rows;
+        // Reinitialize the grid and rebuild reference sampling for new dimensions
+        initColorGrid();
+        if (referenceSprite && referenceRuleReady) {
+            buildReferenceRuleData();
+        }
     }
 
     function pickRandomReferenceSpritePath() {
@@ -245,6 +341,9 @@ new p5(function(p) {
                 referenceRuleReady = false;
                 currentReferenceSpritePath = '';
                 generationPaused = false;
+                activeReferencePreview.imageUrl = '';
+                activeReferencePreview.caption = 'Using default local references.';
+                refreshReferencePreviewCard();
                 console.warn('No reference sprites could be loaded/applied. Falling back to procedural rules.');
                 return;
             }
@@ -260,7 +359,12 @@ new p5(function(p) {
                     if (!applied) {
                         console.warn('Reference sprite loaded but sampling failed:', path);
                         tryNextPath();
+                        return;
                     }
+
+                    activeReferencePreview.imageUrl = path;
+                    activeReferencePreview.caption = 'Active: local reference';
+                    refreshReferencePreviewCard();
                 },
                 (err) => {
                     if (requestId !== referenceSpriteRequestId) return;
@@ -271,6 +375,261 @@ new p5(function(p) {
         }
 
         tryNextPath();
+    }
+
+    function setReferenceSearchStatus(message, isError = false) {
+        if (!ui.referenceSearchStatus) return;
+        ui.referenceSearchStatus.textContent = message || '';
+        ui.referenceSearchStatus.classList.toggle('error', !!isError);
+    }
+
+    function setReferenceSearchPendingState(isPending) {
+        referenceSearchPending = isPending;
+        if (ui.referenceSearchButton) ui.referenceSearchButton.disabled = isPending;
+        if (ui.referencePromptInput) ui.referencePromptInput.disabled = isPending;
+    }
+
+    function refreshReferencePreviewCard() {
+        if (!ui.referencePreviewImage || !ui.referencePreviewCaption) return;
+
+        let previewImage = null;
+        let previewCaption = '';
+
+        if (queuedReferenceForNextGeneration && queuedReferenceForNextGeneration.thumbnailUrl) {
+            previewImage = queuedReferenceForNextGeneration.thumbnailUrl;
+            previewCaption = `Queued for next generation: ${queuedReferenceForNextGeneration.prompt}`;
+        } else if (activeReferencePreview.imageUrl) {
+            previewImage = activeReferencePreview.imageUrl;
+            previewCaption = activeReferencePreview.caption || 'Active reference image';
+        } else {
+            previewCaption = 'Using default local references.';
+        }
+
+        if (previewImage) {
+            ui.referencePreviewImage.src = previewImage;
+            ui.referencePreviewImage.hidden = false;
+        } else {
+            ui.referencePreviewImage.removeAttribute('src');
+            ui.referencePreviewImage.hidden = true;
+        }
+
+        ui.referencePreviewCaption.textContent = previewCaption;
+    }
+
+    function normalizeOpenverseThumbnailUrl(rawUrl) {
+        if (!rawUrl || typeof rawUrl !== 'string') return '';
+        let trimmed = rawUrl.trim();
+        if (!trimmed) return '';
+
+        if (trimmed.startsWith('//')) {
+            trimmed = `https:${trimmed}`;
+        }
+
+        if (!/^https?:\/\//i.test(trimmed)) {
+            return '';
+        }
+
+        let parsed = null;
+        try {
+            parsed = new URL(trimmed);
+        } catch (_) {
+            return '';
+        }
+
+        if (parsed.hostname !== 'api.openverse.org') return '';
+        if (!parsed.pathname.includes('/thumb')) return '';
+        return parsed.toString();
+    }
+
+    function shuffleInPlace(list) {
+        for (let i = list.length - 1; i > 0; i--) {
+            let j = p.floor(p.random(i + 1));
+            let tmp = list[i];
+            list[i] = list[j];
+            list[j] = tmp;
+        }
+        return list;
+    }
+
+    function analyseReferenceImageClarity(img) {
+        let source = img && (img.canvas || img.elt || img);
+        if (!source || !source.width || !source.height) {
+            return null;
+        }
+
+        let sampleSize = 64;
+        let canvas = document.createElement('canvas');
+        canvas.width = sampleSize;
+        canvas.height = sampleSize;
+        let ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        try {
+            ctx.imageSmoothingEnabled = true;
+            ctx.clearRect(0, 0, sampleSize, sampleSize);
+            ctx.drawImage(source, 0, 0, sampleSize, sampleSize);
+        } catch (_) {
+            return null;
+        }
+
+        let pixels = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+        let uniqueToneBuckets = new Set();
+        let sum = 0;
+        let sumSq = 0;
+        let count = 0;
+        let minTone = 255;
+        let maxTone = 0;
+
+        for (let i = 0; i < pixels.length; i += 4) {
+            let a = pixels[i + 3];
+            if (a < 16) continue;
+
+            let tone = pixels[i] * 0.2126 + pixels[i + 1] * 0.7152 + pixels[i + 2] * 0.0722;
+            let bucket = p.floor(tone / 8); // 32 tone buckets.
+            uniqueToneBuckets.add(bucket);
+            sum += tone;
+            sumSq += tone * tone;
+            count += 1;
+            if (tone < minTone) minTone = tone;
+            if (tone > maxTone) maxTone = tone;
+        }
+
+        if (count === 0) return null;
+
+        let mean = sum / count;
+        let variance = p.max(0, (sumSq / count) - (mean * mean));
+        return {
+            uniqueToneCount: uniqueToneBuckets.size,
+            contrastStdDev: Math.sqrt(variance),
+            toneRange: maxTone - minTone,
+        };
+    }
+
+    function compareReferenceCandidateQuality(a, b) {
+        // Fewer tones generally yields clearer blocky composition; then prefer stronger contrast.
+        if (a.uniqueToneCount !== b.uniqueToneCount) {
+            return a.uniqueToneCount - b.uniqueToneCount;
+        }
+        if (a.contrastStdDev !== b.contrastStdDev) {
+            return b.contrastStdDev - a.contrastStdDev;
+        }
+        return b.toneRange - a.toneRange;
+    }
+
+    async function fetchReferenceCandidatesFromPrompt(promptText) {
+        let query = encodeURIComponent(promptText);
+        let searchCount = p.constrain(Math.floor(OPENVERSE_SEARCH_RESULT_COUNT), 3, 80);
+        let url = `${OPENVERSE_IMAGE_SEARCH_URL}?q=${query}&page_size=${searchCount}&mature=false`;
+        let response = await fetch(url);
+        if (!response.ok) throw new Error(`Image search failed (${response.status})`);
+
+        let data = await response.json();
+        let results = Array.isArray(data.results) ? data.results : [];
+        let candidates = [];
+
+        for (let i = 0; i < results.length; i++) {
+            let item = results[i] || {};
+            let loadUrl = normalizeOpenverseThumbnailUrl(item.thumbnail || '');
+            if (!loadUrl) continue;
+
+            candidates.push({
+                loadUrl,
+                promptText,
+            });
+        }
+
+        return candidates;
+    }
+
+    function loadCandidateImage(url) {
+        return new Promise((resolve) => {
+            p.loadImage(
+                url,
+                (img) => resolve(img || null),
+                () => resolve(null)
+            );
+        });
+    }
+
+    async function queueRandomPromptReference(promptText, candidates) {
+        if (!Array.isArray(candidates) || candidates.length === 0) return false;
+
+        let analysed = [];
+        let queue = shuffleInPlace([...candidates]);
+
+        for (let i = 0; i < queue.length; i++) {
+            let candidate = queue[i];
+            let img = await loadCandidateImage(candidate.loadUrl);
+            if (!img) continue;
+
+            let sampled = null;
+            try {
+                sampled = sampleReferenceIndexGrid(img, GRID_COLS, GRID_ROWS, colorScheme.length);
+            } catch (err) {
+                sampled = null;
+            }
+            if (!sampled) continue;
+
+             let clarity = analyseReferenceImageClarity(img);
+             if (!clarity) continue;
+
+             analysed.push({
+                 candidate,
+                 img,
+                 clarity,
+             });
+        }
+
+        if (analysed.length === 0) return false;
+
+        analysed.sort((a, b) => compareReferenceCandidateQuality(a.clarity, b.clarity));
+        let poolSize = p.constrain(Math.floor(OPENVERSE_RANDOM_POOL_SIZE), 1, analysed.length);
+        let pool = analysed.slice(0, poolSize);
+        let selected = pool[p.floor(p.random(pool.length))];
+
+        queuedReferenceForNextGeneration = {
+            prompt: promptText,
+            thumbnailUrl: selected.candidate.loadUrl,
+            image: selected.img,
+        };
+        refreshReferencePreviewCard();
+        return true;
+
+    }
+
+    async function onReferenceSearchSubmit(event) {
+        if (event) event.preventDefault();
+        if (referenceSearchPending) return;
+
+        let rawPrompt = ui.referencePromptInput ? ui.referencePromptInput.value : '';
+        let promptText = (rawPrompt || '').trim();
+        if (!promptText) {
+            setReferenceSearchStatus('Enter a prompt first.', true);
+            return;
+        }
+
+        setReferenceSearchPendingState(true);
+        setReferenceSearchStatus('Searching...');
+
+        try {
+            let candidates = await fetchReferenceCandidatesFromPrompt(promptText);
+            if (candidates.length === 0) {
+                setReferenceSearchStatus("Sorry I couldn't find that", true);
+                return;
+            }
+
+            let queued = await queueRandomPromptReference(promptText, candidates);
+            if (!queued) {
+                setReferenceSearchStatus("Sorry I couldn't find that", true);
+                return;
+            }
+
+            setReferenceSearchStatus('Queued for next generation.');
+        } catch (err) {
+            console.warn('Reference search failed:', err);
+            setReferenceSearchStatus("Sorry I couldn't find that", true);
+        } finally {
+            setReferenceSearchPendingState(false);
+        }
     }
 
     p.setup = function() {
@@ -310,13 +669,25 @@ new p5(function(p) {
         ui.refRange = document.getElementById('ui-ref-range');
         ui.randomRule = document.getElementById('ui-random-rule');
         ui.scheme = document.getElementById('ui-scheme');
+        ui.gridColsInput = document.getElementById('ui-grid-cols');
+        ui.gridRowsInput = document.getElementById('ui-grid-rows');
         ui.generationStrip = document.getElementById('generation-strip');
         ui.generationStripList = document.getElementById('generation-strip-list');
         ui.generationPopup = document.getElementById('generation-popup');
         ui.generationPopupImage = document.getElementById('generation-popup-image');
         ui.generationPopupValues = document.getElementById('generation-popup-values');
+        ui.generationPopupSaleSummary = document.getElementById('generation-popup-sale-summary');
         ui.generationPopupInStyle = document.getElementById('generation-popup-in-style');
         ui.generationPopupWithColours = document.getElementById('generation-popup-with-colours');
+        ui.generationPopupSellButton = document.getElementById('generation-popup-sell-btn');
+        ui.referenceSearchForm = document.getElementById('reference-search-form');
+        ui.referencePromptInput = document.getElementById('ui-reference-prompt');
+        ui.referenceSearchButton = document.getElementById('ui-reference-search-btn');
+        ui.referenceSearchStatus = document.getElementById('ui-reference-search-status');
+        ui.referencePreviewImage = document.getElementById('ui-reference-preview-image');
+        ui.referencePreviewCaption = document.getElementById('ui-reference-preview-caption');
+        ui.coins = document.getElementById('ui-coins');
+        ui.sceneCash = document.getElementById('ui-scene-cash');
 
         if (ui.generationPopupInStyle) {
             ui.generationPopupInStyle.addEventListener('click', onInThisStyleClicked);
@@ -324,11 +695,20 @@ new p5(function(p) {
         if (ui.generationPopupWithColours) {
             ui.generationPopupWithColours.addEventListener('click', onWithTheseColoursClicked);
         }
+        if (ui.generationPopupSellButton) {
+            ui.generationPopupSellButton.addEventListener('click', onSellGenerationClicked);
+        }
         if (ui.generationStripList) {
             ui.generationStripList.addEventListener('scroll', closeGenerationPopup);
         }
+        if (ui.referenceSearchForm) {
+            ui.referenceSearchForm.addEventListener('submit', onReferenceSearchSubmit);
+        }
         document.addEventListener('click', onDocumentClickForPopup);
         updateGenerationStripLayout();
+        refreshReferencePreviewCard();
+        loadGridDimensions();
+        loadGenerationHistoryFromStorage();
 
 
 
@@ -353,9 +733,110 @@ new p5(function(p) {
         drawCreature(creature);
         randomizeGridSquareOverTime();
         drawColorGrid();
+        drawSaleAnnouncementOverlay();
 
         if (p.frameCount % 6 === 0) updateSidebar(creature); // ~10fps is plenty for UI
     };
+
+    function currentAnnouncementAlpha(now, ann) {
+        let elapsed = now - ann.startAt;
+        if (elapsed < 0 || elapsed > ann.durationMs) return 0;
+
+        if (elapsed <= ann.fadeInMs) {
+            return p.constrain(elapsed / ann.fadeInMs, 0, 1);
+        }
+
+        let fadeOutStart = ann.durationMs - ann.fadeOutMs;
+        if (elapsed >= fadeOutStart) {
+            return p.constrain((ann.durationMs - elapsed) / ann.fadeOutMs, 0, 1);
+        }
+
+        return 1;
+    }
+
+    function drawSaleAnnouncementOverlay() {
+        if (!saleAnnouncement) return;
+
+        let now = p.millis();
+        let alpha01 = currentAnnouncementAlpha(now, saleAnnouncement);
+        if (alpha01 <= 0) {
+            if (now - saleAnnouncement.startAt > saleAnnouncement.durationMs) {
+                saleAnnouncement = null;
+            }
+            return;
+        }
+
+        let alpha = Math.round(255 * alpha01);
+        p.push();
+        p.textAlign(p.CENTER, p.CENTER);
+        p.noStroke();
+
+        let titleSize = p.constrain(p.width * 0.05, 26, 56);
+        let subtitleSize = p.constrain(p.width * 0.028, 16, 30);
+        let centerX = p.width * 0.5;
+        let centerY = p.height * 0.5;
+
+        p.textSize(titleSize);
+        p.fill(20, 20, 20, alpha);
+        p.text(`SOLD ${saleAnnouncement.amount} coins`, centerX + 2, centerY + 2);
+        p.fill(255, 245, 160, alpha);
+        p.text(`SOLD ${saleAnnouncement.amount} coins`, centerX, centerY);
+
+        p.textSize(subtitleSize);
+        p.fill(20, 20, 20, alpha);
+        p.text(`Buyer: ${saleAnnouncement.buyer}`, centerX + 1, centerY + titleSize * 0.85 + 1);
+        p.fill(235, 255, 255, alpha);
+        p.text(`Buyer: ${saleAnnouncement.buyer}`, centerX, centerY + titleSize * 0.85);
+        p.pop();
+    }
+
+    function playRegisterSound() {
+        let AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+
+        if (!window._saleAudioCtx) {
+            window._saleAudioCtx = new AudioCtx();
+        }
+        let ctx = window._saleAudioCtx;
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+
+        let now = ctx.currentTime;
+        let master = ctx.createGain();
+        master.gain.setValueAtTime(0.0001, now);
+        master.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+        master.connect(ctx.destination);
+
+        let tone1 = ctx.createOscillator();
+        tone1.type = 'square';
+        tone1.frequency.setValueAtTime(740, now);
+        tone1.frequency.exponentialRampToValueAtTime(980, now + 0.12);
+        tone1.connect(master);
+        tone1.start(now);
+        tone1.stop(now + 0.2);
+
+        let tone2 = ctx.createOscillator();
+        tone2.type = 'triangle';
+        tone2.frequency.setValueAtTime(1200, now + 0.08);
+        tone2.frequency.exponentialRampToValueAtTime(820, now + 0.24);
+        tone2.connect(master);
+        tone2.start(now + 0.08);
+        tone2.stop(now + 0.32);
+    }
+
+    function showSaleAnnouncement(buyerName, amount) {
+        saleAnnouncement = {
+            buyer: buyerName || 'Unknown buyer',
+            amount: Math.max(0, Math.round(amount || 0)),
+            startAt: p.millis(),
+            durationMs: SALE_ANNOUNCEMENT_DURATION_MS,
+            fadeInMs: SALE_ANNOUNCEMENT_FADE_IN_MS,
+            fadeOutMs: SALE_ANNOUNCEMENT_FADE_OUT_MS,
+        };
+        playRegisterSound();
+    }
 
 
     // ============================================================
@@ -613,6 +1094,204 @@ new p5(function(p) {
         return out;
     }
 
+    function clamp01(v) {
+        return p.constrain(v, 0, 1);
+    }
+
+    function rgbToHsvHue(col) {
+        let r = (col[0] || 0) / 255;
+        let g = (col[1] || 0) / 255;
+        let b = (col[2] || 0) / 255;
+        let max = Math.max(r, g, b);
+        let min = Math.min(r, g, b);
+        let d = max - min;
+        if (d === 0) return 0;
+
+        let h = 0;
+        if (max === r) h = ((g - b) / d) % 6;
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+
+        h *= 60;
+        if (h < 0) h += 360;
+        return h;
+    }
+
+    function hueDistanceDegrees(a, b) {
+        let d = Math.abs(a - b) % 360;
+        return d > 180 ? 360 - d : d;
+    }
+
+    function analyzeColourTheoryFromScheme(scheme) {
+        if (!Array.isArray(scheme) || scheme.length < 2) {
+            return { similar: 0, complementary: 0, contrasting: 0.5 };
+        }
+
+        let hues = scheme.map(rgbToHsvHue);
+        let pairCount = 0;
+        let similar = 0;
+        let complementary = 0;
+        let contrasting = 0;
+
+        for (let i = 0; i < hues.length; i++) {
+            for (let j = i + 1; j < hues.length; j++) {
+                let d = hueDistanceDegrees(hues[i], hues[j]);
+                pairCount += 1;
+                if (d <= 25) similar += 1;
+                if (d >= 150 && d <= 210) complementary += 1;
+                if (d >= 70 && d <= 140) contrasting += 1;
+            }
+        }
+
+        if (pairCount === 0) return { similar: 0, complementary: 0, contrasting: 0.5 };
+        return {
+            similar: similar / pairCount,
+            complementary: complementary / pairCount,
+            contrasting: contrasting / pairCount,
+        };
+    }
+
+    function targetMatchScore(value, target, tolerance) {
+        let safeTol = Math.max(0.0001, tolerance);
+        return clamp01(1 - Math.abs(value - target) / safeTol);
+    }
+
+    function normalisedRangeEnergy(snapshot) {
+        let offset = clamp01((snapshot.colorSchemeOffsetRange || 0) / 255);
+        let neighbor = clamp01((snapshot.neighborSimilarRange || 0) / 255);
+        let ref = clamp01((snapshot.referenceMatchRgbRange || 0) / 255);
+        return (offset + neighbor + ref) / 3;
+    }
+
+    function evaluateSnapshotAgainstBuyer(snapshot, buyer, useRandomBase = true) {
+        let precision = clamp01(snapshot.referenceRulePrecision || 0);
+        let rangeEnergy = normalisedRangeEnergy(snapshot);
+        let colourTheory = analyzeColourTheoryFromScheme(snapshot.colorScheme || []);
+
+        let precisionScore = targetMatchScore(precision, buyer.precisionTarget, buyer.precisionTolerance);
+        let rangeScore = targetMatchScore(rangeEnergy, buyer.rangeTarget, buyer.rangeTolerance);
+        let styleScore = (precisionScore + rangeScore) * 0.5;
+
+        let harmonyLikes = buyer.harmonyLikes || {};
+        let harmonyWeighted =
+            colourTheory.complementary * (harmonyLikes.complementary || 0) +
+            colourTheory.similar * (harmonyLikes.similar || 0) +
+            colourTheory.contrasting * (harmonyLikes.contrasting || 0);
+        let harmonyWeightSum =
+            (harmonyLikes.complementary || 0) +
+            (harmonyLikes.similar || 0) +
+            (harmonyLikes.contrasting || 0);
+        let harmonyScore = harmonyWeightSum > 0 ? clamp01(harmonyWeighted / harmonyWeightSum) : 0.5;
+
+        let combinedFit = clamp01(
+            styleScore * (buyer.styleWeight || 0.5) +
+            harmonyScore * (buyer.harmonyWeight || 0.5)
+        );
+
+        let baseValue = useRandomBase
+            ? p.random(buyer.baseMin, buyer.baseMax)
+            : (buyer.baseMin + buyer.baseMax) * 0.5;
+
+        let payout = Math.round(baseValue * (0.45 + combinedFit * 1.35));
+        return {
+            buyerId: buyer.id,
+            buyerName: buyer.name,
+            fit: combinedFit,
+            payout,
+        };
+    }
+
+    function pickRandomBuyerProfile() {
+        let totalWeight = BUYER_PROFILES.reduce((sum, b) => sum + Math.max(0, b.weight || 0), 0);
+        if (totalWeight <= 0) return BUYER_PROFILES[0];
+
+        let pick = p.random(totalWeight);
+        let cursor = 0;
+        for (let i = 0; i < BUYER_PROFILES.length; i++) {
+            cursor += Math.max(0, BUYER_PROFILES[i].weight || 0);
+            if (pick <= cursor) return BUYER_PROFILES[i];
+        }
+        return BUYER_PROFILES[BUYER_PROFILES.length - 1];
+    }
+
+    function appraiseSnapshotForSale(snapshot) {
+        let buyer = pickRandomBuyerProfile();
+        return evaluateSnapshotAgainstBuyer(snapshot, buyer, true);
+    }
+
+    function estimateSnapshotMarketValue(snapshot) {
+        if (!BUYER_PROFILES.length) {
+            return { estimate: 0, topBuyer: 'none', topFit: 0 };
+        }
+
+        let evaluations = BUYER_PROFILES.map(b => evaluateSnapshotAgainstBuyer(snapshot, b, false));
+        let estimate = Math.round(evaluations.reduce((sum, e) => sum + e.payout, 0) / evaluations.length);
+        let top = evaluations[0];
+        for (let i = 1; i < evaluations.length; i++) {
+            if (evaluations[i].fit > top.fit) top = evaluations[i];
+        }
+        return {
+            estimate,
+            topBuyer: top.buyerName,
+            topFit: top.fit,
+        };
+    }
+
+    function snapshotLabelText(snapshot) {
+        let soldTag = snapshot.sold ? ' [sold]' : '';
+        return `#${snapshot.serial} ${snapshot.reason}${soldTag}`;
+    }
+
+    function createGenerationCard(snapshot) {
+        let card = document.createElement('div');
+        card.className = 'generation-thumb';
+        if (snapshot.sold) card.classList.add('generation-thumb-sold');
+        card.dataset.serial = String(snapshot.serial);
+        card.title = `Generation ${snapshot.serial}`;
+
+        let img = document.createElement('img');
+        img.src = snapshot.imageDataUrl;
+        img.alt = `Generation ${snapshot.serial}`;
+        img.style.width = `${GENERATION_THUMB_WIDTH}px`;
+        img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
+
+        let label = document.createElement('div');
+        label.className = 'generation-thumb-label';
+        label.textContent = snapshotLabelText(snapshot);
+
+        card.addEventListener('click', (event) => {
+            event.stopPropagation();
+            openGenerationPopup(snapshot, card);
+        });
+
+        card.appendChild(img);
+        card.appendChild(label);
+        return card;
+    }
+
+    function refreshGenerationCardUI(snapshot) {
+        if (!ui.generationStripList) return;
+        let card = ui.generationStripList.querySelector(`.generation-thumb[data-serial="${snapshot.serial}"]`);
+        if (!card) return;
+        let label = card.querySelector('.generation-thumb-label');
+        if (label) label.textContent = snapshotLabelText(snapshot);
+        card.classList.toggle('generation-thumb-sold', !!snapshot.sold);
+    }
+
+    function removeSnapshotFromHistory(serial) {
+        let idx = generationHistory.findIndex(item => item.serial === serial);
+        if (idx === -1) return null;
+
+        let removed = generationHistory[idx];
+        generationHistory.splice(idx, 1);
+
+        if (ui.generationStripList) {
+            let card = ui.generationStripList.querySelector(`.generation-thumb[data-serial="${serial}"]`);
+            if (card) card.remove();
+        }
+        return removed;
+    }
+
     function formatSnapshotValues(snapshot) {
         let schemeText = snapshot.colorScheme
             .map(col => `(${col[0]},${col[1]},${col[2]})`)
@@ -625,6 +1304,23 @@ new p5(function(p) {
             `reference_match_rgb_range: ${snapshot.referenceMatchRgbRange}`,
             `scheme: ${schemeText}`,
         ].join('\n');
+    }
+
+    function updateGenerationSaleSummary(snapshot) {
+        if (!ui.generationPopupSaleSummary || !ui.generationPopupSellButton) return;
+
+        if (snapshot.sold) {
+            ui.generationPopupSaleSummary.textContent = `Sold to ${snapshot.soldTo || 'buyer'} for ${snapshot.salePrice || 0} coins.`;
+            ui.generationPopupSellButton.disabled = true;
+            ui.generationPopupSellButton.textContent = 'Sold';
+            return;
+        }
+
+        let estimate = estimateSnapshotMarketValue(snapshot);
+        ui.generationPopupSaleSummary.textContent =
+            `Market estimate: ~${estimate.estimate} coins. Best fit: ${estimate.topBuyer} (${Math.round(estimate.topFit * 100)}%).`;
+        ui.generationPopupSellButton.disabled = false;
+        ui.generationPopupSellButton.textContent = 'Sell';
     }
 
     function closeGenerationPopup() {
@@ -644,6 +1340,7 @@ new p5(function(p) {
         selectedHistorySerial = snapshot.serial;
         ui.generationPopupImage.src = snapshot.imageDataUrl;
         ui.generationPopupValues.textContent = formatSnapshotValues(snapshot);
+        updateGenerationSaleSummary(snapshot);
         ui.generationPopup.hidden = false;
 
         let rect = thumbElement.getBoundingClientRect();
@@ -653,6 +1350,25 @@ new p5(function(p) {
 
         ui.generationPopup.style.left = `${left}px`;
         ui.generationPopup.style.top = `${top}px`;
+    }
+
+    function onSellGenerationClicked() {
+        if (selectedHistorySerial == null) return;
+        let snapshot = generationHistory.find(item => item.serial === selectedHistorySerial);
+        if (!snapshot || snapshot.sold) {
+            if (snapshot) updateGenerationSaleSummary(snapshot);
+            return;
+        }
+
+        let appraisal = appraiseSnapshotForSale(snapshot);
+        galleryCoins += appraisal.payout;
+    showSaleAnnouncement(appraisal.buyerName, appraisal.payout);
+
+        lastFeedbackAction = `sold-#${snapshot.serial}`;
+        removeSnapshotFromHistory(snapshot.serial);
+        closeGenerationPopup();
+        saveGenerationHistoryToStorage();
+        saveState(creature);
     }
 
     function onInThisStyleClicked() {
@@ -884,10 +1600,6 @@ new p5(function(p) {
 
         updateGenerationStripLayout();
 
-        let card = document.createElement('div');
-        card.className = 'generation-thumb';
-        card.title = `Generation ${generationSerial}`;
-
         let img = document.createElement('img');
         try {
             // Rebuild snapshot from logical grid data so it exactly matches tile colours.
@@ -900,10 +1612,6 @@ new p5(function(p) {
         img.style.width = `${GENERATION_THUMB_WIDTH}px`;
         img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
 
-        let label = document.createElement('div');
-        label.className = 'generation-thumb-label';
-        label.textContent = `#${generationSerial} ${reason}`;
-
         let snapshot = {
             serial: generationSerial,
             reason,
@@ -913,22 +1621,22 @@ new p5(function(p) {
             colorSchemeOffsetRange: COLOR_SCHEME_OFFSET_RANGE,
             neighborSimilarRange: NEIGHBOR_SIMILAR_RANGE,
             referenceMatchRgbRange: REFERENCE_MATCH_RGB_RANGE,
+            sold: false,
+            salePrice: 0,
+            soldTo: '',
+            saleFit: 0,
         };
         generationHistory.push(snapshot);
-        card.addEventListener('click', (event) => {
-            event.stopPropagation();
-            openGenerationPopup(snapshot, card);
-        });
-
-        card.appendChild(img);
-        card.appendChild(label);
+        let card = createGenerationCard(snapshot);
         ui.generationStripList.appendChild(card);
         ui.generationStripList.scrollLeft = ui.generationStripList.scrollWidth;
 
         archivedGenerationSerial = generationSerial;
+        saveGenerationHistoryToStorage();
     }
 
-    function resetGeneration() {
+    function resetGeneration(options = {}) {
+        let keepCurrentReference = !!options.keepCurrentReference;
         archiveCurrentGeneration('interrupted');
         generationSerial += 1;
         archivedGenerationSerial = 0;
@@ -966,7 +1674,32 @@ new p5(function(p) {
                 );
             }
         }
-        loadRandomReferenceSpriteAndApply();
+        if (!keepCurrentReference) {
+            if (queuedReferenceForNextGeneration && queuedReferenceForNextGeneration.image) {
+                referenceSprite = queuedReferenceForNextGeneration.image;
+                currentReferenceSpritePath = `prompt:${queuedReferenceForNextGeneration.prompt}`;
+
+                let appliedQueued = false;
+                try {
+                    appliedQueued = buildReferenceRuleData();
+                } catch (err) {
+                    appliedQueued = false;
+                }
+
+                if (appliedQueued) {
+                    activeReferencePreview.imageUrl = queuedReferenceForNextGeneration.thumbnailUrl;
+                    activeReferencePreview.caption = `Active: prompt reference (${queuedReferenceForNextGeneration.prompt})`;
+                    queuedReferenceForNextGeneration = null;
+                    refreshReferencePreviewCard();
+                } else {
+                    queuedReferenceForNextGeneration = null;
+                    refreshReferencePreviewCard();
+                    loadRandomReferenceSpriteAndApply();
+                }
+            } else {
+                loadRandomReferenceSpriteAndApply();
+            }
+        }
         lastGridRandomizeAt = p.millis();
     }
 
@@ -994,10 +1727,17 @@ new p5(function(p) {
         tmp.height = rows;
         let ctx = tmp.getContext('2d', { willReadFrequently: true });
         ctx.imageSmoothingEnabled = false;
-        ctx.clearRect(0, 0, cols, rows);
-        ctx.drawImage(source, 0, 0, cols, rows);
+        let pixels = null;
 
-        let pixels = ctx.getImageData(0, 0, cols, rows).data;
+        try {
+            ctx.clearRect(0, 0, cols, rows);
+            ctx.drawImage(source, 0, 0, cols, rows);
+            pixels = ctx.getImageData(0, 0, cols, rows).data;
+        } catch (err) {
+            console.warn('Reference image sampling failed (likely CORS/security restrictions):', err);
+            return null;
+        }
+
         let samples = [];
 
         // Convert resized reference to grayscale first so clustering finds unique tones.
@@ -1420,54 +2160,64 @@ new p5(function(p) {
     function randomizeGridSquareOverTime() {
         let now = p.millis();
         if (generationPaused) return;
-        if (now - lastGridRandomizeAt < GRID_RANDOM_INTERVAL_MS) return;
 
-        let [r, c] = pickTargetCell();
-        let adjacent = getAdjacentColoredColors(r, c);
-        let hasReferenceRule = referenceRuleReady && referenceAssociations && referenceColourMap;
-        let associationIndex = hasReferenceRule ? referenceAssociations[r][c] : -1;
-        let associatedColour =
-            (associationIndex >= 0 && associationIndex < referenceColourMap.length)
-                ? referenceColourMap[associationIndex]
-                : null;
+        let elapsedMs = now - lastGridRandomizeAt;
+        if (elapsedMs < GRID_RANDOM_INTERVAL_MS) return;
 
-        if (ENABLE_GLOBAL_RANDOM_COLOR_RULE && p.random() < GLOBAL_RANDOM_COLOR_CHANCE) {
-            // Rule 6: small chance to ignore all other rules and go fully random.
-            gridColors[r][c] = fullyRandomColour();
-        } else if (associatedColour) {
-            if (adjacent.length === 0) {
-                // New Rule: isolated cells have an 80% chance to follow reference-associated tone.
-                if (p.random() < REFERENCE_RULE_PRECISION) {
-                    gridColors[r][c] = similarTo(associatedColour, REFERENCE_MATCH_RGB_RANGE);
+        // Convert elapsed time into a bounded batch count so updates are not tied to frame rate.
+        let updates = Math.floor((elapsedMs * GRID_UPDATES_PER_SECOND) / 1000);
+        updates = p.constrain(updates, 1, GRID_MAX_UPDATES_PER_FRAME);
+
+        for (let i = 0; i < updates; i++) {
+            let [r, c] = pickTargetCell();
+            let adjacent = getAdjacentColoredColors(r, c);
+            let hasReferenceRule = referenceRuleReady && referenceAssociations && referenceColourMap;
+            let associationIndex = hasReferenceRule ? referenceAssociations[r][c] : -1;
+            let associatedColour =
+                (associationIndex >= 0 && associationIndex < referenceColourMap.length)
+                    ? referenceColourMap[associationIndex]
+                    : null;
+
+            if (ENABLE_GLOBAL_RANDOM_COLOR_RULE && p.random() < GLOBAL_RANDOM_COLOR_CHANCE) {
+                // Rule 6: small chance to ignore all other rules and go fully random.
+                gridColors[r][c] = fullyRandomColour();
+            } else if (associatedColour) {
+                if (adjacent.length === 0) {
+                    // New Rule: isolated cells have an 80% chance to follow reference-associated tone.
+                    if (p.random() < REFERENCE_RULE_PRECISION) {
+                        gridColors[r][c] = similarTo(associatedColour, REFERENCE_MATCH_RGB_RANGE);
+                    } else {
+                        gridColors[r][c] = applyLegacyGridRule(adjacent);
+                    }
                 } else {
-                    gridColors[r][c] = applyLegacyGridRule(adjacent);
+                    let sameAssociationAdjacent = getAdjacentSameAssociationColors(r, c, associationIndex);
+                    if (sameAssociationAdjacent.length > 0) {
+                        // New Rule: if adjacent tile shares association, follow the same-association neighbour.
+                        let seed = sameAssociationAdjacent[p.floor(p.random(sameAssociationAdjacent.length))];
+                        gridColors[r][c] = similarTo(seed, NEIGHBOR_SIMILAR_RANGE);
+                    } else if (p.random() < REFERENCE_RULE_PRECISION) {
+                        // New Rule: adjacent but different association still biases to its own associated tone.
+                        gridColors[r][c] = similarTo(associatedColour, REFERENCE_MATCH_RGB_RANGE);
+                    } else {
+                        gridColors[r][c] = applyLegacyGridRule(adjacent);
+                    }
                 }
             } else {
-                let sameAssociationAdjacent = getAdjacentSameAssociationColors(r, c, associationIndex);
-                if (sameAssociationAdjacent.length > 0) {
-                    // New Rule: if adjacent tile shares association, follow the same-association neighbour.
-                    let seed = sameAssociationAdjacent[p.floor(p.random(sameAssociationAdjacent.length))];
-                    gridColors[r][c] = similarTo(seed, NEIGHBOR_SIMILAR_RANGE);
-                } else if (p.random() < REFERENCE_RULE_PRECISION) {
-                    // New Rule: adjacent but different association still biases to its own associated tone.
-                    gridColors[r][c] = similarTo(associatedColour, REFERENCE_MATCH_RGB_RANGE);
-                } else {
-                    gridColors[r][c] = applyLegacyGridRule(adjacent);
-                }
+                gridColors[r][c] = applyLegacyGridRule(adjacent);
             }
-        } else {
-            gridColors[r][c] = applyLegacyGridRule(adjacent);
-        }
-        markGridChanged(r, c);
+            markGridChanged(r, c);
 
-        if (interactedRatio() >= 0.999) {
-            generationPaused = true;
-            archiveCurrentGeneration('finished');
-        }
+            if (interactedRatio() >= 0.999) {
+                generationPaused = true;
+                archiveCurrentGeneration('finished');
+                break;
+            }
 
-        if (interactedRatio() > PAUSE_INTERACTION_THRESHOLD && p.random() < PAUSE_AFTER_THRESHOLD_CHANCE) {
-            generationPaused = true;
-            archiveCurrentGeneration('paused');
+            if (interactedRatio() > PAUSE_INTERACTION_THRESHOLD && p.random() < PAUSE_AFTER_THRESHOLD_CHANCE) {
+                generationPaused = true;
+                archiveCurrentGeneration('paused');
+                break;
+            }
         }
 
         lastGridRandomizeAt = now;
@@ -1555,12 +2305,95 @@ new p5(function(p) {
     //  PERSISTENCE
     // ============================================================
 
+    function saveGridDimensions(cols, rows) {
+        try {
+            localStorage.setItem('grid_dimensions_v1', JSON.stringify({ cols, rows }));
+        } catch(e) {}
+    }
+
+    function loadGridDimensions() {
+        try {
+            let raw = localStorage.getItem('grid_dimensions_v1');
+            if (!raw) return;
+            let data = JSON.parse(raw);
+            if (data.cols && data.rows) {
+                setGridDimensions(data.cols, data.rows);
+            }
+        } catch(e) {}
+    }
+
+    function saveGenerationHistoryToStorage() {
+        try {
+            let serialized = generationHistory.map(snapshot => ({
+                serial: snapshot.serial,
+                reason: snapshot.reason,
+                imageDataUrl: snapshot.imageDataUrl,
+                colorScheme: snapshot.colorScheme,
+                referenceRulePrecision: snapshot.referenceRulePrecision,
+                colorSchemeOffsetRange: snapshot.colorSchemeOffsetRange,
+                neighborSimilarRange: snapshot.neighborSimilarRange,
+                referenceMatchRgbRange: snapshot.referenceMatchRgbRange,
+                sold: !!snapshot.sold,
+                salePrice: snapshot.salePrice || 0,
+                soldTo: snapshot.soldTo || '',
+                saleFit: snapshot.saleFit || 0,
+            }));
+            localStorage.setItem('generation_history_v1', JSON.stringify(serialized));
+        } catch(e) {}
+    }
+
+    function loadGenerationHistoryFromStorage() {
+        try {
+            let raw = localStorage.getItem('generation_history_v1');
+            if (!raw) return;
+            let data = JSON.parse(raw);
+            if (!Array.isArray(data)) return;
+            
+            generationHistory = [];
+            for (let item of data) {
+                if (!item.imageDataUrl) continue;
+                
+                let snapshot = {
+                    serial: item.serial,
+                    reason: item.reason,
+                    imageDataUrl: item.imageDataUrl,
+                    colorScheme: item.colorScheme || [],
+                    referenceRulePrecision: item.referenceRulePrecision || REFERENCE_RULE_PRECISION,
+                    colorSchemeOffsetRange: item.colorSchemeOffsetRange || COLOR_SCHEME_OFFSET_RANGE,
+                    neighborSimilarRange: item.neighborSimilarRange || NEIGHBOR_SIMILAR_RANGE,
+                    referenceMatchRgbRange: item.referenceMatchRgbRange || REFERENCE_MATCH_RGB_RANGE,
+                    sold: !!item.sold,
+                    salePrice: item.salePrice || 0,
+                    soldTo: item.soldTo || '',
+                    saleFit: item.saleFit || 0,
+                };
+                generationHistory.push(snapshot);
+            }
+            
+            // Rebuild the generation strip UI from history
+            if (ui.generationStripList && generationHistory.length > 0) {
+                ui.generationStripList.innerHTML = '';
+                for (let snapshot of generationHistory) {
+                    let card = createGenerationCard(snapshot);
+                    ui.generationStripList.appendChild(card);
+                }
+            }
+
+            if (generationHistory.length > 0) {
+                let maxSerial = Math.max(...generationHistory.map(item => item.serial || 0));
+                generationSerial = Math.max(generationSerial, maxSerial + 1);
+            }
+        } catch(e) {}
+    }
+
     function saveState(c) {
         try {
             localStorage.setItem('creature_v2', JSON.stringify({
                 need: c.need, lastVisit: Date.now(), totalVisits: c.totalVisits,
                 energy: c.energy,
+                galleryCoins,
             }));
+            saveGenerationHistoryToStorage();
         } catch(e) {}
     }
 
@@ -1573,6 +2406,7 @@ new p5(function(p) {
             c.energy      = data.energy || 100;
             c.lastVisit   = data.lastVisit;
             c.totalVisits = (data.totalVisits || 0) + 1;
+            galleryCoins  = data.galleryCoins || 0;
             if (c.lastVisit) {
                 let hours = Math.min((Date.now() - c.lastVisit) / 3600000, AFK_MAX_HOURS);
                 c.need = Math.min(c.need + hours * AFK_PER_HOUR, 100);
@@ -1606,6 +2440,8 @@ new p5(function(p) {
         if (ui.refRange) ui.refRange.textContent = String(REFERENCE_MATCH_RGB_RANGE);
         if (ui.randomRule) ui.randomRule.textContent = ENABLE_GLOBAL_RANDOM_COLOR_RULE ? 'on' : 'off';
         if (ui.scheme) ui.scheme.textContent = colorScheme.map(col => `(${col[0]},${col[1]},${col[2]})`).join(' ');
+        if (ui.coins) ui.coins.textContent = String(galleryCoins);
+        if (ui.sceneCash) ui.sceneCash.textContent = `Cash: ${galleryCoins}`;
 
         ui.needBar.style.width = c.need + '%';
         ui.needBar.style.backgroundColor =
@@ -1655,5 +2491,7 @@ new p5(function(p) {
     window._moreAbstract = () => { decreasePrecision(); };
     window._noisier = () => { increaseNoise(); };
     window._cleaner = () => { decreaseNoise(); };
+    window._setGridCols = cols => { setGridDimensions(cols, GRID_ROWS); };
+    window._setGridRows = rows => { setGridDimensions(GRID_COLS, rows); };
 
 }, document.body);

@@ -17,9 +17,11 @@
 <div class="generation-popup" id="generation-popup" hidden>
     <img id="generation-popup-image" alt="Selected previous generation">
     <div class="generation-popup-values" id="generation-popup-values"></div>
+    <div class="generation-popup-sale-summary" id="generation-popup-sale-summary"></div>
     <div class="generation-popup-actions">
         <button class="button" id="generation-popup-in-style" type="button">In_this_style</button>
         <button class="button secondary" id="generation-popup-with-colours" type="button">with_these_colours</button>
+        <button class="button" id="generation-popup-sell-btn" type="button">Sell</button>
     </div>
 </div>
 <div class="container">
@@ -142,13 +144,67 @@
                 <div class="debug-line">ref rgb range: <b id="ui-ref-range">10</b></div>
                 <div class="debug-line">random rule: <b id="ui-random-rule">off</b></div>
                 <div class="debug-line">scheme: <b id="ui-scheme">-</b></div>
+                <div class="debug-line">coins: <b id="ui-coins">0</b></div>
             </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="control-section">
+            <h3>Grid Resolution</h3>
+            <div class="control-group">
+                <label>Grid Width (squares):</label>
+                <input
+                    id="ui-grid-cols"
+                    type="number"
+                    min="10"
+                    max="220"
+                    value="30"
+                    onchange="window._setGridCols && window._setGridCols(+this.value)"
+                >
+            </div>
+            <div class="control-group">
+                <label>Grid Height (squares):</label>
+                <input
+                    id="ui-grid-rows"
+                    type="number"
+                    min="10"
+                    max="220"
+                    value="30"
+                    onchange="window._setGridRows && window._setGridRows(+this.value)"
+                >
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="control-section">
+            <h3>Reference Search</h3>
+            <form id="reference-search-form" class="reference-search-form">
+                <label for="ui-reference-prompt">Prompt</label>
+                <input
+                    id="ui-reference-prompt"
+                    class="reference-search-input"
+                    type="text"
+                    placeholder="e.g. snowy owl"
+                    maxlength="120"
+                    autocomplete="off"
+                >
+                <button class="button" id="ui-reference-search-btn" type="submit">Search & queue</button>
+            </form>
+            <div class="reference-search-status" id="ui-reference-search-status" aria-live="polite"></div>
         </div>
     </div>
 
     <!-- ════════════════════ CANVAS ════════════════════ -->
     <div class="canvas-area">
+        <aside class="image-panel" id="reference-panel" aria-live="polite">
+            <div class="image-panel-title">Reference image</div>
+            <img id="ui-reference-preview-image" alt="Current or queued reference image preview">
+            <div class="image-panel-caption" id="ui-reference-preview-caption">Using default local references.</div>
+        </aside>
         <div id="canvas-container"></div>
+        <div class="scene-cash-display" id="ui-scene-cash">Cash: 0</div>
     </div>
 </div>
 
