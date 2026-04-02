@@ -60,7 +60,7 @@ new p5(function(p) {
     let GRID_UPDATES_PER_SECOND = 300;
     let GRID_MAX_UPDATES_PER_FRAME = 120;
 
-    let GRID_RANDOM_INTERVAL_MS = 0.01;
+    let GRID_RANDOM_INTERVAL_MS = 0.1;
    
     let COLOR_SCHEME_COUNT = 6;
     let COLOR_SCHEME_OFFSET_RANGE = 20;
@@ -77,8 +77,19 @@ new p5(function(p) {
     let SCHEME_GAP = 4;
     let RESET_BUTTON_HEIGHT = 25;
 
-    let GENERATION_THUMB_WIDTH = 100;
-    let GENERATION_THUMB_HEIGHT = 100;
+    let GENERATION_THUMB_HEIGHT = 46;
+    let GENERATION_THUMB_MAX_WIDTH = 220;
+
+    let HUNGER_DECAY_RATE = 0.008;
+    let HUNGER_AWAY_DECAY_RATE = 0.015;
+    let SHOP_FOOD_HUNGER_GAIN = 35;
+    let SHOP_PRICE_FOOD = 25;
+    let SHOP_PRICE_CANVAS_BIGGER = 90;
+    let SHOP_PRICE_CANVAS_WIDER = 120;
+    let SHOP_PRICE_CANVAS_TALLER = 120;
+    let SHOP_PRESET_BIGGER = { cols: 48, rows: 48 };
+    let SHOP_PRESET_WIDER = { cols: 72, rows: 36 };
+    let SHOP_PRESET_TALLER = { cols: 36, rows: 72 };
 
     let SALE_ANNOUNCEMENT_DURATION_MS = 2200;
     let SALE_ANNOUNCEMENT_FADE_IN_MS = 260;
@@ -197,6 +208,7 @@ new p5(function(p) {
             x, y,
             need:  50,
             energy: 100,
+            hunger: 100,
             state: 'neutral',
             bounceAmt: 0.02,
             bodyAlpha: 255,
@@ -226,6 +238,7 @@ new p5(function(p) {
     let colorScheme = [];
     let gridChangedCount = 0;
     let generationPaused = false;
+    let generationPauseReason = '';
     let lastGridRandomizeAt = 0;
     let referenceSprite = null;
     let referenceAssociations = null;
@@ -243,6 +256,8 @@ new p5(function(p) {
     let selectedHistorySerial = null;
     let galleryCoins = 0;
     let saleAnnouncement = null;
+    let shopStatusMessage = '';
+    let shopStatusUntil = 0;
     let referenceSearchPending = false;
     let queuedReferenceForNextGeneration = null;
     let activeReferencePreview = {
@@ -323,6 +338,7 @@ new p5(function(p) {
             referenceRuleReady = false;
             currentReferenceSpritePath = '';
             generationPaused = false;
+            generationPauseReason = '';
             return;
         }
 
@@ -341,6 +357,7 @@ new p5(function(p) {
                 referenceRuleReady = false;
                 currentReferenceSpritePath = '';
                 generationPaused = false;
+                generationPauseReason = '';
                 activeReferencePreview.imageUrl = '';
                 activeReferencePreview.caption = 'Using default local references.';
                 refreshReferencePreviewCard();
@@ -632,6 +649,145 @@ new p5(function(p) {
         }
     }
 
+    function getSnapshotAspectRatio(snapshot) {
+        let cols = Math.max(1, snapshot && snapshot.gridCols ? snapshot.gridCols : 1);
+        let rows = Math.max(1, snapshot && snapshot.gridRows ? snapshot.gridRows : 1);
+        return cols / rows;
+    }
+
+    function getThumbWidthForRatio(ratio) {
+        let safeRatio = p.constrain(ratio || 1, 0.2, 6.0);
+        return Math.round(p.constrain(GENERATION_THUMB_HEIGHT * safeRatio, 24, GENERATION_THUMB_MAX_WIDTH));
+    }
+
+    function setShopStatus(message) {
+        shopStatusMessage = message || '';
+        shopStatusUntil = p.millis() + 2400;
+        if (ui.shopStatus) ui.shopStatus.textContent = shopStatusMessage;
+    }
+
+    function spendCoins(cost) {
+        if (galleryCoins < cost) return false;
+        galleryCoins -= cost;
+        return true;
+    }
+
+    function applyCanvasPreset(preset) {
+        if (!preset) return;
+        setGridDimensions(preset.cols, preset.rows);
+        resetGeneration({ keepCurrentReference: true });
+    }
+
+    function buildShopItems() {
+        return [
+            {
+                id: 'food',
+                name: 'Food',
+                description: `Feed creature (+${SHOP_FOOD_HUNGER_GAIN} hunger)`,
+                price: SHOP_PRICE_FOOD,
+                buy: () => {
+                    if (!spendCoins(SHOP_PRICE_FOOD)) {
+                        setShopStatus('Not enough cash for food.');
+                        return;
+                    }
+                    creature.hunger = p.constrain(creature.hunger + SHOP_FOOD_HUNGER_GAIN, 0, 100);
+                    if (generationPauseReason === 'hunger' && creature.hunger > 0) {
+                        generationPaused = false;
+                        generationPauseReason = '';
+                    }
+                    setShopStatus('Creature fed.');
+                },
+            },
+            {
+                id: 'bigger',
+                name: 'Bigger Canvas',
+                description: `${SHOP_PRESET_BIGGER.cols} x ${SHOP_PRESET_BIGGER.rows}`,
+                price: SHOP_PRICE_CANVAS_BIGGER,
+                buy: () => {
+                    if (!spendCoins(SHOP_PRICE_CANVAS_BIGGER)) {
+                        setShopStatus('Not enough cash for bigger canvas.');
+                        return;
+                    }
+                    applyCanvasPreset(SHOP_PRESET_BIGGER);
+                    setShopStatus('Applied bigger canvas preset.');
+                },
+            },
+            {
+                id: 'wider',
+                name: 'Wider Canvas',
+                description: `${SHOP_PRESET_WIDER.cols} x ${SHOP_PRESET_WIDER.rows}`,
+                price: SHOP_PRICE_CANVAS_WIDER,
+                buy: () => {
+                    if (!spendCoins(SHOP_PRICE_CANVAS_WIDER)) {
+                        setShopStatus('Not enough cash for wider canvas.');
+                        return;
+                    }
+                    applyCanvasPreset(SHOP_PRESET_WIDER);
+                    setShopStatus('Applied wider canvas preset.');
+                },
+            },
+            {
+                id: 'taller',
+                name: 'Taller Canvas',
+                description: `${SHOP_PRESET_TALLER.cols} x ${SHOP_PRESET_TALLER.rows}`,
+                price: SHOP_PRICE_CANVAS_TALLER,
+                buy: () => {
+                    if (!spendCoins(SHOP_PRICE_CANVAS_TALLER)) {
+                        setShopStatus('Not enough cash for taller canvas.');
+                        return;
+                    }
+                    applyCanvasPreset(SHOP_PRESET_TALLER);
+                    setShopStatus('Applied taller canvas preset.');
+                },
+            },
+        ];
+    }
+
+    function renderShopItems() {
+        if (!ui.shopItems) return;
+        ui.shopItems.innerHTML = '';
+
+        let items = buildShopItems();
+        for (let i = 0; i < items.length; i++) {
+            let item = items[i];
+            let row = document.createElement('div');
+            row.className = 'shop-item';
+
+            let meta = document.createElement('div');
+            meta.className = 'shop-item-meta';
+
+            let title = document.createElement('div');
+            title.className = 'shop-item-name';
+            title.textContent = `${item.name} (${item.price})`;
+
+            let desc = document.createElement('div');
+            desc.className = 'shop-item-desc';
+            desc.textContent = item.description;
+
+            let button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'button';
+            button.textContent = 'Buy';
+            button.addEventListener('click', () => item.buy());
+
+            meta.appendChild(title);
+            meta.appendChild(desc);
+            row.appendChild(meta);
+            row.appendChild(button);
+            ui.shopItems.appendChild(row);
+        }
+    }
+
+    function openShopPopup() {
+        if (!ui.shopPopup) return;
+        renderShopItems();
+        ui.shopPopup.hidden = false;
+    }
+
+    function closeShopPopup() {
+        if (ui.shopPopup) ui.shopPopup.hidden = true;
+    }
+
     p.setup = function() {
         let sz  = canvasSize();
         let cnv = p.createCanvas(sz.w, sz.h);
@@ -657,6 +813,8 @@ new p5(function(p) {
 
         ui.energyVal = document.getElementById('ui-energy-val');
         ui.energyBar = document.getElementById('ui-energy-bar');
+        ui.hungerVal = document.getElementById('ui-hunger-val');
+        ui.hungerBar = document.getElementById('ui-hunger-bar');
 
         ui.visits  = document.getElementById('ui-visits');
         ui.excited = document.getElementById('ui-excited');
@@ -688,6 +846,12 @@ new p5(function(p) {
         ui.referencePreviewCaption = document.getElementById('ui-reference-preview-caption');
         ui.coins = document.getElementById('ui-coins');
         ui.sceneCash = document.getElementById('ui-scene-cash');
+        ui.shopOpenButton = document.getElementById('shop-open-btn');
+        ui.shopPopup = document.getElementById('shop-popup');
+        ui.shopItems = document.getElementById('shop-items');
+        ui.shopCashLine = document.getElementById('shop-cash-line');
+        ui.shopStatus = document.getElementById('shop-status');
+        ui.shopCloseButton = document.getElementById('shop-close-btn');
 
         if (ui.generationPopupInStyle) {
             ui.generationPopupInStyle.addEventListener('click', onInThisStyleClicked);
@@ -703,6 +867,18 @@ new p5(function(p) {
         }
         if (ui.referenceSearchForm) {
             ui.referenceSearchForm.addEventListener('submit', onReferenceSearchSubmit);
+        }
+        if (ui.shopOpenButton) {
+            ui.shopOpenButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                openShopPopup();
+            });
+        }
+        if (ui.shopCloseButton) {
+            ui.shopCloseButton.addEventListener('click', closeShopPopup);
+        }
+        if (ui.shopPopup) {
+            ui.shopPopup.addEventListener('click', (event) => event.stopPropagation());
         }
         document.addEventListener('click', onDocumentClickForPopup);
         updateGenerationStripLayout();
@@ -863,6 +1039,13 @@ new p5(function(p) {
         c.need = p.constrain(c.need + rate, 0, 100);
         c.energy = p.constrain(c.energy - tiredRate, 0, 100);
 
+        let hungerRate = c.isWatched ? HUNGER_DECAY_RATE : HUNGER_AWAY_DECAY_RATE;
+        c.hunger = p.constrain(c.hunger - hungerRate, 0, 100);
+        if (generationPauseReason === 'hunger' && c.hunger > 0) {
+            generationPaused = false;
+            generationPauseReason = '';
+        }
+
         // State machine
         c.state = getState(c);
         let s = STATES[c.state];
@@ -1000,6 +1183,7 @@ new p5(function(p) {
         gridChanged = [];
         gridChangedCount = 0;
         generationPaused = false;
+        generationPauseReason = '';
         for (let r = 0; r < GRID_ROWS; r++) {
             let row = [];
             let changedRow = [];
@@ -1252,8 +1436,9 @@ new p5(function(p) {
         let img = document.createElement('img');
         img.src = snapshot.imageDataUrl;
         img.alt = `Generation ${snapshot.serial}`;
-        img.style.width = `${GENERATION_THUMB_WIDTH}px`;
         img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
+        let thumbWidth = getThumbWidthForRatio(getSnapshotAspectRatio(snapshot));
+        img.style.width = `${thumbWidth}px`;
 
         let label = document.createElement('div');
         label.className = 'generation-thumb-label';
@@ -1298,6 +1483,7 @@ new p5(function(p) {
             .join(' ');
         return [
             `generation #${snapshot.serial} (${snapshot.reason})`,
+            `grid: ${snapshot.gridCols || GRID_COLS} x ${snapshot.gridRows || GRID_ROWS}`,
             `precision: ${snapshot.referenceRulePrecision.toFixed(3)}`,
             `color_scheme_offset_range: ${snapshot.colorSchemeOffsetRange}`,
             `neighbor_similar_range: ${snapshot.neighborSimilarRange}`,
@@ -1329,10 +1515,17 @@ new p5(function(p) {
     }
 
     function onDocumentClickForPopup(event) {
-        if (!ui.generationPopup || ui.generationPopup.hidden) return;
-        if (ui.generationPopup.contains(event.target)) return;
-        if (event.target.closest('.generation-thumb')) return;
-        closeGenerationPopup();
+        if (ui.generationPopup && !ui.generationPopup.hidden) {
+            if (!ui.generationPopup.contains(event.target) && !event.target.closest('.generation-thumb')) {
+                closeGenerationPopup();
+            }
+        }
+
+        if (ui.shopPopup && !ui.shopPopup.hidden) {
+            if (!ui.shopPopup.contains(event.target) && !event.target.closest('.shop-open-btn')) {
+                closeShopPopup();
+            }
+        }
     }
 
     function openGenerationPopup(snapshot, thumbElement) {
@@ -1344,7 +1537,8 @@ new p5(function(p) {
         ui.generationPopup.hidden = false;
 
         let rect = thumbElement.getBoundingClientRect();
-        let popupWidth = Math.min(440, window.innerWidth - 24);
+        let ratio = getSnapshotAspectRatio(snapshot);
+        let popupWidth = Math.min(Math.max(340, Math.round(280 * ratio)), window.innerWidth - 24, 720);
         let left = Math.max(12, Math.min(rect.left, window.innerWidth - popupWidth - 12));
         let top = rect.bottom + 8;
 
@@ -1362,7 +1556,7 @@ new p5(function(p) {
 
         let appraisal = appraiseSnapshotForSale(snapshot);
         galleryCoins += appraisal.payout;
-    showSaleAnnouncement(appraisal.buyerName, appraisal.payout);
+        showSaleAnnouncement(appraisal.buyerName, appraisal.payout);
 
         lastFeedbackAction = `sold-#${snapshot.serial}`;
         removeSnapshotFromHistory(snapshot.serial);
@@ -1582,15 +1776,7 @@ new p5(function(p) {
         }
 
         logicalCtx.putImageData(imageData, 0, 0);
-
-        let exportCanvas = document.createElement('canvas');
-        exportCanvas.width = GENERATION_THUMB_WIDTH;
-        exportCanvas.height = GENERATION_THUMB_HEIGHT;
-        let exportCtx = exportCanvas.getContext('2d');
-        exportCtx.imageSmoothingEnabled = false;
-        exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
-        exportCtx.drawImage(logicalCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
-        return exportCanvas.toDataURL('image/png');
+        return logicalCanvas.toDataURL('image/png');
     }
 
     function archiveCurrentGeneration(reason) {
@@ -1609,8 +1795,9 @@ new p5(function(p) {
             return;
         }
         img.alt = `Generation ${generationSerial}`;
-        img.style.width = `${GENERATION_THUMB_WIDTH}px`;
         img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
+        let thumbWidth = getThumbWidthForRatio(GRID_COLS / GRID_ROWS);
+        img.style.width = `${thumbWidth}px`;
 
         let snapshot = {
             serial: generationSerial,
@@ -1621,6 +1808,8 @@ new p5(function(p) {
             colorSchemeOffsetRange: COLOR_SCHEME_OFFSET_RANGE,
             neighborSimilarRange: NEIGHBOR_SIMILAR_RANGE,
             referenceMatchRgbRange: REFERENCE_MATCH_RGB_RANGE,
+            gridCols: GRID_COLS,
+            gridRows: GRID_ROWS,
             sold: false,
             salePrice: 0,
             soldTo: '',
@@ -1947,7 +2136,8 @@ new p5(function(p) {
         if (generationPaused) {
             p.fill(180, 40, 40);
             p.textSize(10);
-            p.text('paused', resetRect.x + resetRect.w / 2, resetRect.y - 8);
+            let pausedLabel = generationPauseReason === 'hunger' ? 'paused: creature hungry' : 'paused';
+            p.text(pausedLabel, resetRect.x + resetRect.w / 2, resetRect.y - 8);
         }
 
         p.fill(255, 235);
@@ -2159,6 +2349,11 @@ new p5(function(p) {
 
     function randomizeGridSquareOverTime() {
         let now = p.millis();
+        if (creature && creature.hunger <= 0) {
+            generationPaused = true;
+            generationPauseReason = 'hunger';
+            return;
+        }
         if (generationPaused) return;
 
         let elapsedMs = now - lastGridRandomizeAt;
@@ -2209,12 +2404,14 @@ new p5(function(p) {
 
             if (interactedRatio() >= 0.999) {
                 generationPaused = true;
+                generationPauseReason = 'finished';
                 archiveCurrentGeneration('finished');
                 break;
             }
 
             if (interactedRatio() > PAUSE_INTERACTION_THRESHOLD && p.random() < PAUSE_AFTER_THRESHOLD_CHANCE) {
                 generationPaused = true;
+                generationPauseReason = 'paused';
                 archiveCurrentGeneration('paused');
                 break;
             }
@@ -2333,6 +2530,8 @@ new p5(function(p) {
                 colorSchemeOffsetRange: snapshot.colorSchemeOffsetRange,
                 neighborSimilarRange: snapshot.neighborSimilarRange,
                 referenceMatchRgbRange: snapshot.referenceMatchRgbRange,
+                gridCols: snapshot.gridCols || GRID_COLS,
+                gridRows: snapshot.gridRows || GRID_ROWS,
                 sold: !!snapshot.sold,
                 salePrice: snapshot.salePrice || 0,
                 soldTo: snapshot.soldTo || '',
@@ -2362,6 +2561,8 @@ new p5(function(p) {
                     colorSchemeOffsetRange: item.colorSchemeOffsetRange || COLOR_SCHEME_OFFSET_RANGE,
                     neighborSimilarRange: item.neighborSimilarRange || NEIGHBOR_SIMILAR_RANGE,
                     referenceMatchRgbRange: item.referenceMatchRgbRange || REFERENCE_MATCH_RGB_RANGE,
+                    gridCols: item.gridCols || GRID_COLS,
+                    gridRows: item.gridRows || GRID_ROWS,
                     sold: !!item.sold,
                     salePrice: item.salePrice || 0,
                     soldTo: item.soldTo || '',
@@ -2391,6 +2592,7 @@ new p5(function(p) {
             localStorage.setItem('creature_v2', JSON.stringify({
                 need: c.need, lastVisit: Date.now(), totalVisits: c.totalVisits,
                 energy: c.energy,
+                hunger: c.hunger,
                 galleryCoins,
             }));
             saveGenerationHistoryToStorage();
@@ -2404,6 +2606,7 @@ new p5(function(p) {
             let data = JSON.parse(raw);
             c.need        = data.need || 50;
             c.energy      = data.energy || 100;
+            c.hunger      = data.hunger ?? 100;
             c.lastVisit   = data.lastVisit;
             c.totalVisits = (data.totalVisits || 0) + 1;
             galleryCoins  = data.galleryCoins || 0;
@@ -2429,6 +2632,7 @@ new p5(function(p) {
         ui.desc.textContent    = STATE_DESCRIPTIONS[c.state] || '';
         ui.needVal.textContent = Math.floor(c.need);
         ui.energyVal.textContent = Math.floor(c.energy);
+        if (ui.hungerVal) ui.hungerVal.textContent = Math.floor(c.hunger);
         ui.visits.textContent  = c.totalVisits;
         ui.excited.textContent = c.exciteTimer > 0 ? 'yes!' : 'no';
         ui.watched.textContent = c.isWatched ? 'on' : 'away';
@@ -2442,6 +2646,8 @@ new p5(function(p) {
         if (ui.scheme) ui.scheme.textContent = colorScheme.map(col => `(${col[0]},${col[1]},${col[2]})`).join(' ');
         if (ui.coins) ui.coins.textContent = String(galleryCoins);
         if (ui.sceneCash) ui.sceneCash.textContent = `Cash: ${galleryCoins}`;
+        if (ui.shopCashLine) ui.shopCashLine.textContent = `Cash: ${galleryCoins}`;
+        if (ui.shopStatus && p.millis() > shopStatusUntil) ui.shopStatus.textContent = '';
 
         ui.needBar.style.width = c.need + '%';
         ui.needBar.style.backgroundColor =
@@ -2452,6 +2658,13 @@ new p5(function(p) {
         ui.energyBar.style.backgroundColor =
             c.energy < 30 ? '#788c5d' :
             c.energy < 70 ? '#c9973a' : '#c0522a';
+
+        if (ui.hungerBar) {
+            ui.hungerBar.style.width = c.hunger + '%';
+            ui.hungerBar.style.backgroundColor =
+                c.hunger < 20 ? '#c0522a' :
+                c.hunger < 60 ? '#c9973a' : '#788c5d';
+        }
     }
 
 

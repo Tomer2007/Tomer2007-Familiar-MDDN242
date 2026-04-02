@@ -53,6 +53,14 @@
                     <span>energy: <b id="ui-energy-val">100</b></span>
                 </div>
             </div>
+            <div class="hunger-wrap">
+                <div class="hunger-track">
+                    <div class="hunger-fill" id="ui-hunger-bar" style="width:100%"></div>
+                </div>
+                <div class="hunger-labels">
+                    <span>hunger: <b id="ui-hunger-val">100</b></span>
+                </div>
+            </div>
     
         </div>
         <!-- ── Stats ── -->
@@ -117,25 +125,8 @@
 
         <hr class="divider">
 
-        <!-- ── Actions ── -->
-        <div class="control-section">
-            <h3>Actions</h3>
-            <button class="button danger" onclick="window._resetNeed && window._resetNeed()">Reset need to 0</button>
-            <button class="button secondary" onclick="window._maxNeed && window._maxNeed()">Max need (→ distressed)</button>
-        </div>
-
-        <hr class="divider">
-
         <div class="control-section">
             <h3>Feedback</h3>
-            <div class="feedback-row">
-                <button class="button" onclick="window._likeGeneration && window._likeGeneration()">Like this generation</button>
-                <button class="button secondary" onclick="window._dislikeGeneration && window._dislikeGeneration()">Dislike this generation</button>
-                <button class="button" onclick="window._morePrecise && window._morePrecise()">More Precise</button>
-                <button class="button secondary" onclick="window._moreAbstract && window._moreAbstract()">More Abstract</button>
-                <button class="button" onclick="window._noisier && window._noisier()">Noisier</button>
-                <button class="button secondary" onclick="window._cleaner && window._cleaner()">Cleaner</button>
-            </div>
             <div class="debug-card" aria-live="polite">
                 <div class="debug-line">last feedback: <b id="ui-feedback">none</b></div>
                 <div class="debug-line">precision: <b id="ui-precision">0.80</b></div>
@@ -205,7 +196,16 @@
         </aside>
         <div id="canvas-container"></div>
         <div class="scene-cash-display" id="ui-scene-cash">Cash: 0</div>
+        <button class="shop-open-btn" id="shop-open-btn" type="button">Shop</button>
     </div>
+</div>
+
+<div class="shop-popup" id="shop-popup" hidden>
+    <div class="shop-popup-title">Shop</div>
+    <div class="shop-popup-subtitle" id="shop-cash-line">Cash: 0</div>
+    <div class="shop-items" id="shop-items"></div>
+    <div class="shop-status" id="shop-status" aria-live="polite"></div>
+    <button class="button secondary" id="shop-close-btn" type="button">Close</button>
 </div>
 
 <!-- Mobile drawer handle — only visible on small screens -->
