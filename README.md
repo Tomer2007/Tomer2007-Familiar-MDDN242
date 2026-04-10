@@ -61,4 +61,4 @@ You may also be able to buy things like decorations in the room around the creat
 Add an AFK mode where the creature will continue making pieces at a much slower rate based on the style and colour of the past liked paintings.
 
 
-
+Add themes of AI art, where the creature has lost it's job due to being sued for just copying other artists exactly and wants help developing an actual individual art style through hard work and practice, however it is still never able to make anything truly original.
