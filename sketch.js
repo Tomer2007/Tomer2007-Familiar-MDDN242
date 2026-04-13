@@ -83,7 +83,7 @@ new p5(function(p) {
     let HUNGER_DECAY_RATE = 0.008;
     let HUNGER_AWAY_DECAY_RATE = 0.015;
     let SHOP_FOOD_HUNGER_GAIN = 35;
-    let SHOP_PRICE_FOOD = 25;
+    let SHOP_PRICE_FOOD = 1;
     let SHOP_PRICE_CANVAS_BIGGER = 90;
     let SHOP_PRICE_CANVAS_WIDER = 120;
     let SHOP_PRICE_CANVAS_TALLER = 120;
@@ -263,6 +263,56 @@ new p5(function(p) {
     let activeReferencePreview = {
         imageUrl: '',
         caption: 'Using default local references.',
+    };
+
+    const RADIAL_MENU_START_ANGLE = -Math.PI / 2;
+    const RADIAL_MENU_ITEMS = [
+        {
+            id: 'feed',
+            label: 'Feed',
+            fill: [88, 187, 196],
+            submenu: [
+                { id: 'feed-snack', label: 'Snack' },
+                { id: 'feed-meal', label: 'Meal' },
+                { id: 'feed-feast', label: 'Feast' },
+            ],
+        },
+        {
+            id: 'play',
+            label: 'Play',
+            fill: [77, 163, 97],
+            action: 'play',
+        },
+        {
+            id: 'style',
+            label: 'Style',
+            fill: [99, 168, 214],
+            submenu: [
+                { id: 'style-colour', label: 'Colour Style' },
+                { id: 'style-like', label: 'I Like' },
+                { id: 'style-dislike', label: 'I Dislike' },
+            ],
+        },
+        {
+            id: 'shop',
+            label: 'Shop',
+            fill: [222, 108, 73],
+            action: 'shop',
+        },
+        {
+            id: 'close',
+            label: 'Close',
+            fill: [132, 94, 176],
+            action: 'close',
+        },
+    ];
+
+    let radialMenu = {
+        open: false,
+        centerX: 0,
+        centerY: 0,
+        hoveredPrimary: -1,
+        hoveredSubmenu: -1,
     };
 
 
@@ -910,6 +960,8 @@ new p5(function(p) {
         randomizeGridSquareOverTime();
         drawColorGrid();
         drawSaleAnnouncementOverlay();
+        updateRadialMenuHover(p.mouseX, p.mouseY);
+        drawRadialMenu();
 
         if (p.frameCount % 6 === 0) updateSidebar(creature); // ~10fps is plenty for UI
     };
@@ -1176,6 +1228,304 @@ new p5(function(p) {
             p.ellipse(ex + px2, ey + py2, pupilSize, pupilSize);
         }
         p.noStroke();
+    }
+
+    function openRadialMenu() {
+        radialMenu.open = true;
+        radialMenu.centerX = creature.x;
+        radialMenu.centerY = creature.y - CREATURE_SIZE * 0.08;
+        radialMenu.hoveredPrimary = -1;
+        radialMenu.hoveredSubmenu = -1;
+    }
+
+    function closeRadialMenu() {
+        radialMenu.open = false;
+        radialMenu.hoveredPrimary = -1;
+        radialMenu.hoveredSubmenu = -1;
+    }
+
+    function radialMenuGeometry() {
+        let ringThickness = CREATURE_SIZE * 0.23;
+        let mainInner = CREATURE_SIZE * 0.20;
+        let mainOuter = mainInner + ringThickness;
+        let submenuInner = mainOuter + CREATURE_SIZE * 0.03;
+        let submenuOuter = submenuInner + CREATURE_SIZE * 0.22;
+        let hubRadius = CREATURE_SIZE * 0.16;
+        let primarySpan = (Math.PI * 2) / RADIAL_MENU_ITEMS.length;
+        return {
+            mainInner,
+            mainOuter,
+            submenuInner,
+            submenuOuter,
+            hubRadius,
+            primarySpan,
+        };
+    }
+
+    function normalizeAngle(angle) {
+        let twoPi = Math.PI * 2;
+        return ((angle % twoPi) + twoPi) % twoPi;
+    }
+
+    function angleWithinSweep(angle, startAngle, sweep) {
+        let delta = normalizeAngle(angle - startAngle);
+        return delta >= 0 && delta <= sweep;
+    }
+
+    function pointInRing(mx, my, cx, cy, innerRadius, outerRadius) {
+        let dx = mx - cx;
+        let dy = my - cy;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        return dist >= innerRadius && dist <= outerRadius;
+    }
+
+    function pointInSector(mx, my, cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
+        if (!pointInRing(mx, my, cx, cy, innerRadius, outerRadius)) return false;
+        let angle = Math.atan2(my - cy, mx - cx);
+        return angleWithinSweep(angle, startAngle, endAngle - startAngle);
+    }
+
+    function menuLabelPosition(cx, cy, radius, angle) {
+        return {
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius,
+        };
+    }
+
+    function wrapMenuLabel(label) {
+        return String(label).replace(/\s+/g, '\n');
+    }
+
+    function drawAnnularSector(cx, cy, innerRadius, outerRadius, startAngle, endAngle, fillColour, strokeColour, strokeWeightValue) {
+        let steps = 16;
+        p.beginShape();
+        p.fill(...fillColour);
+        if (strokeColour) {
+            p.stroke(...strokeColour);
+            p.strokeWeight(strokeWeightValue || 1);
+        } else {
+            p.noStroke();
+        }
+
+        for (let i = 0; i <= steps; i++) {
+            let t = i / steps;
+            let angle = p.lerp(startAngle, endAngle, t);
+            p.vertex(cx + Math.cos(angle) * outerRadius, cy + Math.sin(angle) * outerRadius);
+        }
+
+        for (let i = steps; i >= 0; i--) {
+            let t = i / steps;
+            let angle = p.lerp(startAngle, endAngle, t);
+            p.vertex(cx + Math.cos(angle) * innerRadius, cy + Math.sin(angle) * innerRadius);
+        }
+
+        p.endShape(p.CLOSE);
+    }
+
+    function drawRadialMenu() {
+        if (!radialMenu.open) return;
+
+        let geom = radialMenuGeometry();
+        let cx = radialMenu.centerX;
+        let cy = radialMenu.centerY;
+        let hoverPrimary = radialMenu.hoveredPrimary;
+        let hoverSubmenu = radialMenu.hoveredSubmenu;
+
+        p.push();
+        p.textFont('Poppins');
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textLeading(14);
+
+        p.noStroke();
+        p.fill(0, 0, 0, 48);
+        p.ellipse(cx + 8, cy + 10, geom.submenuOuter * 2.1, geom.submenuOuter * 2.1);
+
+        for (let i = 0; i < RADIAL_MENU_ITEMS.length; i++) {
+            let item = RADIAL_MENU_ITEMS[i];
+            let startAngle = RADIAL_MENU_START_ANGLE + i * geom.primarySpan + 0.02;
+            let endAngle = RADIAL_MENU_START_ANGLE + (i + 1) * geom.primarySpan - 0.02;
+            let isHovered = i === hoverPrimary;
+            let fillColour = isHovered
+                ? [p.min(255, item.fill[0] + 36), p.min(255, item.fill[1] + 36), p.min(255, item.fill[2] + 36), 250]
+                : [...item.fill, 230];
+            drawAnnularSector(cx, cy, geom.mainInner, geom.mainOuter, startAngle, endAngle, fillColour, [7, 132, 136, 255], 4);
+
+            let midAngle = (startAngle + endAngle) * 0.5;
+            let pos = menuLabelPosition(cx, cy, (geom.mainInner + geom.mainOuter) * 0.5, midAngle);
+            p.noStroke();
+            p.fill(255, 248);
+            p.textStyle(isHovered ? p.BOLD : p.NORMAL);
+            p.textSize(p.constrain(CREATURE_SIZE * 0.08, 12, 18));
+            p.text(item.label, pos.x, pos.y);
+        }
+
+        let hoveredItem = hoverPrimary >= 0 ? RADIAL_MENU_ITEMS[hoverPrimary] : null;
+        if (hoveredItem && hoveredItem.submenu) {
+            let submenuSpan = geom.primarySpan / hoveredItem.submenu.length;
+            let startBase = RADIAL_MENU_START_ANGLE + hoverPrimary * geom.primarySpan;
+
+            for (let i = 0; i < hoveredItem.submenu.length; i++) {
+                let option = hoveredItem.submenu[i];
+                let startAngle = startBase + i * submenuSpan + 0.02;
+                let endAngle = startBase + (i + 1) * submenuSpan - 0.02;
+                let isHovered = i === hoverSubmenu;
+                let fillColour = isHovered ? [216, 248, 245, 255] : [146, 221, 217, 245];
+                drawAnnularSector(cx, cy, geom.submenuInner, geom.submenuOuter, startAngle, endAngle, fillColour, [7, 132, 136, 255], 4);
+
+                let midAngle = (startAngle + endAngle) * 0.5;
+                let pos = menuLabelPosition(cx, cy, (geom.submenuInner + geom.submenuOuter) * 0.5, midAngle);
+                p.noStroke();
+                p.fill(15, 48, 44, 255);
+                p.textStyle(isHovered ? p.BOLD : p.NORMAL);
+                p.textSize(p.constrain(CREATURE_SIZE * 0.064, 10, 15));
+                p.text(wrapMenuLabel(option.label), pos.x, pos.y);
+            }
+        }
+
+        p.noStroke();
+        p.fill(16, 135, 136, 240);
+        p.ellipse(cx, cy, geom.hubRadius * 2.1, geom.hubRadius * 2.1);
+        p.fill(255, 245);
+        p.textStyle(p.BOLD);
+        p.textSize(p.constrain(CREATURE_SIZE * 0.085, 12, 20));
+        p.text('X', cx, cy);
+        p.pop();
+    }
+
+    function updateRadialMenuHover(mx, my) {
+        if (!radialMenu.open) return;
+
+        let geom = radialMenuGeometry();
+        let cx = radialMenu.centerX;
+        let cy = radialMenu.centerY;
+        radialMenu.hoveredPrimary = -1;
+        radialMenu.hoveredSubmenu = -1;
+
+        let dx = mx - cx;
+        let dy = my - cy;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance <= geom.hubRadius) return;
+
+        for (let i = 0; i < RADIAL_MENU_ITEMS.length; i++) {
+            let startAngle = RADIAL_MENU_START_ANGLE + i * geom.primarySpan;
+            let endAngle = startAngle + geom.primarySpan;
+            if (pointInSector(mx, my, cx, cy, geom.mainInner, geom.mainOuter, startAngle, endAngle)) {
+                radialMenu.hoveredPrimary = i;
+                break;
+            }
+        }
+
+        if (radialMenu.hoveredPrimary >= 0) {
+            let hoveredItem = RADIAL_MENU_ITEMS[radialMenu.hoveredPrimary];
+            if (!hoveredItem.submenu) return;
+
+            let startBase = RADIAL_MENU_START_ANGLE + radialMenu.hoveredPrimary * geom.primarySpan;
+            let submenuSpan = geom.primarySpan / hoveredItem.submenu.length;
+            for (let i = 0; i < hoveredItem.submenu.length; i++) {
+                let startAngle = startBase + i * submenuSpan;
+                let endAngle = startAngle + submenuSpan;
+                if (pointInSector(mx, my, cx, cy, geom.submenuInner, geom.submenuOuter, startAngle, endAngle)) {
+                    radialMenu.hoveredSubmenu = i;
+                    break;
+                }
+            }
+            return;
+        }
+
+        for (let primaryIndex = 0; primaryIndex < RADIAL_MENU_ITEMS.length; primaryIndex++) {
+            let primaryItem = RADIAL_MENU_ITEMS[primaryIndex];
+            if (!primaryItem.submenu) continue;
+
+            let startBase = RADIAL_MENU_START_ANGLE + primaryIndex * geom.primarySpan;
+            let submenuSpan = geom.primarySpan / primaryItem.submenu.length;
+            for (let submenuIndex = 0; submenuIndex < primaryItem.submenu.length; submenuIndex++) {
+                let startAngle = startBase + submenuIndex * submenuSpan;
+                let endAngle = startAngle + submenuSpan;
+                if (pointInSector(mx, my, cx, cy, geom.submenuInner, geom.submenuOuter, startAngle, endAngle)) {
+                    radialMenu.hoveredPrimary = primaryIndex;
+                    radialMenu.hoveredSubmenu = submenuIndex;
+                    return;
+                }
+            }
+        }
+    }
+
+    function performRadialMenuAction(primaryIndex, submenuIndex) {
+        let item = RADIAL_MENU_ITEMS[primaryIndex];
+        if (!item) return;
+
+        if (item.id === 'feed' && item.submenu && submenuIndex >= 0) {
+            if (submenuIndex === 0) {
+                creature.need = p.max(0, creature.need - CLICK_FEED * 0.5);
+            } else if (submenuIndex === 1) {
+                creature.need = p.max(0, creature.need - CLICK_FEED);
+            } else {
+                creature.need = p.max(0, creature.need - CLICK_FEED * 1.6);
+                creature.hunger = p.min(100, creature.hunger + 10);
+            }
+            return;
+        }
+
+        if (item.id === 'style') {
+            if (submenuIndex === 0) {
+                generateColorScheme();
+            } else if (submenuIndex === 1) {
+                bgColour = [216, 244, 238];
+            } else if (submenuIndex === 2) {
+                bgColour = [242, 219, 223];
+            }
+            return;
+        }
+
+        if (item.action === 'play') {
+            creature.exciteTimer = EXCITED_FRAMES;
+            creature.sleepTimer = 0;
+            creature.need = p.max(0, creature.need - 5);
+            return;
+        }
+
+        if (item.action === 'shop') {
+            openShopPopup();
+            return;
+        }
+
+        if (item.action === 'close') {
+            closeRadialMenu();
+        }
+    }
+
+    function handleRadialMenuClick(mx, my) {
+        if (!radialMenu.open) return false;
+
+        let geom = radialMenuGeometry();
+        let cx = radialMenu.centerX;
+        let cy = radialMenu.centerY;
+        let dx = mx - cx;
+        let dy = my - cy;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= geom.hubRadius) {
+            closeRadialMenu();
+            return true;
+        }
+
+        if (radialMenu.hoveredPrimary >= 0) {
+            let hoveredItem = RADIAL_MENU_ITEMS[radialMenu.hoveredPrimary];
+            if (hoveredItem.submenu && radialMenu.hoveredSubmenu >= 0) {
+                performRadialMenuAction(radialMenu.hoveredPrimary, radialMenu.hoveredSubmenu);
+                closeRadialMenu();
+                return true;
+            }
+
+            if (!hoveredItem.submenu) {
+                performRadialMenuAction(radialMenu.hoveredPrimary, -1);
+                closeRadialMenu();
+                return true;
+            }
+        }
+
+        closeRadialMenu();
+        return true;
     }
 
     function initColorGrid() {
@@ -2454,11 +2804,16 @@ new p5(function(p) {
     // ============================================================
 
     function onCanvasClick() {
+        if (handleRadialMenuClick(p.mouseX, p.mouseY)) return;
         if (handleGridClick(p.mouseX, p.mouseY)) return;
         if (!micActive) startMic();
         let d = p.dist(p.mouseX, p.mouseY, creature.x, creature.y);
         if (d < CREATURE_SIZE / 2) {
-            creature.need = p.max(0, creature.need - CLICK_FEED);
+            if (radialMenu.open) {
+                closeRadialMenu();
+            } else {
+                openRadialMenu();
+            }
         }
     }
 
