@@ -37,31 +37,6 @@
             <div class="state-card-label">state</div>
             <div class="state-card-value" id="ui-state">neutral</div>
             <div class="state-card-desc" id="ui-desc">need is rising — slightly transparent</div>
-            <div class="need-wrap">
-                <div class="need-track">
-                    <div class="need-fill" id="ui-need-bar" style="width:50%"></div>
-                </div>
-                <div class="need-labels">
-                    <span>need: <b id="ui-need-val">50</b></span>
-                </div>
-            </div>
-            <div class="energy-wrap">
-                <div class="energy-track">
-                    <div class="energy-fill" id="ui-energy-bar" style="width:100%"></div>
-                </div>
-                <div class="energy-labels">
-                    <span>energy: <b id="ui-energy-val">100</b></span>
-                </div>
-            </div>
-            <div class="hunger-wrap">
-                <div class="hunger-track">
-                    <div class="hunger-fill" id="ui-hunger-bar" style="width:100%"></div>
-                </div>
-                <div class="hunger-labels">
-                    <span>hunger: <b id="ui-hunger-val">100</b></span>
-                </div>
-            </div>
-    
         </div>
         <!-- ── Stats ── -->
         <div class="stats-row">
@@ -121,6 +96,15 @@
                 </div>
             </div>
 
+        </div>
+
+        <hr class="divider">
+
+        <!-- ── Actions ── -->
+        <div class="control-section">
+            <h3>Actions</h3>
+            <button class="button danger" onclick="window._resetNeed && window._resetNeed()">Reset need to 0</button>
+            <button class="button secondary" onclick="window._maxNeed && window._maxNeed()">Max need (→ distressed)</button>
         </div>
 
         <hr class="divider">
@@ -194,18 +178,639 @@
             <img id="ui-reference-preview-image" alt="Current or queued reference image preview">
             <div class="image-panel-caption" id="ui-reference-preview-caption">Using default local references.</div>
         </aside>
+        <div class="scene-meters" aria-live="polite">
+            <div class="scene-meter-card">
+                <div class="scene-meter-title">Hunger Meter</div>
+                <div class="need-wrap">
+                    <div class="need-track">
+                        <div class="need-fill" id="ui-need-bar" style="width:50%"></div>
+                    </div>
+                    <div class="need-labels">
+                        <span>hunger: <b id="ui-need-val">50</b></span>
+                    </div>
+                </div>
+            </div>
+            <div class="scene-meter-card">
+                <div class="scene-meter-title">Energy Meter</div>
+                <div class="energy-wrap">
+                    <div class="energy-track">
+                        <div class="energy-fill" id="ui-energy-bar" style="width:100%"></div>
+                    </div>
+                    <div class="energy-labels">
+                        <span>energy: <b id="ui-energy-val">100</b></span>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="canvas-container"></div>
         <div class="scene-cash-display" id="ui-scene-cash">Cash: 0</div>
-        <button class="shop-open-btn" id="shop-open-btn" type="button">Shop</button>
-    </div>
-</div>
+        <button class="shop-open-btn" id="ui-shop-open-btn" type="button">Shop</button>
 
-<div class="shop-popup" id="shop-popup" hidden>
-    <div class="shop-popup-title">Shop</div>
-    <div class="shop-popup-subtitle" id="shop-cash-line">Cash: 0</div>
-    <div class="shop-items" id="shop-items"></div>
-    <div class="shop-status" id="shop-status" aria-live="polite"></div>
-    <button class="button secondary" id="shop-close-btn" type="button">Close</button>
+        <div class="shop-modal" id="ui-shop-modal" aria-hidden="true">
+            <div class="shop-card">
+                <div class="shop-title">Shop</div>
+                <div class="shop-item-list">
+                    <button class="shop-item-btn" id="ui-shop-buy-need" type="button">Feed Familiar (-35 need) · 25 coins</button>
+                    <button class="shop-item-btn" id="ui-shop-buy-energy" type="button">Energy Snack (+25 energy) · 20 coins</button>
+                </div>
+                <div class="shop-status" id="ui-shop-status" aria-live="polite"></div>
+                <button class="button secondary" id="ui-shop-close-btn" type="button">Close</button>
+            </div>
+        </div>
+        <!-- SVG Radial Menu — pie-wedge style, 3 rings -->
+        <div class="radial-menu" id="ui-radial-menu" aria-label="Feedback radial menu">
+            <svg id="radial-svg" width="440" height="440" viewBox="0 0 440 440"
+                 style="display:block;overflow:visible;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:auto;">
+            </svg>
+        </div>
+
+        <!-- Visual novel dialogue box -->
+        <div id="vn-box" aria-live="polite"></div>
+
+        <script>
+        (function() {
+
+            // ═══════════════════════════════════════════════════
+            //  DIALOGUE BOX SETTINGS  —  adjust freely
+            // ═══════════════════════════════════════════════════
+
+            const VN = {
+                // Position (CSS values — % or px both work)
+                bottom:  '6%',   // distance from bottom of .canvas-area
+                left:    '50%',  // horizontal centre anchor
+                // Size
+                width:   '62%',  // box width
+                minH:    '96px', // minimum height
+                // Appearance
+                padding: '18px 24px 16px',
+                borderRadius: '12px',
+                background: 'rgba(10, 14, 18, 0.91)',
+                border: '2px solid rgba(78,205,196,0.55)',
+                backdropBlur: '8px',
+                // Typography
+                fontFamily: "'Lora', serif",
+                fontSize:   '15px',
+                lineHeight: '1.65',
+                color:      '#e8f4f2',
+                // Speaker name strip
+                nameColor:  '#4ecdc4',
+                nameFontSize: '11px',
+                nameLetterSpacing: '0.12em',
+                // Dismiss hint
+                hintColor: 'rgba(255,255,255,0.28)',
+                hintFontSize: '11px',
+                // Typewriter speed (ms per character, 0 = instant)
+                typeSpeed: 22,
+            };
+
+            // ═══════════════════════════════════════════════════
+            //  CREATURE RESPONSES  —  add / edit lines here
+            //  Each key maps to an array of strings.
+            //  One is chosen at random when the action fires.
+            //  Use \n for a line break inside a string.
+            // ═══════════════════════════════════════════════════
+
+            const RESPONSES = {
+                'like-colours': [
+                    "Oh, you like these colours? I'll keep that in mind...",
+                    "Okay, I'll try my best to use these colours more often.",
+                    "I like them too. I'll try to remember how I mixed the colours.",
+                    "Colour noted. I'll paint more boldly next time.",
+                ],
+                'like-style': [
+                    "You appreciate my style? How flattering.",
+                    "Wait, really? I was kind of just winging it. Okay, I'll keep winging it then.",
+                    "Style noted. I'll remember what resonates with you.",
+                    "Okay",
+                ],
+                'dislike-colours': [
+                    "Oh you don't like my colours. Okay, I'll try something different.",
+                    "Hmmm, okay. Let's see what I can do.",
+                    "I wasn't sure about them either, honestly.",
+                    "Okay, not gonna lie. I chose those colours with my eyes closed. I'll open them this time.",
+                ],
+                'dislike-style': [
+                    "My style bothers you? Okay, I'm sorry.",
+                    "Understood.",
+                    "I'll experiment. Don't give up on me just yet.",
+                    "Got it, let's see what I can do.",
+                ],
+                'suggest-prompt': [
+                    "Tell me what to look at and I'll try to see it your way.",
+                    "A reference? Show me something worth studying.",
+                    "What image do you have in mind? I'm curious.",
+                ],
+                'break-long': [
+                    "Oh, but I'm not that tir-                         zzzZZZZ",
+                    "I wouldn't mind getting some sleep.",
+                    "Got it, wake me when you want me to start working on art again.",
+                ],
+                'break-short': [
+                    "Yeah, I could do with a break.",
+                    "A short nap. Cool.",
+                    "I'll just take a lunch break.",
+                ],
+                'more-precise': [
+                    "More precise? Okay, I'll try to keep my head steady.",
+                    "Okay, okay. I'll focus on the details.",
+                    "Less imagination, more observation. Understood.",
+                ],
+                'more-abstract': [
+                    "You want me to make it more abstract? I guess I can try.",
+                    "Okay I'll be a bit looser with the details.",
+                    "Hmm, more abstract... I'll try to be a bit more imaginative.",
+                ],
+                'noisier': [
+                    "More noise? Uhh, okay.",
+                    "I'll be a bit messier with the colour, don't you worry.",
+                    "Right, don't you worry, this next one will look like TV static! Or is that too noisy?",
+                ],
+                'cleaner': [
+                    "Oh you want cleaner colours? Like a pop-style thing. Okay.",
+                    "Okay, let me separate my colours so they're more different.",
+                    "Simplifying. Sometimes less says more.",
+                ],
+            };
+
+            // ═══════════════════════════════════════════════════
+            //  DIALOGUE BOX ENGINE
+            // ═══════════════════════════════════════════════════
+
+            const vnBox = document.getElementById('vn-box');
+            let vnDismissHandler = null;
+            let typeTimer = null;
+
+            function pick(arr) {
+                return arr[Math.floor(Math.random() * arr.length)];
+            }
+
+            function applyVnStyles() {
+                Object.assign(vnBox.style, {
+                    position:       'absolute',
+                    bottom:         VN.bottom,
+                    left:           VN.left,
+                    transform:      'translateX(-50%)',
+                    width:          VN.width,
+                    minHeight:      VN.minH,
+                    padding:        VN.padding,
+                    borderRadius:   VN.borderRadius,
+                    background:     VN.background,
+                    border:         VN.border,
+                    backdropFilter: `blur(${VN.backdropBlur})`,
+                    boxSizing:      'border-box',
+                    zIndex:         '200',
+                    display:        'none',
+                    cursor:         'pointer',
+                    userSelect:     'none',
+                    pointerEvents:  'auto',
+                });
+            }
+            applyVnStyles();
+
+            function showDialogue(text) {
+                // Cancel any running typewriter
+                if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
+
+                // Remove old dismiss listener
+                if (vnDismissHandler) {
+                    document.removeEventListener('mousedown', vnDismissHandler, true);
+                    document.removeEventListener('keydown',   vnDismissHandler, true);
+                    vnDismissHandler = null;
+                }
+
+                // Build inner HTML
+                vnBox.innerHTML =
+                    `<div style="font-family:${VN.fontFamily};font-size:${VN.fontSize};` +
+                    `line-height:${VN.lineHeight};color:${VN.color};" id="vn-body"></div>` +
+                    `<div style="margin-top:10px;font-family:'Poppins',sans-serif;` +
+                    `font-size:${VN.hintFontSize};color:${VN.hintColor};` +
+                    `letter-spacing:0.06em;">[ press anything to dismiss ]</div>`;
+
+                vnBox.style.display = 'block';
+
+                const bodyEl = document.getElementById('vn-body');
+
+                if (VN.typeSpeed <= 0) {
+                    bodyEl.textContent = text;
+                } else {
+                    // Typewriter effect
+                    let idx = 0;
+                    bodyEl.textContent = '';
+                    typeTimer = setInterval(() => {
+                        if (idx < text.length) {
+                            bodyEl.textContent += text[idx++];
+                        } else {
+                            clearInterval(typeTimer);
+                            typeTimer = null;
+                        }
+                    }, VN.typeSpeed);
+                }
+
+                // Dismiss on any input (small delay so the triggering click doesn't close it)
+                setTimeout(() => {
+                    vnDismissHandler = (e) => {
+                        // Don't dismiss if clicking inside the box itself mid-read
+                        hideDialogue();
+                    };
+                    document.addEventListener('mousedown', vnDismissHandler, true);
+                    document.addEventListener('keydown',   vnDismissHandler, true);
+                }, 80);
+            }
+
+            function hideDialogue() {
+                if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
+                if (vnDismissHandler) {
+                    document.removeEventListener('mousedown', vnDismissHandler, true);
+                    document.removeEventListener('keydown',   vnDismissHandler, true);
+                    vnDismissHandler = null;
+                }
+                vnBox.style.display = 'none';
+                vnBox.innerHTML = '';
+            }
+
+            // ═══════════════════════════════════════════════════
+            //  RADIAL MENU GEOMETRY
+            // ═══════════════════════════════════════════════════
+
+            const cx = 220, cy = 220;
+            const DEG = Math.PI / 180;
+
+            function pc(angleDeg, r) {
+                const a = angleDeg * DEG;
+                return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+            }
+
+            function arcPath(s, e, ri, ro) {
+                const [x1,y1] = pc(s, ro), [x2,y2] = pc(e, ro);
+                const [x3,y3] = pc(e, ri), [x4,y4] = pc(s, ri);
+                const lg = (e - s) > 180 ? 1 : 0;
+                return `M${x1},${y1} A${ro},${ro} 0 ${lg},1 ${x2},${y2} L${x3},${y3} A${ri},${ri} 0 ${lg},0 ${x4},${y4} Z`;
+            }
+
+            function mid(s, e) { return (s + e) / 2; }
+
+            function textPos(s, e, r) {
+                const m = mid(s, e);
+                return pc(m, r);
+            }
+
+            // Menu geometry variables (edit these directly in code).
+            let radialInnerRadius = 146;
+            const R1_THICK = 64;
+            const R2_THICK = 54;
+            const R3_THICK = 48;
+            const RING_GAP = 4;
+
+            function getRadii() {
+                const R1i = radialInnerRadius;
+                const R1o = R1i + R1_THICK;
+                const R2i = R1o + RING_GAP;
+                const R2o = R2i + R2_THICK;
+                const R3i = R2o + RING_GAP;
+                const R3o = R3i + R3_THICK;
+                return { R1i, R1o, R2i, R2o, R3i, R3o };
+            }
+
+            // Colours
+            const FILL1  = 'rgba(78,205,196,0.93)';
+            const FILL1b = 'rgba(60,190,182,0.93)';
+            const FILL2  = 'rgba(110,220,212,0.95)';
+            const FILL2b = 'rgba(90,208,200,0.95)';
+            const FILL3  = 'rgba(148,232,226,0.97)';
+            const FILL3b = 'rgba(128,224,218,0.97)';
+            const STROKE = 'rgba(0,140,130,0.85)';
+            const TEXT1  = '#052e2b';
+            const TEXT2  = '#052e2b';
+            const TEXT3  = '#052e2b';
+
+            // ── Ring 1 sectors ──────────────────────────────────
+            const R1 = [
+                { s: -90, e: -18,  label: ['I Like'],           fill: FILL1  },
+                { s: -18, e:  54,  label: ['I Dislike'],         fill: FILL1b },
+                { s:  54, e: 126,  label: ['Suggest', 'Prompt'], fill: FILL1  },
+                { s: 126, e: 198,  label: ['Suggest', 'Style'],  fill: FILL1b },
+                { s: 198, e: 270,  label: ['Take a', 'Break'],   fill: FILL1  },
+            ];
+
+            // ── Ring 2 sub-wedges (keyed by R1 index) ───────────
+            const R2_DATA = {
+                0: { subs: ['Colours', 'Style'],         fills: [FILL2, FILL2b], actions: ['like-colours',    'like-style']    },
+                1: { subs: ['Colours', 'Style'],         fills: [FILL2, FILL2b], actions: ['dislike-colours', 'dislike-style'] },
+                2: null,
+                3: { subs: ['Precision', 'Noise'],       fills: [FILL2, FILL2b], actions: [null, null]                        },
+                4: { subs: ['Long Rest', 'Short Rest'],  fills: [FILL2, FILL2b], actions: ['break-long',      'break-short']   },
+            };
+
+            // ── Ring 3 sub-sub-wedges (keyed by "r1idx-r2idx") ──
+            const R3_DATA = {
+                '3-0': { subs: ['More\nPrecise', 'More\nAbstract'], fills: [FILL3, FILL3b], actions: ['more-precise',  'more-abstract'] },
+                '3-1': { subs: ['Noisier',       'Cleaner'       ], fills: [FILL3, FILL3b], actions: ['noisier',       'cleaner'      ] },
+            };
+
+            // ── Action runner ────────────────────────────────────
+            function runAction(key) {
+                const menu = document.getElementById('ui-radial-menu');
+                if (menu) menu.classList.remove('radial-active');
+
+                // Show creature dialogue if responses exist
+                const pool = RESPONSES[key];
+                if (pool && pool.length) showDialogue(pick(pool));
+
+                switch (key) {
+                    case 'like-colours':
+                    case 'like-style':      window._likeGeneration    && window._likeGeneration();       break;
+                    case 'dislike-colours':
+                    case 'dislike-style':   window._dislikeGeneration && window._dislikeGeneration();    break;
+                    case 'suggest-prompt':  window._showPromptInput   && window._showPromptInput();      break;
+                    case 'break-long':      window._takeBreak         && window._takeBreak('long');      break;
+                    case 'break-short':     window._takeBreak         && window._takeBreak('short');     break;
+                    case 'more-precise':    window._morePrecise       && window._morePrecise();          break;
+                    case 'more-abstract':   window._moreAbstract      && window._moreAbstract();         break;
+                    case 'noisier':         window._noisier           && window._noisier();              break;
+                    case 'cleaner':         window._cleaner           && window._cleaner();              break;
+                }
+            }
+
+            // ── SVG helpers ──────────────────────────────────────
+            const SVG_NS = 'http://www.w3.org/2000/svg';
+
+            function makePath(d, fill) {
+                const path = document.createElementNS(SVG_NS, 'path');
+                path.setAttribute('d', d);
+                path.setAttribute('fill', fill);
+                path.setAttribute('stroke', STROKE);
+                path.setAttribute('stroke-width', '1.5');
+                path.setAttribute('stroke-linejoin', 'round');
+                path.style.cursor = 'pointer';
+                path.style.transition = 'filter 0.12s';
+                path.addEventListener('mouseenter', () => { path.style.filter = 'brightness(1.12)'; });
+                path.addEventListener('mouseleave', () => { path.style.filter = ''; });
+                return path;
+            }
+
+            // Render multi-line text centred in a wedge.
+            // Each line is an explicit <tspan> offset from the first line's y.
+            function makeText(lines, x, y, size, color) {
+                const t = document.createElementNS(SVG_NS, 'text');
+                t.setAttribute('text-anchor', 'middle');
+                t.setAttribute('font-size', String(size));
+                t.setAttribute('font-weight', '700');
+                t.setAttribute('font-family', 'Poppins, sans-serif');
+                t.setAttribute('fill', color);
+                t.style.pointerEvents = 'none';
+                t.style.userSelect    = 'none';
+
+                const lineH = size * 1.2;
+                const totalH = lineH * (lines.length - 1);
+                // First line starts at y offset by half the total block height upward
+                const startY = y - totalH / 2;
+
+                lines.forEach((line, i) => {
+                    const ts = document.createElementNS(SVG_NS, 'tspan');
+                    ts.setAttribute('x', String(x));
+                    ts.setAttribute('y', String(startY + i * lineH));
+                    ts.setAttribute('dominant-baseline', 'central');
+                    ts.textContent = line;
+                    t.appendChild(ts);
+                });
+                return t;
+            }
+
+            function makeGroup(visible) {
+                const g = document.createElementNS(SVG_NS, 'g');
+                g.style.opacity      = visible ? '1' : '0';
+                g.style.pointerEvents = visible ? 'auto' : 'none';
+                g.style.transition   = 'opacity 0.18s ease';
+                return g;
+            }
+
+            // ── Build / rebuild the SVG ───────────────────────────
+            const svg = document.getElementById('radial-svg');
+            const menu = document.getElementById('ui-radial-menu');
+
+            const r1Groups = [];
+            const r2Groups = [];
+            const r3Groups = {};
+
+            const r1Layer = document.createElementNS(SVG_NS, 'g');
+            const r2Layer = document.createElementNS(SVG_NS, 'g');
+            const r3Layer = document.createElementNS(SVG_NS, 'g');
+            svg.appendChild(r1Layer);
+            svg.appendChild(r2Layer);
+            svg.appendChild(r3Layer);
+
+            let currentOuterRadius = 210;
+
+            function clearNodeChildren(node) {
+                while (node.firstChild) node.removeChild(node.firstChild);
+            }
+
+            function closeRadialMenu() {
+                if (menu) menu.classList.remove('radial-active');
+                hideR2();
+                hideR3();
+            }
+
+            // ── Hover state ──────────────────────────────────────
+            let activeR2 = null;
+            let activeR3 = null;
+
+            function showR2(idx) {
+                if (activeR2 === idx) return;
+                hideR2();
+                activeR2 = idx;
+                if (r2Groups[idx]) { r2Groups[idx].style.opacity = '1'; r2Groups[idx].style.pointerEvents = 'auto'; }
+            }
+            function hideR2() {
+                if (activeR2 !== null && r2Groups[activeR2]) {
+                    r2Groups[activeR2].style.opacity = '0'; r2Groups[activeR2].style.pointerEvents = 'none';
+                }
+                activeR2 = null;
+                hideR3();
+            }
+            function showR3(key) {
+                if (activeR3 === key) return;
+                hideR3();
+                activeR3 = key;
+                if (r3Groups[key]) { r3Groups[key].style.opacity = '1'; r3Groups[key].style.pointerEvents = 'auto'; }
+            }
+            function hideR3() {
+                if (activeR3 !== null && r3Groups[activeR3]) {
+                    r3Groups[activeR3].style.opacity = '0'; r3Groups[activeR3].style.pointerEvents = 'none';
+                }
+                activeR3 = null;
+            }
+
+            function rebuildRadialGeometry() {
+                const { R1i, R1o, R2i, R2o, R3i, R3o } = getRadii();
+                currentOuterRadius = R3o;
+
+                // Keep menu/screen hit box synced to geometry so outside-radius close is accurate.
+                const diameter = Math.ceil((R3o + 10) * 2);
+                if (menu) {
+                    menu.style.width = `${diameter}px`;
+                    menu.style.height = `${diameter}px`;
+                }
+                svg.setAttribute('width', String(diameter));
+                svg.setAttribute('height', String(diameter));
+                svg.setAttribute('viewBox', `0 0 ${diameter} ${diameter}`);
+
+                const localCx = diameter / 2;
+                const localCy = diameter / 2;
+
+                function localPc(angleDeg, r) {
+                    const a = angleDeg * DEG;
+                    return [localCx + r * Math.cos(a), localCy + r * Math.sin(a)];
+                }
+
+                function localArcPath(s, e, ri, ro) {
+                    const [x1,y1] = localPc(s, ro), [x2,y2] = localPc(e, ro);
+                    const [x3,y3] = localPc(e, ri), [x4,y4] = localPc(s, ri);
+                    const lg = (e - s) > 180 ? 1 : 0;
+                    return `M${x1},${y1} A${ro},${ro} 0 ${lg},1 ${x2},${y2} L${x3},${y3} A${ri},${ri} 0 ${lg},0 ${x4},${y4} Z`;
+                }
+
+                function localTextPos(s, e, r) {
+                    const m = mid(s, e);
+                    return localPc(m, r);
+                }
+
+                r1Groups.length = 0;
+                r2Groups.length = 0;
+                Object.keys(r3Groups).forEach(k => delete r3Groups[k]);
+                clearNodeChildren(r1Layer);
+                clearNodeChildren(r2Layer);
+                clearNodeChildren(r3Layer);
+
+                // Central close target
+                const closeCircle = document.createElementNS(SVG_NS, 'circle');
+                closeCircle.setAttribute('cx', String(localCx));
+                closeCircle.setAttribute('cy', String(localCy));
+                closeCircle.setAttribute('r', String(Math.max(8, R1i - 2)));
+                closeCircle.setAttribute('fill', 'rgba(78,205,196,0.15)');
+                closeCircle.setAttribute('stroke', STROKE);
+                closeCircle.setAttribute('stroke-width', '1');
+                closeCircle.style.cursor = 'pointer';
+                closeCircle.addEventListener('click', closeRadialMenu);
+                r1Layer.appendChild(closeCircle);
+
+                // Ring 1
+                R1.forEach((sec, i) => {
+                    const g = makeGroup(true);
+                    const path = makePath(localArcPath(sec.s, sec.e, R1i, R1o), sec.fill);
+                    const [tx, ty] = localTextPos(sec.s, sec.e, (R1i + R1o) / 2);
+                    const t = makeText(sec.label, tx, ty, 11.5, TEXT1);
+
+                    path.addEventListener('mouseenter', () => { if (R2_DATA[i]) showR2(i); else hideR2(); });
+                    if (i === 2) path.addEventListener('click', () => runAction('suggest-prompt'));
+
+                    g.appendChild(path);
+                    g.appendChild(t);
+                    r1Layer.appendChild(g);
+                    r1Groups.push(g);
+                });
+
+                // Ring 2
+                R1.forEach((sec, i) => {
+                    const data = R2_DATA[i];
+                    if (!data) { r2Groups.push(null); return; }
+
+                    const g = makeGroup(false);
+                    const midBase = mid(sec.s, sec.e);
+                    const subAngles = [{ s: sec.s, e: midBase }, { s: midBase, e: sec.e }];
+
+                    subAngles.forEach((sa, j) => {
+                        const subG = document.createElementNS(SVG_NS, 'g');
+                        const path = makePath(localArcPath(sa.s, sa.e, R2i, R2o), data.fills[j]);
+                        const [tx, ty] = localTextPos(sa.s, sa.e, (R2i + R2o) / 2);
+                        const label = data.subs[j].split('\n');
+                        const t = makeText(label, tx, ty, 10.5, TEXT2);
+
+                        const r3Key = `${i}-${j}`;
+                        path.addEventListener('mouseenter', () => { if (R3_DATA[r3Key]) showR3(r3Key); else hideR3(); });
+                        if (data.actions[j]) path.addEventListener('click', () => runAction(data.actions[j]));
+
+                        subG.appendChild(path);
+                        subG.appendChild(t);
+                        g.appendChild(subG);
+                    });
+
+                    r2Layer.appendChild(g);
+                    r2Groups.push(g);
+                });
+
+                // Ring 3
+                Object.entries(R3_DATA).forEach(([key, data]) => {
+                    const [r1Idx, r2Idx] = key.split('-').map(Number);
+                    const parentSec = R1[r1Idx];
+                    const midBase = mid(parentSec.s, parentSec.e);
+                    const r2Sec = r2Idx === 0
+                        ? { s: parentSec.s, e: midBase }
+                        : { s: midBase, e: parentSec.e };
+                    const midR2 = mid(r2Sec.s, r2Sec.e);
+                    const subAngles = [{ s: r2Sec.s, e: midR2 }, { s: midR2, e: r2Sec.e }];
+
+                    const g = makeGroup(false);
+
+                    subAngles.forEach((sa, j) => {
+                        const path = makePath(localArcPath(sa.s, sa.e, R3i, R3o), data.fills[j]);
+                        const [tx, ty] = localTextPos(sa.s, sa.e, (R3i + R3o) / 2);
+                        const lines = data.subs[j].split('\n');
+                        const t = makeText(lines, tx, ty, 9.5, TEXT3);
+
+                        if (data.actions[j]) path.addEventListener('click', () => runAction(data.actions[j]));
+
+                        g.appendChild(path);
+                        g.appendChild(t);
+                    });
+
+                    r3Layer.appendChild(g);
+                    r3Groups[key] = g;
+                });
+            }
+
+            rebuildRadialGeometry();
+
+            // Hide rings on mouse-leave
+            svg.addEventListener('mouseleave', () => { hideR2(); hideR3(); });
+
+            // Auto-close if pointer leaves the outer ring radius.
+            document.addEventListener('mousemove', (event) => {
+                if (!menu || !menu.classList.contains('radial-active')) return;
+
+                const rect = menu.getBoundingClientRect();
+                const centerX = rect.left + rect.width * 0.5;
+                const centerY = rect.top + rect.height * 0.5;
+                const dx = event.clientX - centerX;
+                const dy = event.clientY - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > currentOuterRadius + 8) {
+                    closeRadialMenu();
+                }
+            });
+
+        })();
+        </script>
+
+        <div class="radial-prompt-modal" id="ui-radial-prompt-modal" aria-hidden="true">
+            <form class="radial-prompt-card" id="ui-radial-prompt-form">
+                <div class="radial-prompt-title">Suggest Prompt</div>
+                <textarea
+                    id="ui-radial-prompt-input"
+                    class="radial-prompt-input"
+                    placeholder="Describe the reference image you want..."
+                    maxlength="120"
+                    autocomplete="off"
+                ></textarea>
+                <div class="radial-prompt-actions">
+                    <button type="submit" class="button" id="ui-radial-prompt-submit">Search Openverse</button>
+                    <button type="button" class="button secondary" id="ui-radial-prompt-cancel">Cancel</button>
+                </div>
+                <div class="reference-search-status" id="ui-radial-prompt-status" aria-live="polite"></div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- Mobile drawer handle — only visible on small screens -->

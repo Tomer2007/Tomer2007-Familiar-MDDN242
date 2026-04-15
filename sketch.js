@@ -76,20 +76,14 @@ new p5(function(p) {
     let SCHEME_TILE_SIZE = 16;
     let SCHEME_GAP = 4;
     let RESET_BUTTON_HEIGHT = 25;
+    let PALETTE_TILE_SIZE = 16;
+    let PAINT_BUTTON_HEIGHT = 25;
+    // Radial menu centre offsets (edit directly in code).
+    let RADIAL_CENTER_OFFSET_X = -330;
+    let RADIAL_CENTER_OFFSET_Y = -330;
 
-    let GENERATION_THUMB_HEIGHT = 46;
-    let GENERATION_THUMB_MAX_WIDTH = 220;
-
-    let HUNGER_DECAY_RATE = 0.008;
-    let HUNGER_AWAY_DECAY_RATE = 0.015;
-    let SHOP_FOOD_HUNGER_GAIN = 35;
-    let SHOP_PRICE_FOOD = 1;
-    let SHOP_PRICE_CANVAS_BIGGER = 90;
-    let SHOP_PRICE_CANVAS_WIDER = 120;
-    let SHOP_PRICE_CANVAS_TALLER = 120;
-    let SHOP_PRESET_BIGGER = { cols: 48, rows: 48 };
-    let SHOP_PRESET_WIDER = { cols: 72, rows: 36 };
-    let SHOP_PRESET_TALLER = { cols: 36, rows: 72 };
+    let GENERATION_THUMB_WIDTH = 100;
+    let GENERATION_THUMB_HEIGHT = 100;
 
     let SALE_ANNOUNCEMENT_DURATION_MS = 2200;
     let SALE_ANNOUNCEMENT_FADE_IN_MS = 260;
@@ -208,7 +202,6 @@ new p5(function(p) {
             x, y,
             need:  50,
             energy: 100,
-            hunger: 100,
             state: 'neutral',
             bounceAmt: 0.02,
             bodyAlpha: 255,
@@ -238,7 +231,6 @@ new p5(function(p) {
     let colorScheme = [];
     let gridChangedCount = 0;
     let generationPaused = false;
-    let generationPauseReason = '';
     let lastGridRandomizeAt = 0;
     let referenceSprite = null;
     let referenceAssociations = null;
@@ -256,8 +248,6 @@ new p5(function(p) {
     let selectedHistorySerial = null;
     let galleryCoins = 0;
     let saleAnnouncement = null;
-    let shopStatusMessage = '';
-    let shopStatusUntil = 0;
     let referenceSearchPending = false;
     let queuedReferenceForNextGeneration = null;
     let activeReferencePreview = {
@@ -265,55 +255,32 @@ new p5(function(p) {
         caption: 'Using default local references.',
     };
 
-    const RADIAL_MENU_START_ANGLE = -Math.PI / 2;
-    const RADIAL_MENU_ITEMS = [
-        {
-            id: 'feed',
-            label: 'Feed',
-            fill: [88, 187, 196],
-            submenu: [
-                { id: 'feed-snack', label: 'Snack' },
-                { id: 'feed-meal', label: 'Meal' },
-                { id: 'feed-feast', label: 'Feast' },
-            ],
-        },
-        {
-            id: 'play',
-            label: 'Play',
-            fill: [77, 163, 97],
-            action: 'play',
-        },
-        {
-            id: 'style',
-            label: 'Style',
-            fill: [99, 168, 214],
-            submenu: [
-                { id: 'style-colour', label: 'Colour Style' },
-                { id: 'style-like', label: 'I Like' },
-                { id: 'style-dislike', label: 'I Dislike' },
-            ],
-        },
-        {
-            id: 'shop',
-            label: 'Shop',
-            fill: [222, 108, 73],
-            action: 'shop',
-        },
-        {
-            id: 'close',
-            label: 'Close',
-            fill: [132, 94, 176],
-            action: 'close',
-        },
-    ];
-
-    let radialMenu = {
-        open: false,
-        centerX: 0,
-        centerY: 0,
-        hoveredPrimary: -1,
-        hoveredSubmenu: -1,
+    let gridView = {
+        panX: 0,
+        panY: 0,
+        scale: 1,
+        minScale: 0.6,
+        maxScale: 2.8,
+        isPanning: false,
+        isVisible: true,
+        isZoomedTab: false,
+        spaceDown: false,
     };
+
+    let paintModeEnabled = false;
+    let selectedPaintColourIndex = 0;
+    const GRID_TAB_HEIGHT = 22;
+    const GRID_TAB_GAP = 6;
+    const GRID_TAB_BUTTON_W = 22;
+    const GRID_PANEL_PADDING = 10;
+    const ARCHIVE_PREVIEW_SYNC_MS = 180;
+
+    const SHOP_NEED_PRICE = 25;
+    const SHOP_NEED_DELTA = 35;
+    const SHOP_ENERGY_PRICE = 20;
+    const SHOP_ENERGY_DELTA = 25;
+    let archivedPreviewDirty = false;
+    let lastArchivePreviewSyncAt = 0;
 
 
     // Cached DOM refs — populated in setup, never queried again
@@ -336,6 +303,19 @@ new p5(function(p) {
             w: SHOW_UI ? p.windowWidth - 320 : p.windowWidth - 20,
             h: p.windowHeight - 20,
         };
+    }
+
+    function getGridSpacePoint(mx, my) {
+        return {
+            x: (mx - gridView.panX) / gridView.scale,
+            y: (my - gridView.panY) / gridView.scale,
+        };
+    }
+
+    function isGridPanEvent(event) {
+        if (gridView.spaceDown) return true;
+        if (!event) return false;
+        return event.button === 1 || event.button === 2;
     }
 
     function setGridDimensions(cols, rows) {
@@ -388,7 +368,6 @@ new p5(function(p) {
             referenceRuleReady = false;
             currentReferenceSpritePath = '';
             generationPaused = false;
-            generationPauseReason = '';
             return;
         }
 
@@ -407,7 +386,6 @@ new p5(function(p) {
                 referenceRuleReady = false;
                 currentReferenceSpritePath = '';
                 generationPaused = false;
-                generationPauseReason = '';
                 activeReferencePreview.imageUrl = '';
                 activeReferencePreview.caption = 'Using default local references.';
                 refreshReferencePreviewCard();
@@ -454,6 +432,8 @@ new p5(function(p) {
         referenceSearchPending = isPending;
         if (ui.referenceSearchButton) ui.referenceSearchButton.disabled = isPending;
         if (ui.referencePromptInput) ui.referencePromptInput.disabled = isPending;
+        if (ui.radialPromptSubmit) ui.radialPromptSubmit.disabled = isPending;
+        if (ui.radialPromptInput) ui.radialPromptInput.disabled = isPending;
     }
 
     function refreshReferencePreviewCard() {
@@ -699,150 +679,58 @@ new p5(function(p) {
         }
     }
 
-    function getSnapshotAspectRatio(snapshot) {
-        let cols = Math.max(1, snapshot && snapshot.gridCols ? snapshot.gridCols : 1);
-        let rows = Math.max(1, snapshot && snapshot.gridRows ? snapshot.gridRows : 1);
-        return cols / rows;
+    function closeRadialPromptModal() {
+        if (!ui.radialPromptModal) return;
+        ui.radialPromptModal.classList.remove('active');
+        ui.radialPromptModal.setAttribute('aria-hidden', 'true');
+        if (ui.radialPromptStatus) ui.radialPromptStatus.textContent = '';
     }
 
-    function getThumbWidthForRatio(ratio) {
-        let safeRatio = p.constrain(ratio || 1, 0.2, 6.0);
-        return Math.round(p.constrain(GENERATION_THUMB_HEIGHT * safeRatio, 24, GENERATION_THUMB_MAX_WIDTH));
-    }
+    function openRadialPromptModal() {
+        if (!ui.radialPromptModal) return;
+        if (ui.radialMenu) ui.radialMenu.classList.remove('radial-active');
+        ui.radialPromptModal.classList.add('active');
+        ui.radialPromptModal.setAttribute('aria-hidden', 'false');
 
-    function setShopStatus(message) {
-        shopStatusMessage = message || '';
-        shopStatusUntil = p.millis() + 2400;
-        if (ui.shopStatus) ui.shopStatus.textContent = shopStatusMessage;
-    }
-
-    function spendCoins(cost) {
-        if (galleryCoins < cost) return false;
-        galleryCoins -= cost;
-        return true;
-    }
-
-    function applyCanvasPreset(preset) {
-        if (!preset) return;
-        setGridDimensions(preset.cols, preset.rows);
-        resetGeneration({ keepCurrentReference: true });
-    }
-
-    function buildShopItems() {
-        return [
-            {
-                id: 'food',
-                name: 'Food',
-                description: `Feed creature (+${SHOP_FOOD_HUNGER_GAIN} hunger)`,
-                price: SHOP_PRICE_FOOD,
-                buy: () => {
-                    if (!spendCoins(SHOP_PRICE_FOOD)) {
-                        setShopStatus('Not enough cash for food.');
-                        return;
-                    }
-                    creature.hunger = p.constrain(creature.hunger + SHOP_FOOD_HUNGER_GAIN, 0, 100);
-                    if (generationPauseReason === 'hunger' && creature.hunger > 0) {
-                        generationPaused = false;
-                        generationPauseReason = '';
-                    }
-                    setShopStatus('Creature fed.');
-                },
-            },
-            {
-                id: 'bigger',
-                name: 'Bigger Canvas',
-                description: `${SHOP_PRESET_BIGGER.cols} x ${SHOP_PRESET_BIGGER.rows}`,
-                price: SHOP_PRICE_CANVAS_BIGGER,
-                buy: () => {
-                    if (!spendCoins(SHOP_PRICE_CANVAS_BIGGER)) {
-                        setShopStatus('Not enough cash for bigger canvas.');
-                        return;
-                    }
-                    applyCanvasPreset(SHOP_PRESET_BIGGER);
-                    setShopStatus('Applied bigger canvas preset.');
-                },
-            },
-            {
-                id: 'wider',
-                name: 'Wider Canvas',
-                description: `${SHOP_PRESET_WIDER.cols} x ${SHOP_PRESET_WIDER.rows}`,
-                price: SHOP_PRICE_CANVAS_WIDER,
-                buy: () => {
-                    if (!spendCoins(SHOP_PRICE_CANVAS_WIDER)) {
-                        setShopStatus('Not enough cash for wider canvas.');
-                        return;
-                    }
-                    applyCanvasPreset(SHOP_PRESET_WIDER);
-                    setShopStatus('Applied wider canvas preset.');
-                },
-            },
-            {
-                id: 'taller',
-                name: 'Taller Canvas',
-                description: `${SHOP_PRESET_TALLER.cols} x ${SHOP_PRESET_TALLER.rows}`,
-                price: SHOP_PRICE_CANVAS_TALLER,
-                buy: () => {
-                    if (!spendCoins(SHOP_PRICE_CANVAS_TALLER)) {
-                        setShopStatus('Not enough cash for taller canvas.');
-                        return;
-                    }
-                    applyCanvasPreset(SHOP_PRESET_TALLER);
-                    setShopStatus('Applied taller canvas preset.');
-                },
-            },
-        ];
-    }
-
-    function renderShopItems() {
-        if (!ui.shopItems) return;
-        ui.shopItems.innerHTML = '';
-
-        let items = buildShopItems();
-        for (let i = 0; i < items.length; i++) {
-            let item = items[i];
-            let row = document.createElement('div');
-            row.className = 'shop-item';
-
-            let meta = document.createElement('div');
-            meta.className = 'shop-item-meta';
-
-            let title = document.createElement('div');
-            title.className = 'shop-item-name';
-            title.textContent = `${item.name} (${item.price})`;
-
-            let desc = document.createElement('div');
-            desc.className = 'shop-item-desc';
-            desc.textContent = item.description;
-
-            let button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'button';
-            button.textContent = 'Buy';
-            button.addEventListener('click', () => item.buy());
-
-            meta.appendChild(title);
-            meta.appendChild(desc);
-            row.appendChild(meta);
-            row.appendChild(button);
-            ui.shopItems.appendChild(row);
+        if (ui.radialPromptInput) {
+            let seed = ui.referencePromptInput ? ui.referencePromptInput.value : '';
+            ui.radialPromptInput.value = seed || '';
+            window.requestAnimationFrame(() => ui.radialPromptInput.focus());
         }
     }
 
-    function openShopPopup() {
-        if (!ui.shopPopup) return;
-        renderShopItems();
-        ui.shopPopup.hidden = false;
-    }
+    async function onRadialPromptSubmit(event) {
+        if (event) event.preventDefault();
+        if (!ui.radialPromptInput || !ui.referencePromptInput) return;
 
-    function closeShopPopup() {
-        if (ui.shopPopup) ui.shopPopup.hidden = true;
+        let promptText = (ui.radialPromptInput.value || '').trim();
+        if (!promptText) {
+            if (ui.radialPromptStatus) {
+                ui.radialPromptStatus.textContent = 'Enter a prompt first.';
+                ui.radialPromptStatus.classList.add('error');
+            }
+            return;
+        }
+
+        ui.referencePromptInput.value = promptText;
+        await onReferenceSearchSubmit();
+
+        if (ui.radialPromptStatus && ui.referenceSearchStatus) {
+            ui.radialPromptStatus.textContent = ui.referenceSearchStatus.textContent || '';
+            ui.radialPromptStatus.classList.toggle('error', ui.referenceSearchStatus.classList.contains('error'));
+        }
+
+        if (!ui.referenceSearchStatus || !ui.referenceSearchStatus.classList.contains('error')) {
+            closeRadialPromptModal();
+        }
     }
 
     p.setup = function() {
         let sz  = canvasSize();
         let cnv = p.createCanvas(sz.w, sz.h);
         cnv.parent('canvas-container');
-        cnv.mousePressed(onCanvasClick);
+        cnv.mousePressed(onCanvasPointerDown);
+        cnv.elt.addEventListener('contextmenu', event => event.preventDefault());
 
         creature = createCreature(p.width / 2, p.height / 2);
         loadState(creature);
@@ -863,8 +751,6 @@ new p5(function(p) {
 
         ui.energyVal = document.getElementById('ui-energy-val');
         ui.energyBar = document.getElementById('ui-energy-bar');
-        ui.hungerVal = document.getElementById('ui-hunger-val');
-        ui.hungerBar = document.getElementById('ui-hunger-bar');
 
         ui.visits  = document.getElementById('ui-visits');
         ui.excited = document.getElementById('ui-excited');
@@ -894,14 +780,21 @@ new p5(function(p) {
         ui.referenceSearchStatus = document.getElementById('ui-reference-search-status');
         ui.referencePreviewImage = document.getElementById('ui-reference-preview-image');
         ui.referencePreviewCaption = document.getElementById('ui-reference-preview-caption');
+        ui.radialMenu = document.getElementById('ui-radial-menu');
+        ui.radialPromptModal = document.getElementById('ui-radial-prompt-modal');
+        ui.radialPromptForm = document.getElementById('ui-radial-prompt-form');
+        ui.radialPromptInput = document.getElementById('ui-radial-prompt-input');
+        ui.radialPromptSubmit = document.getElementById('ui-radial-prompt-submit');
+        ui.radialPromptCancel = document.getElementById('ui-radial-prompt-cancel');
+        ui.radialPromptStatus = document.getElementById('ui-radial-prompt-status');
+        ui.shopOpenButton = document.getElementById('ui-shop-open-btn');
+        ui.shopModal = document.getElementById('ui-shop-modal');
+        ui.shopCloseButton = document.getElementById('ui-shop-close-btn');
+        ui.shopBuyNeedButton = document.getElementById('ui-shop-buy-need');
+        ui.shopBuyEnergyButton = document.getElementById('ui-shop-buy-energy');
+        ui.shopStatus = document.getElementById('ui-shop-status');
         ui.coins = document.getElementById('ui-coins');
         ui.sceneCash = document.getElementById('ui-scene-cash');
-        ui.shopOpenButton = document.getElementById('shop-open-btn');
-        ui.shopPopup = document.getElementById('shop-popup');
-        ui.shopItems = document.getElementById('shop-items');
-        ui.shopCashLine = document.getElementById('shop-cash-line');
-        ui.shopStatus = document.getElementById('shop-status');
-        ui.shopCloseButton = document.getElementById('shop-close-btn');
 
         if (ui.generationPopupInStyle) {
             ui.generationPopupInStyle.addEventListener('click', onInThisStyleClicked);
@@ -918,19 +811,49 @@ new p5(function(p) {
         if (ui.referenceSearchForm) {
             ui.referenceSearchForm.addEventListener('submit', onReferenceSearchSubmit);
         }
-        if (ui.shopOpenButton) {
-            ui.shopOpenButton.addEventListener('click', (event) => {
-                event.stopPropagation();
-                openShopPopup();
+        if (ui.radialPromptForm) {
+            ui.radialPromptForm.addEventListener('submit', onRadialPromptSubmit);
+        }
+        if (ui.radialPromptCancel) {
+            ui.radialPromptCancel.addEventListener('click', closeRadialPromptModal);
+        }
+        if (ui.radialPromptModal) {
+            ui.radialPromptModal.addEventListener('click', (event) => {
+                if (event.target === ui.radialPromptModal) closeRadialPromptModal();
             });
         }
+        if (ui.shopOpenButton) {
+            ui.shopOpenButton.addEventListener('click', openShopModal);
+        }
         if (ui.shopCloseButton) {
-            ui.shopCloseButton.addEventListener('click', closeShopPopup);
+            ui.shopCloseButton.addEventListener('click', closeShopModal);
         }
-        if (ui.shopPopup) {
-            ui.shopPopup.addEventListener('click', (event) => event.stopPropagation());
+        if (ui.shopBuyNeedButton) {
+            ui.shopBuyNeedButton.addEventListener('click', buyShopNeedRelief);
         }
+        if (ui.shopBuyEnergyButton) {
+            ui.shopBuyEnergyButton.addEventListener('click', buyShopEnergySnack);
+        }
+        if (ui.shopModal) {
+            ui.shopModal.addEventListener('click', (event) => {
+                if (event.target === ui.shopModal) closeShopModal();
+            });
+        }
+
         document.addEventListener('click', onDocumentClickForPopup);
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                gridView.spaceDown = true;
+                event.preventDefault();
+            }
+            if (event.key === 'Escape') {
+                closeRadialPromptModal();
+                closeShopModal();
+            }
+        });
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'Space') gridView.spaceDown = false;
+        });
         updateGenerationStripLayout();
         refreshReferencePreviewCard();
         loadGridDimensions();
@@ -960,8 +883,10 @@ new p5(function(p) {
         randomizeGridSquareOverTime();
         drawColorGrid();
         drawSaleAnnouncementOverlay();
-        updateRadialMenuHover(p.mouseX, p.mouseY);
-        drawRadialMenu();
+
+        if (ui.radialMenu && ui.radialMenu.classList.contains('radial-active')) {
+            updateRadialMenuPosition(creature);
+        }
 
         if (p.frameCount % 6 === 0) updateSidebar(creature); // ~10fps is plenty for UI
     };
@@ -1090,13 +1015,6 @@ new p5(function(p) {
                 : c.isWatched ? ENERGY_RECOVERY : ENERGY_AWAY_RATE;
         c.need = p.constrain(c.need + rate, 0, 100);
         c.energy = p.constrain(c.energy - tiredRate, 0, 100);
-
-        let hungerRate = c.isWatched ? HUNGER_DECAY_RATE : HUNGER_AWAY_DECAY_RATE;
-        c.hunger = p.constrain(c.hunger - hungerRate, 0, 100);
-        if (generationPauseReason === 'hunger' && c.hunger > 0) {
-            generationPaused = false;
-            generationPauseReason = '';
-        }
 
         // State machine
         c.state = getState(c);
@@ -1230,310 +1148,11 @@ new p5(function(p) {
         p.noStroke();
     }
 
-    function openRadialMenu() {
-        radialMenu.open = true;
-        radialMenu.centerX = creature.x;
-        radialMenu.centerY = creature.y - CREATURE_SIZE * 0.08;
-        radialMenu.hoveredPrimary = -1;
-        radialMenu.hoveredSubmenu = -1;
-    }
-
-    function closeRadialMenu() {
-        radialMenu.open = false;
-        radialMenu.hoveredPrimary = -1;
-        radialMenu.hoveredSubmenu = -1;
-    }
-
-    function radialMenuGeometry() {
-        let ringThickness = CREATURE_SIZE * 0.23;
-        let mainInner = CREATURE_SIZE * 0.20;
-        let mainOuter = mainInner + ringThickness;
-        let submenuInner = mainOuter + CREATURE_SIZE * 0.03;
-        let submenuOuter = submenuInner + CREATURE_SIZE * 0.22;
-        let hubRadius = CREATURE_SIZE * 0.16;
-        let primarySpan = (Math.PI * 2) / RADIAL_MENU_ITEMS.length;
-        return {
-            mainInner,
-            mainOuter,
-            submenuInner,
-            submenuOuter,
-            hubRadius,
-            primarySpan,
-        };
-    }
-
-    function normalizeAngle(angle) {
-        let twoPi = Math.PI * 2;
-        return ((angle % twoPi) + twoPi) % twoPi;
-    }
-
-    function angleWithinSweep(angle, startAngle, sweep) {
-        let delta = normalizeAngle(angle - startAngle);
-        return delta >= 0 && delta <= sweep;
-    }
-
-    function pointInRing(mx, my, cx, cy, innerRadius, outerRadius) {
-        let dx = mx - cx;
-        let dy = my - cy;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-        return dist >= innerRadius && dist <= outerRadius;
-    }
-
-    function pointInSector(mx, my, cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
-        if (!pointInRing(mx, my, cx, cy, innerRadius, outerRadius)) return false;
-        let angle = Math.atan2(my - cy, mx - cx);
-        return angleWithinSweep(angle, startAngle, endAngle - startAngle);
-    }
-
-    function menuLabelPosition(cx, cy, radius, angle) {
-        return {
-            x: cx + Math.cos(angle) * radius,
-            y: cy + Math.sin(angle) * radius,
-        };
-    }
-
-    function wrapMenuLabel(label) {
-        return String(label).replace(/\s+/g, '\n');
-    }
-
-    function drawAnnularSector(cx, cy, innerRadius, outerRadius, startAngle, endAngle, fillColour, strokeColour, strokeWeightValue) {
-        let steps = 16;
-        p.beginShape();
-        p.fill(...fillColour);
-        if (strokeColour) {
-            p.stroke(...strokeColour);
-            p.strokeWeight(strokeWeightValue || 1);
-        } else {
-            p.noStroke();
-        }
-
-        for (let i = 0; i <= steps; i++) {
-            let t = i / steps;
-            let angle = p.lerp(startAngle, endAngle, t);
-            p.vertex(cx + Math.cos(angle) * outerRadius, cy + Math.sin(angle) * outerRadius);
-        }
-
-        for (let i = steps; i >= 0; i--) {
-            let t = i / steps;
-            let angle = p.lerp(startAngle, endAngle, t);
-            p.vertex(cx + Math.cos(angle) * innerRadius, cy + Math.sin(angle) * innerRadius);
-        }
-
-        p.endShape(p.CLOSE);
-    }
-
-    function drawRadialMenu() {
-        if (!radialMenu.open) return;
-
-        let geom = radialMenuGeometry();
-        let cx = radialMenu.centerX;
-        let cy = radialMenu.centerY;
-        let hoverPrimary = radialMenu.hoveredPrimary;
-        let hoverSubmenu = radialMenu.hoveredSubmenu;
-
-        p.push();
-        p.textFont('Poppins');
-        p.textAlign(p.CENTER, p.CENTER);
-        p.textLeading(14);
-
-        p.noStroke();
-        p.fill(0, 0, 0, 48);
-        p.ellipse(cx + 8, cy + 10, geom.submenuOuter * 2.1, geom.submenuOuter * 2.1);
-
-        for (let i = 0; i < RADIAL_MENU_ITEMS.length; i++) {
-            let item = RADIAL_MENU_ITEMS[i];
-            let startAngle = RADIAL_MENU_START_ANGLE + i * geom.primarySpan + 0.02;
-            let endAngle = RADIAL_MENU_START_ANGLE + (i + 1) * geom.primarySpan - 0.02;
-            let isHovered = i === hoverPrimary;
-            let fillColour = isHovered
-                ? [p.min(255, item.fill[0] + 36), p.min(255, item.fill[1] + 36), p.min(255, item.fill[2] + 36), 250]
-                : [...item.fill, 230];
-            drawAnnularSector(cx, cy, geom.mainInner, geom.mainOuter, startAngle, endAngle, fillColour, [7, 132, 136, 255], 4);
-
-            let midAngle = (startAngle + endAngle) * 0.5;
-            let pos = menuLabelPosition(cx, cy, (geom.mainInner + geom.mainOuter) * 0.5, midAngle);
-            p.noStroke();
-            p.fill(255, 248);
-            p.textStyle(isHovered ? p.BOLD : p.NORMAL);
-            p.textSize(p.constrain(CREATURE_SIZE * 0.08, 12, 18));
-            p.text(item.label, pos.x, pos.y);
-        }
-
-        let hoveredItem = hoverPrimary >= 0 ? RADIAL_MENU_ITEMS[hoverPrimary] : null;
-        if (hoveredItem && hoveredItem.submenu) {
-            let submenuSpan = geom.primarySpan / hoveredItem.submenu.length;
-            let startBase = RADIAL_MENU_START_ANGLE + hoverPrimary * geom.primarySpan;
-
-            for (let i = 0; i < hoveredItem.submenu.length; i++) {
-                let option = hoveredItem.submenu[i];
-                let startAngle = startBase + i * submenuSpan + 0.02;
-                let endAngle = startBase + (i + 1) * submenuSpan - 0.02;
-                let isHovered = i === hoverSubmenu;
-                let fillColour = isHovered ? [216, 248, 245, 255] : [146, 221, 217, 245];
-                drawAnnularSector(cx, cy, geom.submenuInner, geom.submenuOuter, startAngle, endAngle, fillColour, [7, 132, 136, 255], 4);
-
-                let midAngle = (startAngle + endAngle) * 0.5;
-                let pos = menuLabelPosition(cx, cy, (geom.submenuInner + geom.submenuOuter) * 0.5, midAngle);
-                p.noStroke();
-                p.fill(15, 48, 44, 255);
-                p.textStyle(isHovered ? p.BOLD : p.NORMAL);
-                p.textSize(p.constrain(CREATURE_SIZE * 0.064, 10, 15));
-                p.text(wrapMenuLabel(option.label), pos.x, pos.y);
-            }
-        }
-
-        p.noStroke();
-        p.fill(16, 135, 136, 240);
-        p.ellipse(cx, cy, geom.hubRadius * 2.1, geom.hubRadius * 2.1);
-        p.fill(255, 245);
-        p.textStyle(p.BOLD);
-        p.textSize(p.constrain(CREATURE_SIZE * 0.085, 12, 20));
-        p.text('X', cx, cy);
-        p.pop();
-    }
-
-    function updateRadialMenuHover(mx, my) {
-        if (!radialMenu.open) return;
-
-        let geom = radialMenuGeometry();
-        let cx = radialMenu.centerX;
-        let cy = radialMenu.centerY;
-        radialMenu.hoveredPrimary = -1;
-        radialMenu.hoveredSubmenu = -1;
-
-        let dx = mx - cx;
-        let dy = my - cy;
-        let distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance <= geom.hubRadius) return;
-
-        for (let i = 0; i < RADIAL_MENU_ITEMS.length; i++) {
-            let startAngle = RADIAL_MENU_START_ANGLE + i * geom.primarySpan;
-            let endAngle = startAngle + geom.primarySpan;
-            if (pointInSector(mx, my, cx, cy, geom.mainInner, geom.mainOuter, startAngle, endAngle)) {
-                radialMenu.hoveredPrimary = i;
-                break;
-            }
-        }
-
-        if (radialMenu.hoveredPrimary >= 0) {
-            let hoveredItem = RADIAL_MENU_ITEMS[radialMenu.hoveredPrimary];
-            if (!hoveredItem.submenu) return;
-
-            let startBase = RADIAL_MENU_START_ANGLE + radialMenu.hoveredPrimary * geom.primarySpan;
-            let submenuSpan = geom.primarySpan / hoveredItem.submenu.length;
-            for (let i = 0; i < hoveredItem.submenu.length; i++) {
-                let startAngle = startBase + i * submenuSpan;
-                let endAngle = startAngle + submenuSpan;
-                if (pointInSector(mx, my, cx, cy, geom.submenuInner, geom.submenuOuter, startAngle, endAngle)) {
-                    radialMenu.hoveredSubmenu = i;
-                    break;
-                }
-            }
-            return;
-        }
-
-        for (let primaryIndex = 0; primaryIndex < RADIAL_MENU_ITEMS.length; primaryIndex++) {
-            let primaryItem = RADIAL_MENU_ITEMS[primaryIndex];
-            if (!primaryItem.submenu) continue;
-
-            let startBase = RADIAL_MENU_START_ANGLE + primaryIndex * geom.primarySpan;
-            let submenuSpan = geom.primarySpan / primaryItem.submenu.length;
-            for (let submenuIndex = 0; submenuIndex < primaryItem.submenu.length; submenuIndex++) {
-                let startAngle = startBase + submenuIndex * submenuSpan;
-                let endAngle = startAngle + submenuSpan;
-                if (pointInSector(mx, my, cx, cy, geom.submenuInner, geom.submenuOuter, startAngle, endAngle)) {
-                    radialMenu.hoveredPrimary = primaryIndex;
-                    radialMenu.hoveredSubmenu = submenuIndex;
-                    return;
-                }
-            }
-        }
-    }
-
-    function performRadialMenuAction(primaryIndex, submenuIndex) {
-        let item = RADIAL_MENU_ITEMS[primaryIndex];
-        if (!item) return;
-
-        if (item.id === 'feed' && item.submenu && submenuIndex >= 0) {
-            if (submenuIndex === 0) {
-                creature.need = p.max(0, creature.need - CLICK_FEED * 0.5);
-            } else if (submenuIndex === 1) {
-                creature.need = p.max(0, creature.need - CLICK_FEED);
-            } else {
-                creature.need = p.max(0, creature.need - CLICK_FEED * 1.6);
-                creature.hunger = p.min(100, creature.hunger + 10);
-            }
-            return;
-        }
-
-        if (item.id === 'style') {
-            if (submenuIndex === 0) {
-                generateColorScheme();
-            } else if (submenuIndex === 1) {
-                bgColour = [216, 244, 238];
-            } else if (submenuIndex === 2) {
-                bgColour = [242, 219, 223];
-            }
-            return;
-        }
-
-        if (item.action === 'play') {
-            creature.exciteTimer = EXCITED_FRAMES;
-            creature.sleepTimer = 0;
-            creature.need = p.max(0, creature.need - 5);
-            return;
-        }
-
-        if (item.action === 'shop') {
-            openShopPopup();
-            return;
-        }
-
-        if (item.action === 'close') {
-            closeRadialMenu();
-        }
-    }
-
-    function handleRadialMenuClick(mx, my) {
-        if (!radialMenu.open) return false;
-
-        let geom = radialMenuGeometry();
-        let cx = radialMenu.centerX;
-        let cy = radialMenu.centerY;
-        let dx = mx - cx;
-        let dy = my - cy;
-        let distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance <= geom.hubRadius) {
-            closeRadialMenu();
-            return true;
-        }
-
-        if (radialMenu.hoveredPrimary >= 0) {
-            let hoveredItem = RADIAL_MENU_ITEMS[radialMenu.hoveredPrimary];
-            if (hoveredItem.submenu && radialMenu.hoveredSubmenu >= 0) {
-                performRadialMenuAction(radialMenu.hoveredPrimary, radialMenu.hoveredSubmenu);
-                closeRadialMenu();
-                return true;
-            }
-
-            if (!hoveredItem.submenu) {
-                performRadialMenuAction(radialMenu.hoveredPrimary, -1);
-                closeRadialMenu();
-                return true;
-            }
-        }
-
-        closeRadialMenu();
-        return true;
-    }
-
     function initColorGrid() {
         gridColors = [];
         gridChanged = [];
         gridChangedCount = 0;
         generationPaused = false;
-        generationPauseReason = '';
         for (let r = 0; r < GRID_ROWS; r++) {
             let row = [];
             let changedRow = [];
@@ -1786,9 +1405,8 @@ new p5(function(p) {
         let img = document.createElement('img');
         img.src = snapshot.imageDataUrl;
         img.alt = `Generation ${snapshot.serial}`;
+        img.style.width = `${GENERATION_THUMB_WIDTH}px`;
         img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
-        let thumbWidth = getThumbWidthForRatio(getSnapshotAspectRatio(snapshot));
-        img.style.width = `${thumbWidth}px`;
 
         let label = document.createElement('div');
         label.className = 'generation-thumb-label';
@@ -1833,7 +1451,6 @@ new p5(function(p) {
             .join(' ');
         return [
             `generation #${snapshot.serial} (${snapshot.reason})`,
-            `grid: ${snapshot.gridCols || GRID_COLS} x ${snapshot.gridRows || GRID_ROWS}`,
             `precision: ${snapshot.referenceRulePrecision.toFixed(3)}`,
             `color_scheme_offset_range: ${snapshot.colorSchemeOffsetRange}`,
             `neighbor_similar_range: ${snapshot.neighborSimilarRange}`,
@@ -1865,17 +1482,10 @@ new p5(function(p) {
     }
 
     function onDocumentClickForPopup(event) {
-        if (ui.generationPopup && !ui.generationPopup.hidden) {
-            if (!ui.generationPopup.contains(event.target) && !event.target.closest('.generation-thumb')) {
-                closeGenerationPopup();
-            }
-        }
-
-        if (ui.shopPopup && !ui.shopPopup.hidden) {
-            if (!ui.shopPopup.contains(event.target) && !event.target.closest('.shop-open-btn')) {
-                closeShopPopup();
-            }
-        }
+        if (!ui.generationPopup || ui.generationPopup.hidden) return;
+        if (ui.generationPopup.contains(event.target)) return;
+        if (event.target.closest('.generation-thumb')) return;
+        closeGenerationPopup();
     }
 
     function openGenerationPopup(snapshot, thumbElement) {
@@ -1887,8 +1497,7 @@ new p5(function(p) {
         ui.generationPopup.hidden = false;
 
         let rect = thumbElement.getBoundingClientRect();
-        let ratio = getSnapshotAspectRatio(snapshot);
-        let popupWidth = Math.min(Math.max(340, Math.round(280 * ratio)), window.innerWidth - 24, 720);
+        let popupWidth = Math.min(440, window.innerWidth - 24);
         let left = Math.max(12, Math.min(rect.left, window.innerWidth - popupWidth - 12));
         let top = rect.bottom + 8;
 
@@ -1906,7 +1515,7 @@ new p5(function(p) {
 
         let appraisal = appraiseSnapshotForSale(snapshot);
         galleryCoins += appraisal.payout;
-        showSaleAnnouncement(appraisal.buyerName, appraisal.payout);
+    showSaleAnnouncement(appraisal.buyerName, appraisal.payout);
 
         lastFeedbackAction = `sold-#${snapshot.serial}`;
         removeSnapshotFromHistory(snapshot.serial);
@@ -2126,7 +1735,15 @@ new p5(function(p) {
         }
 
         logicalCtx.putImageData(imageData, 0, 0);
-        return logicalCanvas.toDataURL('image/png');
+
+        let exportCanvas = document.createElement('canvas');
+        exportCanvas.width = GENERATION_THUMB_WIDTH;
+        exportCanvas.height = GENERATION_THUMB_HEIGHT;
+        let exportCtx = exportCanvas.getContext('2d');
+        exportCtx.imageSmoothingEnabled = false;
+        exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+        exportCtx.drawImage(logicalCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+        return exportCanvas.toDataURL('image/png');
     }
 
     function archiveCurrentGeneration(reason) {
@@ -2145,9 +1762,8 @@ new p5(function(p) {
             return;
         }
         img.alt = `Generation ${generationSerial}`;
+        img.style.width = `${GENERATION_THUMB_WIDTH}px`;
         img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
-        let thumbWidth = getThumbWidthForRatio(GRID_COLS / GRID_ROWS);
-        img.style.width = `${thumbWidth}px`;
 
         let snapshot = {
             serial: generationSerial,
@@ -2158,8 +1774,6 @@ new p5(function(p) {
             colorSchemeOffsetRange: COLOR_SCHEME_OFFSET_RANGE,
             neighborSimilarRange: NEIGHBOR_SIMILAR_RANGE,
             referenceMatchRgbRange: REFERENCE_MATCH_RGB_RANGE,
-            gridCols: GRID_COLS,
-            gridRows: GRID_ROWS,
             sold: false,
             salePrice: 0,
             soldTo: '',
@@ -2171,6 +1785,7 @@ new p5(function(p) {
         ui.generationStripList.scrollLeft = ui.generationStripList.scrollWidth;
 
         archivedGenerationSerial = generationSerial;
+        archivedPreviewDirty = false;
         saveGenerationHistoryToStorage();
     }
 
@@ -2434,7 +2049,7 @@ new p5(function(p) {
     function getGridRect() {
         let w = GRID_COLS * GRID_SIZE + (GRID_COLS - 1) * GRID_GAP;
         let h = GRID_ROWS * GRID_SIZE + (GRID_ROWS - 1) * GRID_GAP;
-        let topOffset = SCHEME_TILE_SIZE + SCHEME_GAP + RESET_BUTTON_HEIGHT + 10;
+        let topOffset = PAINT_BUTTON_HEIGHT + SCHEME_GAP + PALETTE_TILE_SIZE + SCHEME_GAP + SCHEME_TILE_SIZE + SCHEME_GAP + RESET_BUTTON_HEIGHT + 10;
         return {
             x: p.width - GRID_MARGIN - w - GRID_LEFT_SHIFT,
             y: GRID_MARGIN + topOffset,
@@ -2443,11 +2058,83 @@ new p5(function(p) {
         };
     }
 
+    function getGridTabRect() {
+        let paintRect = getPaintButtonRect();
+        return {
+            x: paintRect.x,
+            y: paintRect.y - GRID_TAB_HEIGHT - GRID_TAB_GAP,
+            w: paintRect.w,
+            h: GRID_TAB_HEIGHT,
+        };
+    }
+
+    function getGridPanelBoundsRect() {
+        let tab = getGridTabRect();
+        let grid = getGridRect();
+        return {
+            x: tab.x - GRID_PANEL_PADDING,
+            y: tab.y - GRID_PANEL_PADDING,
+            w: tab.w + GRID_PANEL_PADDING * 2,
+            h: (grid.y + grid.h - tab.y) + GRID_PANEL_PADDING * 2,
+        };
+    }
+
+    function getGridTabCloseRect() {
+        let tab = getGridTabRect();
+        return {
+            x: tab.x + tab.w - GRID_TAB_BUTTON_W,
+            y: tab.y,
+            w: GRID_TAB_BUTTON_W,
+            h: tab.h,
+        };
+    }
+
+    function getGridTabZoomRect() {
+        let close = getGridTabCloseRect();
+        return {
+            x: close.x - GRID_TAB_BUTTON_W - 2,
+            y: close.y,
+            w: GRID_TAB_BUTTON_W,
+            h: close.h,
+        };
+    }
+
+    function getGridReopenTabRectScreen() {
+        return {
+            x: p.width - 136,
+            y: 52,
+            w: 120,
+            h: 26,
+        };
+    }
+
+    function getPaintButtonRect() {
+        let gridRect = getGridRect();
+        let schemeWidth = COLOR_SCHEME_COUNT * SCHEME_TILE_SIZE + (COLOR_SCHEME_COUNT - 1) * SCHEME_GAP;
+        return {
+            x: gridRect.x,
+            y: GRID_MARGIN,
+            w: schemeWidth,
+            h: PAINT_BUTTON_HEIGHT,
+        };
+    }
+
+    function getPaletteRect() {
+        let paintRect = getPaintButtonRect();
+        return {
+            x: paintRect.x,
+            y: paintRect.y + paintRect.h + SCHEME_GAP,
+            w: paintRect.w,
+            h: PALETTE_TILE_SIZE,
+        };
+    }
+
     function getSchemeRect() {
+        let paletteRect = getPaletteRect();
         let w = COLOR_SCHEME_COUNT * SCHEME_TILE_SIZE + (COLOR_SCHEME_COUNT - 1) * SCHEME_GAP;
         return {
             x: getGridRect().x,
-            y: GRID_MARGIN,
+            y: paletteRect.y + paletteRect.h + SCHEME_GAP,
             w,
             h: SCHEME_TILE_SIZE,
         };
@@ -2464,11 +2151,81 @@ new p5(function(p) {
     }
 
     function drawColorGrid() {
+        if (!gridView.isVisible) {
+            let reopen = getGridReopenTabRectScreen();
+            p.push();
+            p.noStroke();
+            p.fill(248, 245);
+            p.rect(reopen.x, reopen.y, reopen.w, reopen.h, 7);
+            p.fill(40);
+            p.textAlign(p.CENTER, p.CENTER);
+            p.textSize(11);
+            p.text('Open Canvas Tab', reopen.x + reopen.w / 2, reopen.y + reopen.h / 2);
+            p.pop();
+            return;
+        }
+
+        let paintRect = getPaintButtonRect();
+        let paletteRect = getPaletteRect();
         let schemeRect = getSchemeRect();
         let resetRect = getResetButtonRect();
         let rect = getGridRect();
+        let tabRect = getGridTabRect();
+        let closeRect = getGridTabCloseRect();
+        let zoomRect = getGridTabZoomRect();
+        let panelBounds = getGridPanelBoundsRect();
+
         p.push();
+        p.translate(gridView.panX, gridView.panY);
+        p.scale(gridView.scale);
         p.noStroke();
+
+        // Window-like background around tab + controls + grid.
+        p.fill(255, 245);
+        p.rect(panelBounds.x, panelBounds.y, panelBounds.w, panelBounds.h, 10);
+
+        p.fill(242, 240, 236, 245);
+        p.rect(tabRect.x, tabRect.y, tabRect.w, tabRect.h, 6);
+        p.fill(45);
+        p.textAlign(p.LEFT, p.CENTER);
+        p.textSize(10);
+        p.text('Canvas Squares', tabRect.x + 8, tabRect.y + tabRect.h / 2);
+
+        p.fill(250);
+        p.rect(zoomRect.x, zoomRect.y, zoomRect.w, zoomRect.h, 4);
+        p.rect(closeRect.x, closeRect.y, closeRect.w, closeRect.h, 4);
+        p.fill(45);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.text(gridView.isZoomedTab ? '↙' : '↗', zoomRect.x + zoomRect.w / 2, zoomRect.y + zoomRect.h / 2);
+        p.text('×', closeRect.x + closeRect.w / 2, closeRect.y + closeRect.h / 2);
+
+        p.fill(paintModeEnabled ? 52 : 248);
+        p.rect(paintRect.x, paintRect.y, paintRect.w, paintRect.h, 4);
+        p.fill(paintModeEnabled ? 255 : 40);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textSize(11);
+        p.text(paintModeEnabled ? 'Paintbrush ON' : 'Paintbrush OFF', paintRect.x + paintRect.w / 2, paintRect.y + paintRect.h / 2);
+
+        let paletteCount = GRID_PALETTE.length;
+        let swatchSize = p.max(8, p.floor((paletteRect.w - (paletteCount - 1) * SCHEME_GAP) / paletteCount));
+        let totalSwatchWidth = paletteCount * swatchSize + (paletteCount - 1) * SCHEME_GAP;
+        let paletteStartX = paletteRect.x + p.max(0, (paletteRect.w - totalSwatchWidth) * 0.5);
+
+        for (let i = 0; i < paletteCount; i++) {
+            let px = paletteStartX + i * (swatchSize + SCHEME_GAP);
+            let py = paletteRect.y;
+            let col = GRID_PALETTE[i];
+            p.fill(col[0], col[1], col[2]);
+            p.rect(px, py, swatchSize, paletteRect.h, 3);
+
+            if (i === selectedPaintColourIndex) {
+                p.noFill();
+                p.stroke(20);
+                p.strokeWeight(2);
+                p.rect(px - 2, py - 2, swatchSize + 4, paletteRect.h + 4, 4);
+                p.noStroke();
+            }
+        }
 
         for (let i = 0; i < colorScheme.length; i++) {
             let sx = schemeRect.x + i * (SCHEME_TILE_SIZE + SCHEME_GAP);
@@ -2486,8 +2243,7 @@ new p5(function(p) {
         if (generationPaused) {
             p.fill(180, 40, 40);
             p.textSize(10);
-            let pausedLabel = generationPauseReason === 'hunger' ? 'paused: creature hungry' : 'paused';
-            p.text(pausedLabel, resetRect.x + resetRect.w / 2, resetRect.y - 8);
+            p.text('paused', resetRect.x + resetRect.w / 2, resetRect.y - 8);
         }
 
         p.fill(255, 235);
@@ -2506,6 +2262,8 @@ new p5(function(p) {
             drawReferenceDebugOverlay(rect);
         }
         p.pop();
+
+        syncArchivedGenerationPreview();
     }
 
     function drawReferenceDebugOverlay(rect) {
@@ -2665,6 +2423,43 @@ new p5(function(p) {
             gridChanged[r][c] = true;
             gridChangedCount++;
         }
+
+        if (archivedGenerationSerial === generationSerial) {
+            archivedPreviewDirty = true;
+        }
+    }
+
+    function syncArchivedGenerationPreview(force = false) {
+        if (archivedGenerationSerial !== generationSerial) return;
+        if (!archivedPreviewDirty && !force) return;
+
+        let now = p.millis();
+        if (!force && (now - lastArchivePreviewSyncAt) < ARCHIVE_PREVIEW_SYNC_MS) return;
+
+        let snapshot = generationHistory.find(item => item.serial === generationSerial);
+        if (!snapshot) return;
+
+        try {
+            snapshot.imageDataUrl = buildGridSnapshotDataURL();
+        } catch (_) {
+            return;
+        }
+
+        if (ui.generationStripList) {
+            let card = ui.generationStripList.querySelector(`.generation-thumb[data-serial="${snapshot.serial}"]`);
+            if (card) {
+                let img = card.querySelector('img');
+                if (img) img.src = snapshot.imageDataUrl;
+            }
+        }
+
+        if (selectedHistorySerial === snapshot.serial && ui.generationPopupImage && ui.generationPopup && !ui.generationPopup.hidden) {
+            ui.generationPopupImage.src = snapshot.imageDataUrl;
+        }
+
+        saveGenerationHistoryToStorage();
+        archivedPreviewDirty = false;
+        lastArchivePreviewSyncAt = now;
     }
 
     function interactedRatio() {
@@ -2699,11 +2494,6 @@ new p5(function(p) {
 
     function randomizeGridSquareOverTime() {
         let now = p.millis();
-        if (creature && creature.hunger <= 0) {
-            generationPaused = true;
-            generationPauseReason = 'hunger';
-            return;
-        }
         if (generationPaused) return;
 
         let elapsedMs = now - lastGridRandomizeAt;
@@ -2754,14 +2544,12 @@ new p5(function(p) {
 
             if (interactedRatio() >= 0.999) {
                 generationPaused = true;
-                generationPauseReason = 'finished';
                 archiveCurrentGeneration('finished');
                 break;
             }
 
             if (interactedRatio() > PAUSE_INTERACTION_THRESHOLD && p.random() < PAUSE_AFTER_THRESHOLD_CHANCE) {
                 generationPaused = true;
-                generationPauseReason = 'paused';
                 archiveCurrentGeneration('paused');
                 break;
             }
@@ -2770,31 +2558,102 @@ new p5(function(p) {
         lastGridRandomizeAt = now;
     }
 
-    function handleGridClick(mx, my) {
-        let resetRect = getResetButtonRect();
-        if (mx >= resetRect.x && mx <= resetRect.x + resetRect.w &&
-            my >= resetRect.y && my <= resetRect.y + resetRect.h) {
-            resetGeneration();
-            return true;
-        }
+    function paintGridCellAt(mx, my) {
+        if (!paintModeEnabled || !gridView.isVisible) return false;
 
+        let point = getGridSpacePoint(mx, my);
         let rect = getGridRect();
-        if (mx < rect.x || my < rect.y || mx > rect.x + rect.w || my > rect.y + rect.h) return false;
+        if (point.x < rect.x || point.y < rect.y || point.x > rect.x + rect.w || point.y > rect.y + rect.h) {
+            return false;
+        }
 
         for (let r = 0; r < GRID_ROWS; r++) {
             for (let c = 0; c < GRID_COLS; c++) {
                 let x = rect.x + c * (GRID_SIZE + GRID_GAP);
                 let y = rect.y + r * (GRID_SIZE + GRID_GAP);
-                if (mx >= x && mx <= x + GRID_SIZE && my >= y && my <= y + GRID_SIZE) {
-                    let current = gridColors[r][c];
-                    let idx = GRID_PALETTE.findIndex(col => col[0] === current[0] && col[1] === current[1] && col[2] === current[2]);
-                    let next = (idx + 1 + GRID_PALETTE.length) % GRID_PALETTE.length;
-                    gridColors[r][c] = [...GRID_PALETTE[next]];
+                if (point.x >= x && point.x <= x + GRID_SIZE && point.y >= y && point.y <= y + GRID_SIZE) {
+                    gridColors[r][c] = [...GRID_PALETTE[selectedPaintColourIndex]];
                     markGridChanged(r, c);
                     return true;
                 }
             }
         }
+
+        return false;
+    }
+
+    function handleGridClick(mx, my) {
+        if (!gridView.isVisible) {
+            let reopen = getGridReopenTabRectScreen();
+            if (mx >= reopen.x && mx <= reopen.x + reopen.w && my >= reopen.y && my <= reopen.y + reopen.h) {
+                gridView.isVisible = true;
+                return true;
+            }
+            return false;
+        }
+
+        let point = getGridSpacePoint(mx, my);
+
+        let closeRect = getGridTabCloseRect();
+        if (point.x >= closeRect.x && point.x <= closeRect.x + closeRect.w &&
+            point.y >= closeRect.y && point.y <= closeRect.y + closeRect.h) {
+            gridView.isVisible = false;
+            return true;
+        }
+
+        let zoomRect = getGridTabZoomRect();
+        if (point.x >= zoomRect.x && point.x <= zoomRect.x + zoomRect.w &&
+            point.y >= zoomRect.y && point.y <= zoomRect.y + zoomRect.h) {
+            if (!gridView.isZoomedTab) {
+                gridView.scale = p.min(1.6, gridView.maxScale);
+                gridView.isZoomedTab = true;
+            } else {
+                gridView.scale = 1;
+                gridView.isZoomedTab = false;
+            }
+            return true;
+        }
+
+        let paintRect = getPaintButtonRect();
+        if (point.x >= paintRect.x && point.x <= paintRect.x + paintRect.w &&
+            point.y >= paintRect.y && point.y <= paintRect.y + paintRect.h) {
+            paintModeEnabled = !paintModeEnabled;
+            return true;
+        }
+
+        let paletteRect = getPaletteRect();
+        if (point.x >= paletteRect.x && point.x <= paletteRect.x + paletteRect.w &&
+            point.y >= paletteRect.y && point.y <= paletteRect.y + paletteRect.h) {
+            let paletteCount = GRID_PALETTE.length;
+            let swatchSize = p.max(8, p.floor((paletteRect.w - (paletteCount - 1) * SCHEME_GAP) / paletteCount));
+            let totalSwatchWidth = paletteCount * swatchSize + (paletteCount - 1) * SCHEME_GAP;
+            let paletteStartX = paletteRect.x + p.max(0, (paletteRect.w - totalSwatchWidth) * 0.5);
+
+            for (let i = 0; i < paletteCount; i++) {
+                let px = paletteStartX + i * (swatchSize + SCHEME_GAP);
+                if (point.x >= px && point.x <= px + swatchSize) {
+                    selectedPaintColourIndex = i;
+                    return true;
+                }
+            }
+            return true;
+        }
+
+        let resetRect = getResetButtonRect();
+        if (point.x >= resetRect.x && point.x <= resetRect.x + resetRect.w &&
+            point.y >= resetRect.y && point.y <= resetRect.y + resetRect.h) {
+            resetGeneration();
+            return true;
+        }
+
+        let rect = getGridRect();
+        if (point.x < rect.x || point.y < rect.y || point.x > rect.x + rect.w || point.y > rect.y + rect.h) return false;
+
+        if (paintModeEnabled) {
+            return paintGridCellAt(mx, my);
+        }
+
+        // Grid clicks are consumed, but manual painting is only active in paint mode.
         return true;
     }
 
@@ -2803,18 +2662,191 @@ new p5(function(p) {
     //  INPUT: MOUSE CLICK
     // ============================================================
 
-    function onCanvasClick() {
-        if (handleRadialMenuClick(p.mouseX, p.mouseY)) return;
-        if (handleGridClick(p.mouseX, p.mouseY)) return;
-        if (!micActive) startMic();
-        let d = p.dist(p.mouseX, p.mouseY, creature.x, creature.y);
-        if (d < CREATURE_SIZE / 2) {
-            if (radialMenu.open) {
-                closeRadialMenu();
-            } else {
-                openRadialMenu();
+    function onCanvasPointerDown(event) {
+        if (!gridView.isVisible) {
+            onCanvasClick();
+            return false;
+        }
+
+        let point = getGridSpacePoint(p.mouseX, p.mouseY);
+        let tabRect = getGridTabRect();
+        let panelRect = getGridPanelBoundsRect();
+        let paintRect = getPaintButtonRect();
+        let paletteRect = getPaletteRect();
+        let resetRect = getResetButtonRect();
+        let closeRect = getGridTabCloseRect();
+        let zoomRect = getGridTabZoomRect();
+
+        let pointInRect = (pt, r) => (
+            pt.x >= r.x && pt.x <= r.x + r.w &&
+            pt.y >= r.y && pt.y <= r.y + r.h
+        );
+
+        let onClose = pointInRect(point, closeRect);
+        let onZoom = pointInRect(point, zoomRect);
+        let onPaintToggle = pointInRect(point, paintRect);
+        let onPalette = pointInRect(point, paletteRect);
+        let onReset = pointInRect(point, resetRect);
+
+        if (event.button === 0 && point.x >= tabRect.x && point.x <= tabRect.x + tabRect.w &&
+            point.y >= tabRect.y && point.y <= tabRect.y + tabRect.h) {
+            // Skip drag when clicking action buttons.
+            if (!onClose && !onZoom) {
+                gridView.isPanning = true;
+                return false;
             }
         }
+
+        // When paint mode is off, drag from anywhere in panel/background around attached controls.
+        if (!paintModeEnabled && event.button === 0 && pointInRect(point, panelRect)) {
+            if (!onClose && !onZoom && !onPaintToggle && !onPalette && !onReset) {
+                gridView.isPanning = true;
+                return false;
+            }
+        }
+
+        if (isGridPanEvent(event)) {
+            gridView.isPanning = true;
+            return false;
+        }
+        onCanvasClick();
+        return false;
+    }
+
+    function onCanvasClick() {
+        if (gridView.spaceDown || gridView.isPanning) return;
+        if (handleGridClick(p.mouseX, p.mouseY)) return;
+        if (!micActive) startMic();
+        
+        let d = p.dist(p.mouseX, p.mouseY, creature.x, creature.y);
+        if (d < CREATURE_SIZE / 2) {
+            if (ui.radialMenu) {
+                ui.radialMenu.classList.add('radial-active');
+                updateRadialMenuPosition(creature);
+            }
+            creature.need = p.max(0, creature.need - CLICK_FEED);
+        } else {
+            // Close menu if clicking outside creature
+            if (ui.radialMenu) {
+                ui.radialMenu.classList.remove('radial-active');
+            }
+        }
+    }
+
+    p.mouseDragged = function() {
+        if (gridView.isPanning) {
+            gridView.panX += p.movedX;
+            gridView.panY += p.movedY;
+            return false;
+        }
+
+        if (paintModeEnabled && p.mouseButton === p.LEFT) {
+            if (paintGridCellAt(p.mouseX, p.mouseY)) return false;
+        }
+    };
+
+    p.mouseReleased = function() {
+        gridView.isPanning = false;
+    };
+
+    p.doubleClicked = function() {
+        gridView.panX = 0;
+        gridView.panY = 0;
+        gridView.scale = 1;
+        gridView.isZoomedTab = false;
+        return false;
+    };
+
+    p.mouseWheel = function(event) {
+        if (!gridView.isVisible) return;
+        let localBefore = getGridSpacePoint(p.mouseX, p.mouseY);
+        let rect = getGridRect();
+        if (localBefore.x < rect.x - 20 || localBefore.y < GRID_MARGIN - 20 ||
+            localBefore.x > rect.x + rect.w + 20 || localBefore.y > rect.y + rect.h + 20) {
+            return;
+        }
+
+        let oldScale = gridView.scale;
+        let zoomFactor = event.deltaY < 0 ? 1.08 : (1 / 1.08);
+        let nextScale = p.constrain(oldScale * zoomFactor, gridView.minScale, gridView.maxScale);
+        if (nextScale === oldScale) return false;
+
+        gridView.scale = nextScale;
+        gridView.isZoomedTab = gridView.scale > 1.02;
+        gridView.panX = p.mouseX - localBefore.x * nextScale;
+        gridView.panY = p.mouseY - localBefore.y * nextScale;
+        return false;
+    };
+
+    function setShopStatus(message, isError = false) {
+        if (!ui.shopStatus) return;
+        ui.shopStatus.textContent = message || '';
+        ui.shopStatus.style.color = isError ? '#b4432b' : 'var(--dark)';
+    }
+
+    function openShopModal() {
+        if (!ui.shopModal) return;
+        ui.shopModal.classList.add('active');
+        ui.shopModal.setAttribute('aria-hidden', 'false');
+        setShopStatus('Spend coins earned from sales.');
+    }
+
+    function closeShopModal() {
+        if (!ui.shopModal) return;
+        ui.shopModal.classList.remove('active');
+        ui.shopModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function buyShopNeedRelief() {
+        if (!creature) return;
+        if (galleryCoins < SHOP_NEED_PRICE) {
+            setShopStatus('Not enough coins for that item.', true);
+            return;
+        }
+        galleryCoins -= SHOP_NEED_PRICE;
+        creature.need = p.max(0, creature.need - SHOP_NEED_DELTA);
+        setShopStatus('Purchased: Feed Familiar');
+        saveState(creature);
+    }
+
+    function buyShopEnergySnack() {
+        if (!creature) return;
+        if (galleryCoins < SHOP_ENERGY_PRICE) {
+            setShopStatus('Not enough coins for that item.', true);
+            return;
+        }
+        galleryCoins -= SHOP_ENERGY_PRICE;
+        creature.energy = p.min(100, creature.energy + SHOP_ENERGY_DELTA);
+        setShopStatus('Purchased: Energy Snack');
+        saveState(creature);
+    }
+
+    function updateRadialMenuPosition(creature) {
+        if (!ui.radialMenu) return;
+        
+        // Get the canvas DOM element
+        let canvasEl = document.querySelector('#canvas-container canvas');
+        if (!canvasEl) return;
+        
+        // Get canvas position and size in DOM
+        let canvasRect = canvasEl.getBoundingClientRect();
+        let canvasAreaRect = document.querySelector('.canvas-area').getBoundingClientRect();
+        
+        // Calculate canvas width and height (p5.js dimensions)
+        let canvasWidth = canvasRect.width;
+        let canvasHeight = canvasRect.height;
+        
+        // Convert creature's p5.js coordinates (creature.x, creature.y) to DOM coordinates
+        let creatureDOMX = canvasRect.left + (creature.x / p.width) * canvasWidth;
+        let creatureDOMY = canvasRect.top + (creature.y / p.height) * canvasHeight;
+        
+        // Position relative to canvas-area (which is the parent with position: relative)
+        let relativeX = creatureDOMX - canvasAreaRect.left;
+        let relativeY = creatureDOMY - canvasAreaRect.top;
+        
+        // CSS centers the menu with translate(-50%, -50%), so write center coordinates directly.
+        ui.radialMenu.style.left = (relativeX + RADIAL_CENTER_OFFSET_X) + 'px';
+        ui.radialMenu.style.top = (relativeY + RADIAL_CENTER_OFFSET_Y) + 'px';
     }
 
 
@@ -2885,8 +2917,6 @@ new p5(function(p) {
                 colorSchemeOffsetRange: snapshot.colorSchemeOffsetRange,
                 neighborSimilarRange: snapshot.neighborSimilarRange,
                 referenceMatchRgbRange: snapshot.referenceMatchRgbRange,
-                gridCols: snapshot.gridCols || GRID_COLS,
-                gridRows: snapshot.gridRows || GRID_ROWS,
                 sold: !!snapshot.sold,
                 salePrice: snapshot.salePrice || 0,
                 soldTo: snapshot.soldTo || '',
@@ -2916,8 +2946,6 @@ new p5(function(p) {
                     colorSchemeOffsetRange: item.colorSchemeOffsetRange || COLOR_SCHEME_OFFSET_RANGE,
                     neighborSimilarRange: item.neighborSimilarRange || NEIGHBOR_SIMILAR_RANGE,
                     referenceMatchRgbRange: item.referenceMatchRgbRange || REFERENCE_MATCH_RGB_RANGE,
-                    gridCols: item.gridCols || GRID_COLS,
-                    gridRows: item.gridRows || GRID_ROWS,
                     sold: !!item.sold,
                     salePrice: item.salePrice || 0,
                     soldTo: item.soldTo || '',
@@ -2947,7 +2975,6 @@ new p5(function(p) {
             localStorage.setItem('creature_v2', JSON.stringify({
                 need: c.need, lastVisit: Date.now(), totalVisits: c.totalVisits,
                 energy: c.energy,
-                hunger: c.hunger,
                 galleryCoins,
             }));
             saveGenerationHistoryToStorage();
@@ -2961,7 +2988,6 @@ new p5(function(p) {
             let data = JSON.parse(raw);
             c.need        = data.need || 50;
             c.energy      = data.energy || 100;
-            c.hunger      = data.hunger ?? 100;
             c.lastVisit   = data.lastVisit;
             c.totalVisits = (data.totalVisits || 0) + 1;
             galleryCoins  = data.galleryCoins || 0;
@@ -2987,7 +3013,6 @@ new p5(function(p) {
         ui.desc.textContent    = STATE_DESCRIPTIONS[c.state] || '';
         ui.needVal.textContent = Math.floor(c.need);
         ui.energyVal.textContent = Math.floor(c.energy);
-        if (ui.hungerVal) ui.hungerVal.textContent = Math.floor(c.hunger);
         ui.visits.textContent  = c.totalVisits;
         ui.excited.textContent = c.exciteTimer > 0 ? 'yes!' : 'no';
         ui.watched.textContent = c.isWatched ? 'on' : 'away';
@@ -3001,8 +3026,6 @@ new p5(function(p) {
         if (ui.scheme) ui.scheme.textContent = colorScheme.map(col => `(${col[0]},${col[1]},${col[2]})`).join(' ');
         if (ui.coins) ui.coins.textContent = String(galleryCoins);
         if (ui.sceneCash) ui.sceneCash.textContent = `Cash: ${galleryCoins}`;
-        if (ui.shopCashLine) ui.shopCashLine.textContent = `Cash: ${galleryCoins}`;
-        if (ui.shopStatus && p.millis() > shopStatusUntil) ui.shopStatus.textContent = '';
 
         ui.needBar.style.width = c.need + '%';
         ui.needBar.style.backgroundColor =
@@ -3013,13 +3036,6 @@ new p5(function(p) {
         ui.energyBar.style.backgroundColor =
             c.energy < 30 ? '#788c5d' :
             c.energy < 70 ? '#c9973a' : '#c0522a';
-
-        if (ui.hungerBar) {
-            ui.hungerBar.style.width = c.hunger + '%';
-            ui.hungerBar.style.backgroundColor =
-                c.hunger < 20 ? '#c0522a' :
-                c.hunger < 60 ? '#c9973a' : '#788c5d';
-        }
     }
 
 
@@ -3059,6 +3075,10 @@ new p5(function(p) {
     window._moreAbstract = () => { decreasePrecision(); };
     window._noisier = () => { increaseNoise(); };
     window._cleaner = () => { decreaseNoise(); };
+    window._showPromptInput = () => { openRadialPromptModal(); };
+    window._suggestPrompt = () => { openRadialPromptModal(); };
+    window._suggestStyle = styleKey => { suggestStyle(styleKey); };
+    window._takeBreak = mode => { takeBreak(mode); };
     window._setGridCols = cols => { setGridDimensions(cols, GRID_ROWS); };
     window._setGridRows = rows => { setGridDimensions(GRID_COLS, rows); };
 

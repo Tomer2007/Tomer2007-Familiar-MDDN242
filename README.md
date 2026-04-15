@@ -62,3 +62,6 @@ Add an AFK mode where the creature will continue making pieces at a much slower 
 
 
 Add themes of AI art, where the creature has lost it's job due to being sued for just copying other artists exactly and wants help developing an actual individual art style through hard work and practice, however it is still never able to make anything truly original.
+
+Make the canvas detached so the user can move it around freely and so it only appears when the canvas is clicked.
+Also make it so aswell as the preview the user can also go to a gallery where all the paintings are displayed on a wall, and can be sold.
