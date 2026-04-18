@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UsersGallery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="UsersGallery.css">
+</head>
+<body>
+    <main class="gallery-shell">
+        <header class="gallery-header">
+            <div>
+                <h1 class="gallery-title"><span id="gallery-owner" class="gallery-owner" contenteditable="true" spellcheck="false">User's</span> Gallery</h1>
+                <p class="gallery-sub">Click a painting to inspect details, set favorite, or sell.</p>
+            </div>
+            <div class="gallery-actions">
+                <div class="gallery-coin-pill" id="gallery-coins">Cash: 0</div>
+                <div class="gallery-year-pill" id="gallery-year">Year: 0000</div>
+                <a class="back-btn" href="index.html">Back to Studio</a>
+            </div>
+        </header>
+
+        <section class="wall-controls">
+            <h2 class="wall-controls-title">Gallery Wall Colours</h2>
+            <div class="wall-controls-grid" id="wall-controls-grid"></div>
+        </section>
+
+        <section class="favourite-wrap" id="favourite-wrap" hidden>
+            <article class="favourite-card" id="favourite-card"></article>
+        </section>
+
+        <section id="gallery-list"></section>
+    </main>
+
+    <div class="popup-backdrop" id="popup-backdrop" aria-hidden="true">
+        <div class="popup-card">
+            <img class="popup-image" id="popup-image" alt="Selected painting">
+            <div class="popup-values" id="popup-values"></div>
+            <p class="popup-summary" id="popup-summary"></p>
+            <div class="popup-actions">
+                <button class="popup-btn favorite" id="popup-favorite-btn" type="button">Set Favorite</button>
+                <button class="popup-btn sell" id="popup-sell-btn" type="button">Sell</button>
+                <button class="popup-btn" id="popup-close-btn" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sale-announcement" id="sale-announcement" aria-hidden="true">
+        <p class="sale-announcement-title" id="sale-announcement-title">SOLD 0 coins</p>
+        <p class="sale-announcement-subtitle" id="sale-announcement-subtitle">Buyer: Collector</p>
+    </div>
+
+    <script>
+    (function() {
+        const STORAGE_CREATURE = 'creature_v2';
+        const STORAGE_HISTORY = 'generation_history_v1';
+        const STORAGE_OWNER = 'gallery_owner_name_v1';
+
+        const WALL_THEMES = [
+            { id: 'sage', label: 'Sage Mist', colour: [220, 242, 210], price: 0 },
+            { id: 'linen', label: 'Warm Linen', colour: [244, 236, 217], price: 55 },
+            { id: 'clay', label: 'Terracotta Clay', colour: [232, 202, 176], price: 65 },
+            { id: 'slate', label: 'Slate Blue', colour: [188, 203, 218], price: 80 },
+        ];
+
+        // Global multiplier for gallery artwork size.
+        const GALLERY_IMAGE_SIZE_MULTIPLIER = 4;
+
+        const BUYER_PROFILES = [
+            {
+                id: 'realist',
+                name: 'Realist',
+                weight: 1.0,
+                baseMin: 10,
+                baseMax: 95,
+                precisionTarget: 0.95,
+                precisionTolerance: 0.05,
+                rangeTarget: 0.12,
+                rangeTolerance: 0.1,
+                styleWeight: 0.85,
+                harmonyWeight: 0.15,
+                harmonyLikes: { complementary: 1.0, similar: 0.25, contrasting: 0.45 },
+            },
+            {
+                id: 'abstractist',
+                name: 'Abstractist',
+                weight: 1.0,
+                baseMin: 10,
+                baseMax: 90,
+                precisionTarget: 0.25,
+                precisionTolerance: 0.5,
+                rangeTarget: 0.82,
+                rangeTolerance: 0.28,
+                styleWeight: 0.7,
+                harmonyWeight: 0.3,
+                harmonyLikes: { complementary: 0.4, similar: 0.95, contrasting: 0.95 },
+            },
+            {
+                id: 'confetti-enthusiast',
+                name: 'Confetti Enthusiast',
+                weight: 0.7,
+                baseMin: 15,
+                baseMax: 105,
+                precisionTarget: 0.6,
+                precisionTolerance: 0.2,
+                rangeTarget: 0.97,
+                rangeTolerance: 0.12,
+                styleWeight: 0.35,
+                harmonyWeight: 0.65,
+                harmonyLikes: { complementary: 0.25, similar: 0.3, contrasting: 1.0 },
+            },
+        ];
+
+        const ownerEl = document.getElementById('gallery-owner');
+        const coinsEl = document.getElementById('gallery-coins');
+        const yearEl = document.getElementById('gallery-year');
+        const wallControlsGridEl = document.getElementById('wall-controls-grid');
+        const favouriteWrapEl = document.getElementById('favourite-wrap');
+        const favouriteCardEl = document.getElementById('favourite-card');
+        const galleryListEl = document.getElementById('gallery-list');
+        const popupBackdropEl = document.getElementById('popup-backdrop');
+        const popupImageEl = document.getElementById('popup-image');
+        const popupValuesEl = document.getElementById('popup-values');
+        const popupSummaryEl = document.getElementById('popup-summary');
+        const popupFavoriteBtnEl = document.getElementById('popup-favorite-btn');
+        const popupSellBtnEl = document.getElementById('popup-sell-btn');
+        const popupCloseBtnEl = document.getElementById('popup-close-btn');
+        const saleAnnouncementEl = document.getElementById('sale-announcement');
+        const saleAnnouncementTitleEl = document.getElementById('sale-announcement-title');
+        const saleAnnouncementSubtitleEl = document.getElementById('sale-announcement-subtitle');
+
+        let creatureState = loadJson(STORAGE_CREATURE, {});
+        let history = loadJson(STORAGE_HISTORY, []);
+        if (!Array.isArray(history)) history = [];
+
+        let selectedSnapshot = null;
+        let coins = Number(creatureState.galleryCoins) || 0;
+        let ownedWallThemeIds = normalizeOwnedThemes(creatureState.ownedGalleryWallThemeIds);
+        let activeWallThemeId = pickActiveTheme(creatureState.activeGalleryWallThemeId, ownedWallThemeIds);
+        let favouriteGenerationSerial = normalizeSerial(creatureState.favouriteGenerationSerial);
+        let trimCacheBySerial = new Map();
+        let activeRenderVersion = 0;
+        let saleAnnouncement = null;
+        let saleAnnouncementRaf = null;
+
+        let currentYear = new Date().getFullYear();
+        yearEl.textContent = `Year: ${currentYear}`;
+
+        initializeOwnerName();
+        applyWallTheme();
+        renderWallControls();
+        renderGallery();
+
+        ownerEl.addEventListener('blur', persistOwnerName);
+        ownerEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                ownerEl.blur();
+            }
+        });
+
+        popupBackdropEl.addEventListener('click', (event) => {
+            if (event.target === popupBackdropEl) closePopup();
+        });
+        popupCloseBtnEl.addEventListener('click', closePopup);
+        popupFavoriteBtnEl.addEventListener('click', onSetFavoriteClicked);
+        popupSellBtnEl.addEventListener('click', onSellClicked);
+        window.addEventListener('resize', onWindowResized);
+
+        function loadJson(key, fallback) {
+            try {
+                let raw = localStorage.getItem(key);
+                if (!raw) return fallback;
+                return JSON.parse(raw);
+            } catch (_) {
+                return fallback;
+            }
+        }
+
+        function saveCreatureState() {
+            localStorage.setItem(STORAGE_CREATURE, JSON.stringify(creatureState));
+        }
+
+        function saveHistory() {
+            localStorage.setItem(STORAGE_HISTORY, JSON.stringify(history));
+        }
+
+        function normalizeOwnedThemes(rawOwned) {
+            let valid = new Set(WALL_THEMES.map(theme => theme.id));
+            let owned = Array.isArray(rawOwned) ? rawOwned.filter(id => valid.has(id)) : [];
+            if (!owned.includes('sage')) owned.unshift('sage');
+            return owned.filter((id, idx, arr) => arr.indexOf(id) === idx);
+        }
+
+        function pickActiveTheme(rawActive, owned) {
+            let valid = new Set(WALL_THEMES.map(theme => theme.id));
+            if (typeof rawActive === 'string' && valid.has(rawActive) && owned.includes(rawActive)) {
+                return rawActive;
+            }
+            return owned[0] || 'sage';
+        }
+
+        function normalizeSerial(value) {
+            let n = Number(value);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function initializeOwnerName() {
+            let stored = localStorage.getItem(STORAGE_OWNER);
+            if (!stored || !stored.trim()) {
+                ownerEl.textContent = 'User\'s';
+                return;
+            }
+            ownerEl.textContent = stored.trim();
+        }
+
+        function persistOwnerName() {
+            let cleaned = (ownerEl.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!cleaned) cleaned = 'User\'s';
+            ownerEl.textContent = cleaned;
+            localStorage.setItem(STORAGE_OWNER, cleaned);
+        }
+
+        function getThemeById(themeId) {
+            return WALL_THEMES.find(theme => theme.id === themeId) || WALL_THEMES[0];
+        }
+
+        function applyWallTheme() {
+            let theme = getThemeById(activeWallThemeId);
+            document.documentElement.style.setProperty('--wall', `rgb(${theme.colour[0]}, ${theme.colour[1]}, ${theme.colour[2]})`);
+        }
+
+        function renderWallControls() {
+            wallControlsGridEl.innerHTML = '';
+            for (let i = 0; i < WALL_THEMES.length; i++) {
+                let theme = WALL_THEMES[i];
+                let btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'wall-chip';
+
+                let owned = ownedWallThemeIds.includes(theme.id);
+                let active = activeWallThemeId === theme.id;
+
+                if (active) btn.classList.add('active');
+                if (!owned) btn.classList.add('locked');
+
+                if (!owned) {
+                    btn.textContent = `${theme.label} (buy in shop: ${theme.price})`;
+                    btn.disabled = true;
+                } else {
+                    btn.textContent = active ? `${theme.label} (active)` : `${theme.label} (owned)`;
+                    btn.disabled = false;
+                    btn.addEventListener('click', () => {
+                        activeWallThemeId = theme.id;
+                        creatureState.activeGalleryWallThemeId = activeWallThemeId;
+                        saveCreatureState();
+                        applyWallTheme();
+                        renderWallControls();
+                    });
+                }
+
+                wallControlsGridEl.appendChild(btn);
+            }
+        }
+
+        function getReferenceKeyword(snapshot) {
+            if (snapshot.referenceKeyword && String(snapshot.referenceKeyword).trim()) {
+                return String(snapshot.referenceKeyword).trim();
+            }
+
+            let path = snapshot.referencePath || '';
+            if (path.startsWith('prompt:')) {
+                let promptKeyword = path.slice('prompt:'.length).trim();
+                return promptKeyword || 'Prompt Study';
+            }
+
+            let fileName = String(path).split('/').pop() || '';
+            let map = {
+                'FamiliarBallReference.png': 'Sphere',
+                'FamiliarBirdReference.png': 'Bird',
+                'FamiliarBirdReference2.png': 'Pigeon',
+                'FamiliarRealBirdReference.webp': 'Avian',
+                'FamiliarRealBirdReference2.webp': 'Flying Monster',
+                'FamiliarTextArt-Happy.png': 'Happiness',
+                'FamiliarTextArt-Pride.png': 'Pride',
+            };
+            if (map[fileName]) return map[fileName];
+
+            return 'Reference Study';
+        }
+
+        function stableSeedForSnapshot(snapshot, salt) {
+            let serial = Number(snapshot.serial) || 0;
+            let precisionBits = Math.round((Number(snapshot.referenceRulePrecision) || 0) * 1000);
+            let offsetBits = Number(snapshot.colorSchemeOffsetRange) || 0;
+            let neighborBits = Number(snapshot.neighborSimilarRange) || 0;
+            let refBits = Number(snapshot.referenceMatchRgbRange) || 0;
+            let seed = serial * 131 + precisionBits * 17 + offsetBits * 31 + neighborBits * 13 + refBits * 7 + salt * 97;
+            return Math.abs(seed);
+        }
+
+        function pickVariant(snapshot, options, salt) {
+            if (!Array.isArray(options) || options.length === 0) return '';
+            let seed = stableSeedForSnapshot(snapshot, salt);
+            let index = seed % options.length;
+            return options[index];
+        }
+
+        function titlePrefix(snapshot) {
+            let precision = Number(snapshot.referenceRulePrecision) || 0.5;
+            if (precision < 0.25) {
+                return pickVariant(snapshot, ['The Essence of ', 'The Ideal ', 'Death of a ', 'Scribble of ', 'My '], 1);
+            }
+            if (precision < 0.5) {
+                return pickVariant(snapshot, ['Abstracted ', 'Deconstructed ', 'Sketch of ', 'Exploded ', 'Chaotic ', 'Impasto Painting of '], 2);
+            }
+            if (precision < 0.8) {
+                return pickVariant(snapshot, ['Study of ', 'Painting of ', 'Midday Light on ', 'Morning Render with ', 'Reality of ', 'The World of'], 3);
+            }
+            return pickVariant(snapshot, ['Portrait of ', 'Hyperrealistic Painting with ', 'My ', 'Photograph of '], 4);
+        }
+
+        function flavourText(snapshot) {
+            let precision = Number(snapshot.referenceRulePrecision) || 0.5;
+            let noise = Number(snapshot.colorSchemeOffsetRange) || 20;
+
+            if (precision < 0.3) {
+                return pickVariant(snapshot, [
+                    'I closed my eyes and drew what I felt.',
+                    'An abstract interpretation made without reference.',
+                    'Completely random strokes made as an abstract interpretation of colour.',
+                    'Broad abstraction carries the image more than fine detail.'
+                ], 10);
+            }
+            if (noise > 40) {
+                return pickVariant(snapshot, [
+                    'TV static captured by me.',
+                    'Fractual noise study.',
+                    'The messy colours reflect the artistic essence of a computer generated image, using just random noise with loose rules to try and create ideas. However, this is a fruitless effort as random numbers and colour could never accurately reflect an interpretation or true abstraction of reality. In the end I am doomed to constantly create degeneration of other artists work and never truly create something my own.',
+                    'I honestly do not know what this is.',
+                    'The vast variation in the colours results in a loss of form, pallette, and structure. Creating a painting of grain and noise.'
+                ], 11);
+            }
+            if (precision > 0.85) {
+                return pickVariant(snapshot, [
+                    'High-detail rendering with tighter decisions and cleaner form.',
+                    'Refined edge discipline gives this piece a deliberate finish.',
+                    'I need to stay so still, I grew more Mycellium to root me to the ground just to help stabilize.',
+                    'In order to get this level of accuracy I taped a laptop to my head so I can constantly see a reference.'
+                ], 12);
+            }
+            return pickVariant(snapshot, [
+                'A very balanced painting, as I did not want to lean in any direction.',
+                'A very moderate painting, not using extreme precision nor random colours.',
+                'My very cool painting. I was so happy to make this, I wanted to put it on my fridge. But I do not have hands.',
+                'Moderate precision supports both readability and expressive variation.'
+            ], 13);
+        }
+
+        function generatedTitle(snapshot) {
+            let keyword = getReferenceKeyword(snapshot);
+            let year = Number(snapshot.createdAtYear) || currentYear;
+            return `${titlePrefix(snapshot)}${keyword} (${year})`;
+        }
+
+        function snapshotValues(snapshot) {
+            let scheme = Array.isArray(snapshot.colorScheme) ? snapshot.colorScheme : [];
+            let schemeText = scheme.map(col => `(${col[0]},${col[1]},${col[2]})`).join(' ');
+            return [
+                `generation #${snapshot.serial} (${snapshot.reason || 'archived'})`,
+                `precision: ${(Number(snapshot.referenceRulePrecision) || 0).toFixed(3)}`,
+                `color_scheme_offset_range: ${snapshot.colorSchemeOffsetRange || 0}`,
+                `neighbor_similar_range: ${snapshot.neighborSimilarRange || 0}`,
+                `reference_match_rgb_range: ${snapshot.referenceMatchRgbRange || 0}`,
+                `scheme: ${schemeText}`,
+            ].join('\n');
+        }
+
+        function clamp01(v) {
+            return Math.max(0, Math.min(1, Number(v) || 0));
+        }
+
+        function hueDistanceDegrees(a, b) {
+            let diff = Math.abs(a - b) % 360;
+            return diff > 180 ? 360 - diff : diff;
+        }
+
+        function rgbToHue(rgb) {
+            let r = clamp01((Number(rgb[0]) || 0) / 255);
+            let g = clamp01((Number(rgb[1]) || 0) / 255);
+            let b = clamp01((Number(rgb[2]) || 0) / 255);
+
+            let max = Math.max(r, g, b);
+            let min = Math.min(r, g, b);
+            let delta = max - min;
+            if (delta === 0) return 0;
+
+            let hue = 0;
+            if (max === r) hue = ((g - b) / delta) % 6;
+            else if (max === g) hue = (b - r) / delta + 2;
+            else hue = (r - g) / delta + 4;
+
+            hue *= 60;
+            if (hue < 0) hue += 360;
+            return hue;
+        }
+
+        function analyzeColourTheoryFromScheme(scheme) {
+            if (!Array.isArray(scheme) || scheme.length < 2) {
+                return { similar: 0, complementary: 0, contrasting: 0.5 };
+            }
+
+            let hues = scheme.map(rgbToHue);
+            let pairCount = 0;
+            let similar = 0;
+            let complementary = 0;
+            let contrasting = 0;
+
+            for (let i = 0; i < hues.length; i++) {
+                for (let j = i + 1; j < hues.length; j++) {
+                    let d = hueDistanceDegrees(hues[i], hues[j]);
+                    pairCount += 1;
+                    if (d <= 25) similar += 1;
+                    if (d >= 150 && d <= 210) complementary += 1;
+                    if (d >= 70 && d <= 140) contrasting += 1;
+                }
+            }
+
+            if (pairCount === 0) return { similar: 0, complementary: 0, contrasting: 0.5 };
+            return {
+                similar: similar / pairCount,
+                complementary: complementary / pairCount,
+                contrasting: contrasting / pairCount,
+            };
+        }
+
+        function targetMatchScore(value, target, tolerance) {
+            let safeTolerance = Math.max(0.0001, Number(tolerance) || 0);
+            return clamp01(1 - Math.abs((Number(value) || 0) - (Number(target) || 0)) / safeTolerance);
+        }
+
+        function normalisedRangeEnergy(snapshot) {
+            let offset = clamp01((Number(snapshot.colorSchemeOffsetRange) || 0) / 255);
+            let neighbor = clamp01((Number(snapshot.neighborSimilarRange) || 0) / 255);
+            let ref = clamp01((Number(snapshot.referenceMatchRgbRange) || 0) / 255);
+            return (offset + neighbor + ref) / 3;
+        }
+
+        function evaluateSnapshotAgainstBuyer(snapshot, buyer, useRandomBase = true) {
+            let precision = clamp01(snapshot.referenceRulePrecision || 0);
+            let rangeEnergy = normalisedRangeEnergy(snapshot);
+            let colourTheory = analyzeColourTheoryFromScheme(snapshot.colorScheme || []);
+
+            let precisionScore = targetMatchScore(precision, buyer.precisionTarget, buyer.precisionTolerance);
+            let rangeScore = targetMatchScore(rangeEnergy, buyer.rangeTarget, buyer.rangeTolerance);
+            let styleScore = (precisionScore + rangeScore) * 0.5;
+
+            let harmonyLikes = buyer.harmonyLikes || {};
+            let harmonyWeighted =
+                colourTheory.complementary * (harmonyLikes.complementary || 0) +
+                colourTheory.similar * (harmonyLikes.similar || 0) +
+                colourTheory.contrasting * (harmonyLikes.contrasting || 0);
+            let harmonyWeightSum =
+                (harmonyLikes.complementary || 0) +
+                (harmonyLikes.similar || 0) +
+                (harmonyLikes.contrasting || 0);
+            let harmonyScore = harmonyWeightSum > 0 ? clamp01(harmonyWeighted / harmonyWeightSum) : 0.5;
+
+            let combinedFit = clamp01(
+                styleScore * (buyer.styleWeight || 0.5) +
+                harmonyScore * (buyer.harmonyWeight || 0.5)
+            );
+
+            let baseValue = useRandomBase
+                ? buyer.baseMin + Math.random() * (buyer.baseMax - buyer.baseMin)
+                : (buyer.baseMin + buyer.baseMax) * 0.5;
+
+            let payout = Math.round(baseValue * (0.45 + combinedFit * 1.35));
+            return {
+                buyerId: buyer.id,
+                buyerName: buyer.name,
+                fit: combinedFit,
+                payout,
+            };
+        }
+
+        function pickRandomBuyerProfile() {
+            let totalWeight = BUYER_PROFILES.reduce((sum, buyer) => sum + Math.max(0, buyer.weight || 0), 0);
+            if (totalWeight <= 0) return BUYER_PROFILES[0];
+
+            let pick = Math.random() * totalWeight;
+            let cursor = 0;
+            for (let i = 0; i < BUYER_PROFILES.length; i++) {
+                cursor += Math.max(0, BUYER_PROFILES[i].weight || 0);
+                if (pick <= cursor) return BUYER_PROFILES[i];
+            }
+            return BUYER_PROFILES[BUYER_PROFILES.length - 1];
+        }
+
+        function appraiseSnapshotForSale(snapshot) {
+            let buyer = pickRandomBuyerProfile();
+            return evaluateSnapshotAgainstBuyer(snapshot, buyer, true);
+        }
+
+        function estimateSnapshotMarketValue(snapshot) {
+            if (!BUYER_PROFILES.length) {
+                return { estimate: 0, topBuyer: 'none', topFit: 0 };
+            }
+
+            let evaluations = BUYER_PROFILES.map((buyer) => evaluateSnapshotAgainstBuyer(snapshot, buyer, false));
+            let estimate = Math.round(evaluations.reduce((sum, evalResult) => sum + evalResult.payout, 0) / evaluations.length);
+            let top = evaluations[0];
+
+            for (let i = 1; i < evaluations.length; i++) {
+                if (evaluations[i].fit > top.fit) top = evaluations[i];
+            }
+
+            return {
+                estimate,
+                topBuyer: top.buyerName,
+                topFit: top.fit,
+            };
+        }
+
+        function saleSummary(snapshot) {
+            if (snapshot.sold) {
+                return `Sold to ${snapshot.soldTo || 'buyer'} for ${snapshot.salePrice || 0} coins.`;
+            }
+            let estimate = estimateSnapshotMarketValue(snapshot);
+            return `Market estimate: ~${estimate.estimate} coins. Best fit: ${estimate.topBuyer} (${Math.round(estimate.topFit * 100)}%).`;
+        }
+
+        function onWindowResized() {
+            let grid = galleryListEl.querySelector('.art-grid');
+            if (grid) {
+                applyMasonryLayout(grid);
+            }
+            let favouriteGrid = favouriteCardEl.querySelector('.art-grid');
+            if (favouriteGrid) {
+                applyMasonryLayout(favouriteGrid);
+            }
+        }
+
+        function trimmedFallbackForSnapshot(snapshot) {
+            return {
+                serial: Number(snapshot.serial),
+                imageDataUrl: snapshot.imageDataUrl,
+                width: 1,
+                height: 1,
+                area: 1,
+                aspect: 1,
+            };
+        }
+
+        function trimTransparentPadding(imageDataUrl) {
+            return new Promise((resolve) => {
+                let img = new Image();
+                img.onload = () => {
+                    let sourceCanvas = document.createElement('canvas');
+                    sourceCanvas.width = img.naturalWidth;
+                    sourceCanvas.height = img.naturalHeight;
+                    let sourceCtx = sourceCanvas.getContext('2d');
+                    sourceCtx.drawImage(img, 0, 0);
+
+                    let data = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height).data;
+                    let minX = sourceCanvas.width;
+                    let minY = sourceCanvas.height;
+                    let maxX = -1;
+                    let maxY = -1;
+
+                    for (let y = 0; y < sourceCanvas.height; y++) {
+                        for (let x = 0; x < sourceCanvas.width; x++) {
+                            let alpha = data[(y * sourceCanvas.width + x) * 4 + 3];
+                            if (alpha > 8) {
+                                if (x < minX) minX = x;
+                                if (y < minY) minY = y;
+                                if (x > maxX) maxX = x;
+                                if (y > maxY) maxY = y;
+                            }
+                        }
+                    }
+
+                    if (maxX < minX || maxY < minY) {
+                        resolve({
+                            imageDataUrl,
+                            width: img.naturalWidth,
+                            height: img.naturalHeight,
+                        });
+                        return;
+                    }
+
+                    let trimWidth = maxX - minX + 1;
+                    let trimHeight = maxY - minY + 1;
+                    let trimmedCanvas = document.createElement('canvas');
+                    trimmedCanvas.width = trimWidth;
+                    trimmedCanvas.height = trimHeight;
+                    let trimmedCtx = trimmedCanvas.getContext('2d');
+                    trimmedCtx.drawImage(sourceCanvas, minX, minY, trimWidth, trimHeight, 0, 0, trimWidth, trimHeight);
+
+                    resolve({
+                        imageDataUrl: trimmedCanvas.toDataURL('image/png'),
+                        width: trimWidth,
+                        height: trimHeight,
+                    });
+                };
+                img.onerror = () => {
+                    resolve({ imageDataUrl, width: 1, height: 1 });
+                };
+                img.src = imageDataUrl;
+            });
+        }
+
+        async function getDisplaySnapshot(snapshot) {
+            let serial = Number(snapshot.serial);
+            if (trimCacheBySerial.has(serial)) {
+                return trimCacheBySerial.get(serial);
+            }
+
+            let promise = trimTransparentPadding(snapshot.imageDataUrl)
+                .then((trimmed) => {
+                    let width = Math.max(1, Number(trimmed.width) || 1);
+                    let height = Math.max(1, Number(trimmed.height) || 1);
+                    return {
+                        serial,
+                        imageDataUrl: trimmed.imageDataUrl || snapshot.imageDataUrl,
+                        width,
+                        height,
+                        area: width * height,
+                        aspect: width / height,
+                    };
+                })
+                .catch(() => trimmedFallbackForSnapshot(snapshot));
+
+            trimCacheBySerial.set(serial, promise);
+            return promise;
+        }
+
+        function buildCardLayoutMeta(displaySnapshot, medianArea) {
+            let areaRatio = displaySnapshot.area / medianArea;
+            let sizeClass = 'normal';
+            if (areaRatio < 0.72) sizeClass = 'small';
+            if (areaRatio > 1.35) sizeClass = 'large';
+
+            let scaleFactor = Math.sqrt(Math.max(0.18, areaRatio));
+            scaleFactor = Math.max(0.64, Math.min(1.58, scaleFactor));
+
+            let colSpan = 1;
+            if (displaySnapshot.aspect > 1.45 && scaleFactor > 0.95) colSpan = 2;
+            if (displaySnapshot.aspect > 2.1) colSpan = 3;
+            if (scaleFactor > 1.4 && colSpan < 2) colSpan = 2;
+
+            return {
+                sizeClass,
+                colSpan,
+                scaleFactor,
+            };
+        }
+
+        function applyMasonryLayout(gridEl) {
+            let styles = getComputedStyle(gridEl);
+            let rowHeight = parseFloat(styles.getPropertyValue('grid-auto-rows')) || 8;
+            let rowGap = parseFloat(styles.getPropertyValue('row-gap')) || 0;
+
+            let cards = Array.from(gridEl.querySelectorAll('.art-card'));
+            for (let i = 0; i < cards.length; i++) {
+                let card = cards[i];
+                let colSpan = Number(card.dataset.colSpan) || 1;
+                card.style.gridColumnEnd = `span ${colSpan}`;
+            }
+
+            requestAnimationFrame(() => {
+                for (let i = 0; i < cards.length; i++) {
+                    let card = cards[i];
+                    let height = card.getBoundingClientRect().height;
+                    let span = Math.max(1, Math.ceil((height + rowGap) / (rowHeight + rowGap)));
+                    card.style.gridRowEnd = `span ${span}`;
+                }
+            });
+        }
+
+        function currentAnnouncementAlpha(nowMs, ann) {
+            let elapsed = nowMs - ann.startAt;
+            if (elapsed < 0 || elapsed > ann.durationMs) return 0;
+
+            if (elapsed <= ann.fadeInMs) {
+                return Math.max(0, Math.min(1, elapsed / ann.fadeInMs));
+            }
+
+            let fadeOutStart = ann.durationMs - ann.fadeOutMs;
+            if (elapsed >= fadeOutStart) {
+                return Math.max(0, Math.min(1, (ann.durationMs - elapsed) / ann.fadeOutMs));
+            }
+
+            return 1;
+        }
+
+        function renderSaleAnnouncementFrame() {
+            if (!saleAnnouncement) {
+                saleAnnouncementRaf = null;
+                return;
+            }
+
+            let now = performance.now();
+            let alpha = currentAnnouncementAlpha(now, saleAnnouncement);
+            if (alpha <= 0) {
+                if (now - saleAnnouncement.startAt > saleAnnouncement.durationMs) {
+                    saleAnnouncement = null;
+                    saleAnnouncementEl.classList.remove('active');
+                    saleAnnouncementEl.style.opacity = '0';
+                    saleAnnouncementEl.setAttribute('aria-hidden', 'true');
+                    saleAnnouncementRaf = null;
+                    return;
+                }
+            }
+
+            saleAnnouncementEl.style.opacity = String(alpha);
+            saleAnnouncementEl.style.transform = `translate(-50%, calc(-50% + ${(1 - alpha) * 9}px))`;
+            saleAnnouncementRaf = requestAnimationFrame(renderSaleAnnouncementFrame);
+        }
+
+        function playRegisterSound() {
+            let AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+
+            if (!window._saleAudioCtx) {
+                window._saleAudioCtx = new AudioCtx();
+            }
+            let ctx = window._saleAudioCtx;
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+
+            let now = ctx.currentTime;
+            let master = ctx.createGain();
+            master.gain.setValueAtTime(0.0001, now);
+            master.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+            master.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+            master.connect(ctx.destination);
+
+            let tone1 = ctx.createOscillator();
+            tone1.type = 'square';
+            tone1.frequency.setValueAtTime(740, now);
+            tone1.frequency.exponentialRampToValueAtTime(980, now + 0.12);
+            tone1.connect(master);
+            tone1.start(now);
+            tone1.stop(now + 0.2);
+
+            let tone2 = ctx.createOscillator();
+            tone2.type = 'triangle';
+            tone2.frequency.setValueAtTime(1200, now + 0.08);
+            tone2.frequency.exponentialRampToValueAtTime(820, now + 0.24);
+            tone2.connect(master);
+            tone2.start(now + 0.08);
+            tone2.stop(now + 0.32);
+        }
+
+        function showSaleAnnouncement(buyerName, amount) {
+            saleAnnouncement = {
+                buyer: buyerName || 'Unknown buyer',
+                amount: Math.max(0, Math.round(amount || 0)),
+                startAt: performance.now(),
+                durationMs: 2200,
+                fadeInMs: 260,
+                fadeOutMs: 520,
+            };
+
+            saleAnnouncementTitleEl.textContent = `SOLD ${saleAnnouncement.amount} coins`;
+            saleAnnouncementSubtitleEl.textContent = `Buyer: ${saleAnnouncement.buyer}`;
+            saleAnnouncementEl.classList.add('active');
+            saleAnnouncementEl.style.opacity = '0';
+            saleAnnouncementEl.setAttribute('aria-hidden', 'false');
+            playRegisterSound();
+
+            if (!saleAnnouncementRaf) {
+                saleAnnouncementRaf = requestAnimationFrame(renderSaleAnnouncementFrame);
+            }
+        }
+
+        function renderSnapshotCard(snapshot, displaySnapshot, medianArea) {
+            let card = document.createElement('article');
+            card.className = 'art-card';
+            card.dataset.serial = String(snapshot.serial);
+
+            let layoutMeta = buildCardLayoutMeta(displaySnapshot, medianArea);
+            card.classList.add(`size-${layoutMeta.sizeClass}`);
+            card.dataset.colSpan = String(layoutMeta.colSpan);
+            card.style.setProperty('--paint-scale', String(layoutMeta.scaleFactor * GALLERY_IMAGE_SIZE_MULTIPLIER));
+
+            let media = document.createElement('div');
+            media.className = 'art-media';
+
+            let img = document.createElement('img');
+            img.className = 'art-image';
+            img.src = displaySnapshot.imageDataUrl;
+            img.alt = generatedTitle(snapshot);
+            img.loading = 'lazy';
+            img.decoding = 'async';
+
+            media.appendChild(img);
+
+            let meta = document.createElement('div');
+            meta.className = 'art-meta';
+
+            let title = document.createElement('h3');
+            title.className = 'art-title';
+            title.textContent = generatedTitle(snapshot);
+
+            let flavour = document.createElement('p');
+            flavour.className = 'art-flavour';
+            flavour.textContent = flavourText(snapshot);
+
+            meta.appendChild(title);
+            meta.appendChild(flavour);
+            card.appendChild(media);
+            card.appendChild(meta);
+
+            card.addEventListener('click', () => openPopup(snapshot));
+            return card;
+        }
+
+        async function renderFavorite(snapshot) {
+            favouriteCardEl.innerHTML = '';
+
+            let heading = document.createElement('h2');
+            heading.className = 'favourite-heading';
+            heading.textContent = 'Favorite Painting';
+
+            let display = await getDisplaySnapshot(snapshot);
+            let favoriteGrid = document.createElement('div');
+            favoriteGrid.className = 'art-grid favorite-grid';
+            let card = renderSnapshotCard(snapshot, display, display.area || 1);
+            card.classList.add('favorite-card-focus');
+            card.style.setProperty('--paint-scale', String(1.45 * GALLERY_IMAGE_SIZE_MULTIPLIER));
+            card.dataset.colSpan = '2';
+            favoriteGrid.appendChild(card);
+
+            favouriteCardEl.appendChild(heading);
+            favouriteCardEl.appendChild(favoriteGrid);
+            favouriteWrapEl.hidden = false;
+            applyMasonryLayout(favoriteGrid);
+        }
+
+        async function renderGallery() {
+            let renderVersion = ++activeRenderVersion;
+            coinsEl.textContent = `Cash: ${coins}`;
+
+            let favourite = history.find(item => Number(item.serial) === favouriteGenerationSerial) || null;
+            if (favourite) {
+                await renderFavorite(favourite);
+                if (renderVersion !== activeRenderVersion) return;
+            } else {
+                favouriteWrapEl.hidden = true;
+                favouriteCardEl.innerHTML = '';
+            }
+
+            let nonFavourite = history.filter(item => Number(item.serial) !== favouriteGenerationSerial);
+
+            if (nonFavourite.length === 0) {
+                galleryListEl.innerHTML = '<div class="empty-note">No saved paintings in the gallery yet. Generate and archive paintings from the studio first.</div>';
+                return;
+            }
+
+            let displaySnapshots = await Promise.all(nonFavourite.map(item => getDisplaySnapshot(item)));
+            if (renderVersion !== activeRenderVersion) return;
+
+            let sortedAreas = displaySnapshots.map(item => item.area).sort((a, b) => a - b);
+            let medianArea = sortedAreas[Math.floor(sortedAreas.length / 2)] || 1;
+
+            let grid = document.createElement('div');
+            grid.className = 'art-grid';
+            for (let i = 0; i < nonFavourite.length; i++) {
+                grid.appendChild(renderSnapshotCard(nonFavourite[i], displaySnapshots[i], medianArea));
+            }
+            galleryListEl.innerHTML = '';
+            galleryListEl.appendChild(grid);
+            applyMasonryLayout(grid);
+        }
+
+        function openPopup(snapshot) {
+            selectedSnapshot = snapshot;
+            popupImageEl.src = snapshot.imageDataUrl;
+            popupValuesEl.textContent = snapshotValues(snapshot);
+            popupSummaryEl.textContent = saleSummary(snapshot);
+            popupSellBtnEl.disabled = !!snapshot.sold;
+            popupSellBtnEl.textContent = snapshot.sold ? 'Sold' : 'Sell';
+            popupFavoriteBtnEl.textContent = Number(snapshot.serial) === favouriteGenerationSerial ? 'Favorited' : 'Set Favorite';
+            popupBackdropEl.classList.add('active');
+            popupBackdropEl.setAttribute('aria-hidden', 'false');
+        }
+
+        function closePopup() {
+            selectedSnapshot = null;
+            popupBackdropEl.classList.remove('active');
+            popupBackdropEl.setAttribute('aria-hidden', 'true');
+        }
+
+        function onSetFavoriteClicked() {
+            if (!selectedSnapshot) return;
+            favouriteGenerationSerial = Number(selectedSnapshot.serial);
+            creatureState.favouriteGenerationSerial = favouriteGenerationSerial;
+            saveCreatureState();
+            renderGallery();
+            openPopup(selectedSnapshot);
+        }
+
+        function onSellClicked() {
+            if (!selectedSnapshot || selectedSnapshot.sold) return;
+
+            let appraisal = appraiseSnapshotForSale(selectedSnapshot);
+            let payout = appraisal.payout;
+            let buyerName = appraisal.buyerName;
+            coins += payout;
+
+            let serialToSell = Number(selectedSnapshot.serial);
+            history = history.filter(item => Number(item.serial) !== serialToSell);
+
+            if (favouriteGenerationSerial === serialToSell) {
+                favouriteGenerationSerial = null;
+                creatureState.favouriteGenerationSerial = null;
+            }
+
+            creatureState.galleryCoins = coins;
+            creatureState.favouriteGenerationSerial = favouriteGenerationSerial;
+            creatureState.ownedGalleryWallThemeIds = ownedWallThemeIds.slice();
+            creatureState.activeGalleryWallThemeId = activeWallThemeId;
+
+            saveCreatureState();
+            saveHistory();
+            renderGallery();
+            closePopup();
+            showSaleAnnouncement(buyerName, payout);
+        }
+    })();
+    </script>
+</body>
+</html>

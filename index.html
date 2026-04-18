@@ -11,18 +11,24 @@
 </head>
 <body>
 <div class="generation-strip" id="generation-strip" aria-label="Previous generations">
-    <div class="generation-strip-title">Previous generations</div>
+    <div class="generation-strip-header-row">
+        <div class="generation-strip-title">Previous generations</div>
+        <div class="generation-strip-actions">
+            <button class="generation-strip-btn" id="generation-select-sell-toggle" type="button" aria-pressed="false">Select Sell: Off</button>
+            <button class="generation-strip-btn generation-strip-btn-primary" id="generation-sell-selected-btn" type="button" disabled>Sell Selected (0)</button>
+        </div>
+    </div>
     <div class="generation-strip-list" id="generation-strip-list"></div>
 </div>
 <div class="generation-popup" id="generation-popup" hidden>
+    <div class="generation-popup-actions">
+        <button class="button" id="generation-popup-in-style" type="button">In This Style</button>
+        <button class="button secondary" id="generation-popup-with-colours" type="button">With These Colours</button>
+        <button class="button" id="generation-popup-sell-btn" type="button">Sell</button>
+    </div>
     <img id="generation-popup-image" alt="Selected previous generation">
     <div class="generation-popup-values" id="generation-popup-values"></div>
     <div class="generation-popup-sale-summary" id="generation-popup-sale-summary"></div>
-    <div class="generation-popup-actions">
-        <button class="button" id="generation-popup-in-style" type="button">In_this_style</button>
-        <button class="button secondary" id="generation-popup-with-colours" type="button">with_these_colours</button>
-        <button class="button" id="generation-popup-sell-btn" type="button">Sell</button>
-    </div>
 </div>
 <div class="container">
 
@@ -205,16 +211,90 @@
         <div id="canvas-container"></div>
         <div class="scene-cash-display" id="ui-scene-cash">Cash: 0</div>
         <button class="shop-open-btn" id="ui-shop-open-btn" type="button">Shop</button>
+        <button class="search-open-btn" id="ui-search-open-btn" type="button">Search Generation</button>
+        <button class="gallery-open-btn" id="ui-gallery-open-btn" type="button">User Gallery</button>
+        <button class="reopen-grid-btn" id="ui-reopen-grid-btn" type="button">Open Canvas Tab</button>
 
         <div class="shop-modal" id="ui-shop-modal" aria-hidden="true">
             <div class="shop-card">
-                <div class="shop-title">Shop</div>
-                <div class="shop-item-list">
-                    <button class="shop-item-btn" id="ui-shop-buy-need" type="button">Feed Familiar (-35 need) · 25 coins</button>
-                    <button class="shop-item-btn" id="ui-shop-buy-energy" type="button">Energy Snack (+25 energy) · 20 coins</button>
+                <div class="shop-header">
+                    <div class="shop-title">Shop</div>
+                    <div class="shop-intro">Buy recovery, size upgrades, and studio extras in grouped sections.</div>
                 </div>
+
+                <div class="shop-scroll">
+                <div class="shop-sections">
+                    <section class="shop-section">
+                        <div class="shop-subtitle">Recovery</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn" id="ui-shop-buy-need" type="button">Feed Familiar (+35 hunger) · 25 coins</button>
+                            <button class="shop-item-btn" id="ui-shop-buy-energy" type="button">Energy Snack (+25 energy) · 20 coins</button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section">
+                        <div class="shop-subtitle">New Canvases</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn" id="ui-shop-buy-canvas-long" type="button">Long canvas</button>
+                            <button class="shop-item-btn" id="ui-shop-buy-canvas-wide" type="button">Wide canvas</button>
+                            <button class="shop-item-btn" id="ui-shop-buy-canvas-big" type="button">Big canvas</button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section shop-section--full">
+                        <div class="shop-subtitle">Custom Canvas</div>
+                        <div class="shop-custom-grid-row">
+                            <input id="ui-shop-custom-cols" class="shop-custom-input" type="number" min="10" max="220" value="30" aria-label="Custom canvas columns">
+                            <span class="shop-custom-x">x</span>
+                            <input id="ui-shop-custom-rows" class="shop-custom-input" type="number" min="10" max="220" value="30" aria-label="Custom canvas rows">
+                            <button class="shop-item-btn shop-custom-buy" id="ui-shop-buy-canvas-custom" type="button">Buy custom</button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section">
+                        <div class="shop-subtitle">Permanent Upgrades</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn" id="ui-shop-buy-palette" type="button">+1 palette colour slot</button>
+                            <button class="shop-item-btn" id="ui-shop-buy-computer" type="button">Buy computer (unlock search)</button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section">
+                        <div class="shop-subtitle">Studio Walls</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-studio-wall-cloud" type="button" style="--shop-preview-color: rgb(242, 238, 229);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Cloud Studio</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-studio-wall-rose" type="button" style="--shop-preview-color: rgb(245, 226, 225);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Rose Studio</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-studio-wall-ink" type="button" style="--shop-preview-color: rgb(220, 228, 236);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Ink Studio</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-studio-wall-moss" type="button" style="--shop-preview-color: rgb(224, 233, 214);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Moss Studio</span></button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section">
+                        <div class="shop-subtitle">Studio Decor</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-fav" type="button">Framed favorite painting</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-plant" type="button">Small plant</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-light" type="button">Soft lamp</button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section">
+                        <div class="shop-subtitle">Gallery Wall Colours</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-wall-sage" type="button" style="--shop-preview-color: rgb(220, 242, 210);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Sage Mist</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-wall-linen" type="button" style="--shop-preview-color: rgb(244, 236, 217);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Warm Linen</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-wall-clay" type="button" style="--shop-preview-color: rgb(232, 202, 176);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Terracotta Clay</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-wall-slate" type="button" style="--shop-preview-color: rgb(188, 203, 218);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Slate Blue</span></button>
+                        </div>
+                    </section>
+                </div>
+                </div>
+
+                <div class="shop-status" id="ui-shop-computer-note" aria-live="polite"></div>
                 <div class="shop-status" id="ui-shop-status" aria-live="polite"></div>
-                <button class="button secondary" id="ui-shop-close-btn" type="button">Close</button>
+                <div class="shop-footer">
+                    <button class="button secondary" id="ui-shop-close-btn" type="button">Close</button>
+                </div>
             </div>
         </div>
         <!-- SVG Radial Menu — pie-wedge style, 3 rings -->
@@ -236,11 +316,11 @@
 
             const VN = {
                 // Position (CSS values — % or px both work)
-                bottom:  '6%',   // distance from bottom of .canvas-area
+                bottom:  '12%',   // distance from bottom of .canvas-area
                 left:    '50%',  // horizontal centre anchor
                 // Size
-                width:   '62%',  // box width
-                minH:    '96px', // minimum height
+                width:   '68%',  // box width
+                minH:    '130px', // minimum height
                 // Appearance
                 padding: '18px 24px 16px',
                 borderRadius: '12px',
@@ -249,18 +329,22 @@
                 backdropBlur: '8px',
                 // Typography
                 fontFamily: "'Lora', serif",
-                fontSize:   '15px',
+                fontSize:   '27px',
                 lineHeight: '1.65',
                 color:      '#e8f4f2',
+                // Portrait tuning
+                portraitWidth: '350px',
+                portraitLeft: '-8px',
+                portraitBottom: 'calc(100% + 6px)',
                 // Speaker name strip
                 nameColor:  '#4ecdc4',
-                nameFontSize: '11px',
+                nameFontSize: '35px',
                 nameLetterSpacing: '0.12em',
                 // Dismiss hint
                 hintColor: 'rgba(255,255,255,0.28)',
-                hintFontSize: '11px',
+                hintFontSize: '16px',
                 // Typewriter speed (ms per character, 0 = instant)
-                typeSpeed: 22,
+                typeSpeed: 60,
             };
 
             // ═══════════════════════════════════════════════════
@@ -268,67 +352,88 @@
             //  Each key maps to an array of strings.
             //  One is chosen at random when the action fires.
             //  Use \n for a line break inside a string.
+            //  To assign portraits per line, use line("text", "PortraitKey").
             // ═══════════════════════════════════════════════════
+
+            const VN_PORTRAITS = {
+                Neutral: 'TextArt/FamiliarTextArt-Neutral.png',
+                Happy: 'TextArt/FamiliarTextArt-Happy.png',
+                Sad: 'TextArt/FamiliarTextArt-Sad.png',
+                Determined: 'TextArt/FamiliarTextArt-Determined.png',
+                Pride: 'TextArt/FamiliarTextArt-Pride.png',
+                Confident: 'TextArt/FamiliarTextArt-Confident.png',
+                Nervous: 'TextArt/FamiliarTextArt-Nervous.png',
+                Yawn: 'TextArt/FamiliarTextArt-Yawn.png',
+            };
+
+            function line(text, portrait = 'Neutral') {
+                return { text, portrait };
+            }
 
             const RESPONSES = {
                 'like-colours': [
-                    "Oh, you like these colours? I'll keep that in mind...",
-                    "Okay, I'll try my best to use these colours more often.",
-                    "I like them too. I'll try to remember how I mixed the colours.",
-                    "Colour noted. I'll paint more boldly next time.",
+                    line("Oh, you like these colours? I'll keep that in mind...", 'Happy'),
+                    line("Okay, I'll try my best to use these colours more often.", 'Confident'),
+                    line("I like them too. I'll try to remember how I mixed the colours.", 'Pride'),
+                    line("Colour noted. I'll paint more boldly next time.", 'Happy'),
                 ],
                 'like-style': [
-                    "You appreciate my style? How flattering.",
-                    "Wait, really? I was kind of just winging it. Okay, I'll keep winging it then.",
-                    "Style noted. I'll remember what resonates with you.",
-                    "Okay",
+                    line("You appreciate my style? How flattering.", 'Pride'),
+                    line("Wait, really? I was kind of just winging it. Okay, I'll keep winging it then.", 'Happy'),
+                    line("Style noted. I'll remember what resonates with you.", 'Confident'),
+                    line("Okay.", 'Determined'),
                 ],
                 'dislike-colours': [
-                    "Oh you don't like my colours. Okay, I'll try something different.",
-                    "Hmmm, okay. Let's see what I can do.",
-                    "I wasn't sure about them either, honestly.",
-                    "Okay, not gonna lie. I chose those colours with my eyes closed. I'll open them this time.",
+                    line("Oh you don't like my colours. Okay, I'll try something different.", 'Sad'),
+                    line("Hmmm, okay. Let's see what I can do.", 'Determined'),
+                    line("I wasn't sure about them either, honestly.", 'Happy'),
+                    line("Okay, not gonna lie. I chose those colours with my eyes closed. I'll open them this time.", 'Confident'),
                 ],
                 'dislike-style': [
-                    "My style bothers you? Okay, I'm sorry.",
-                    "Understood.",
-                    "I'll experiment. Don't give up on me just yet.",
-                    "Got it, let's see what I can do.",
+                    line("My style bothers you? Okay, I'm sorry.", 'Sad'),
+                    line("Understood.", 'Confident'),
+                    line("I'll experiment. Don't give up on me just yet.", 'Determined'),
+                    line("Got it, let's see what I can do.", 'Confident'),
                 ],
                 'suggest-prompt': [
-                    "Tell me what to look at and I'll try to see it your way.",
-                    "A reference? Show me something worth studying.",
-                    "What image do you have in mind? I'm curious.",
+                    "Tell me what to look at and I'll try to see it your way. [expr:happy]",
+                    "A reference? Show me something worth studying. [expr:neutral]",
+                    "What image do you have in mind? I'm curious.[expr:confident]",
                 ],
                 'break-long': [
-                    "Oh, but I'm not that tir-                         zzzZZZZ",
-                    "I wouldn't mind getting some sleep.",
-                    "Got it, wake me when you want me to start working on art again.",
+                    "Oh, but I'm not that tir-                         zzzZZZZ[expr:yawn]",
+                    "I wouldn't mind getting some sleep.[expr:happy]",
+                    "Got it, wake me when you want me to start working on art again.[expr:confident]",
                 ],
                 'break-short': [
-                    "Yeah, I could do with a break.",
-                    "A short nap. Cool.",
-                    "I'll just take a lunch break.",
+                    "Yeah, I could do with a break.[expr:happy]",
+                    "A short nap. Cool.[expr:pride]",
+                    "I'll just take a lunch break.[expr:neutral]",
                 ],
                 'more-precise': [
-                    "More precise? Okay, I'll try to keep my head steady.",
-                    "Okay, okay. I'll focus on the details.",
-                    "Less imagination, more observation. Understood.",
+                    "More precise? Okay, I'll try to keep my head steady.[expr:neutral]",
+                    "Okay, okay. I'll focus on the details.[expr:confident]",
+                    "Less imagination, more observation. Understood.[expr:determined]",
                 ],
                 'more-abstract': [
-                    "You want me to make it more abstract? I guess I can try.",
-                    "Okay I'll be a bit looser with the details.",
-                    "Hmm, more abstract... I'll try to be a bit more imaginative.",
+                    "You want me to make it more abstract? I guess I can try.[expr:confident]",
+                    "Okay I'll be a bit looser with the details.[expr:neutral]",
+                    "Hmm, more abstract... I'll try to be a bit more imaginative.[expr:confident]",
                 ],
                 'noisier': [
-                    "More noise? Uhh, okay.",
-                    "I'll be a bit messier with the colour, don't you worry.",
-                    "Right, don't you worry, this next one will look like TV static! Or is that too noisy?",
+                    "More noise? Uhh, okay.[expr:sad]",
+                    "I'll be a bit messier with the colour, don't you worry.[expr:happy]",
+                    "Right, don't you worry, this next one will look like TV static! Or is that too noisy?[expr:neutral]",
                 ],
                 'cleaner': [
-                    "Oh you want cleaner colours? Like a pop-style thing. Okay.",
-                    "Okay, let me separate my colours so they're more different.",
-                    "Simplifying. Sometimes less says more.",
+                    "Oh you want cleaner colours? Like a pop-style thing. Okay.[expr:confident]",
+                    "Okay, let me separate my colours so they're more different.[expr:neutral]",
+                    "Simplifying. Sometimes less says more.[expr:happy]",
+                ],
+                'next-generation': [
+                    "Starting a fresh generation now.[expr:neutral]",
+                    "New generation coming right up.[expr:confident]",
+                    "Resetting and moving to the next generation.[expr:neutral]",
                 ],
             };
 
@@ -339,9 +444,137 @@
             const vnBox = document.getElementById('vn-box');
             let vnDismissHandler = null;
             let typeTimer = null;
+            const portraitRecolorCache = new Map();
 
             function pick(arr) {
                 return arr[Math.floor(Math.random() * arr.length)];
+            }
+
+            function extractExprKeyword(text) {
+                if (typeof text !== 'string') return '';
+                const m = text.match(/\[(?:expr|expression|sprite)\s*:\s*([a-z0-9_-]+)\]/i)
+                    || text.match(/\{(?:expr|expression|sprite)\s*:\s*([a-z0-9_-]+)\}/i);
+                return m && m[1] ? m[1].trim().toLowerCase() : '';
+            }
+
+            function stripExprTags(text) {
+                if (typeof text !== 'string') return '';
+                return text
+                    .replace(/\[(?:expr|expression|sprite)\s*:\s*([a-z0-9_-]+)\]/gi, '')
+                    .replace(/\{(?:expr|expression|sprite)\s*:\s*([a-z0-9_-]+)\}/gi, '')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
+            }
+
+            function portraitFromExpr(keyword) {
+                const map = {
+                    happy: 'Happy',
+                    joy: 'Happy',
+                    pride: 'Pride',
+                    proud: 'Pride',
+                    confident: 'Confident',
+                    determined: 'Determined',
+                    sad: 'Sad',
+                    sorrow: 'Sad',
+                    nervous: 'Nervous',
+                    anxious: 'Nervous',
+                    worried: 'Nervous',
+                    yawn: 'Yawn',
+                    sleepy: 'Yawn',
+                    tired: 'Yawn',
+                    neutral: 'Neutral',
+                };
+                return map[keyword] || 'Neutral';
+            }
+
+            function prepareDialoguePayload(entry) {
+                if (entry && typeof entry === 'object' && typeof entry.text === 'string') {
+                    return entry;
+                }
+
+                const rawText = String(entry || '');
+                const exprKey = extractExprKeyword(rawText);
+                let cleaned = rawText;
+                if (typeof window._prepareDialogueTextWithExpression === 'function') {
+                    cleaned = window._prepareDialogueTextWithExpression(rawText);
+                } else {
+                    cleaned = stripExprTags(rawText);
+                }
+
+                return {
+                    text: cleaned,
+                    portrait: portraitFromExpr(exprKey),
+                };
+            }
+
+            window._showNpcDialogueWithExpr = function(entry) {
+                showDialogue(prepareDialoguePayload(entry));
+            };
+
+            function getCurrentArtAccentRgb() {
+                if (typeof window._getArtAccentColour === 'function') {
+                    const rgb = window._getArtAccentColour();
+                    if (Array.isArray(rgb) && rgb.length >= 3) {
+                        return [
+                            Math.max(0, Math.min(255, Math.round(rgb[0]))),
+                            Math.max(0, Math.min(255, Math.round(rgb[1]))),
+                            Math.max(0, Math.min(255, Math.round(rgb[2]))),
+                        ];
+                    }
+                }
+                return [120, 220, 110];
+            }
+
+            function isGreenAccentPixel(r, g, b, a) {
+                if (a < 16) return false;
+                if (g < 100) return false;
+                return g > r + 35 && g > b + 35;
+            }
+
+            function recolorPortrait(path, accentRgb) {
+                const cacheKey = `${path}|${accentRgb.join(',')}`;
+                if (portraitRecolorCache.has(cacheKey)) {
+                    return Promise.resolve(portraitRecolorCache.get(cacheKey));
+                }
+
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || img.width;
+                        canvas.height = img.naturalHeight || img.height;
+                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                        if (!ctx) {
+                            resolve(path);
+                            return;
+                        }
+
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(img, 0, 0);
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const data = imageData.data;
+
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i];
+                            const g = data[i + 1];
+                            const b = data[i + 2];
+                            const a = data[i + 3];
+                            if (!isGreenAccentPixel(r, g, b, a)) continue;
+
+                            const strength = Math.max(0.45, Math.min(1, g / 255));
+                            data[i] = Math.round(accentRgb[0] * strength);
+                            data[i + 1] = Math.round(accentRgb[1] * strength);
+                            data[i + 2] = Math.round(accentRgb[2] * strength);
+                        }
+
+                        ctx.putImageData(imageData, 0, 0);
+                        const recolored = canvas.toDataURL('image/png');
+                        portraitRecolorCache.set(cacheKey, recolored);
+                        resolve(recolored);
+                    };
+                    img.onerror = () => resolve(path);
+                    img.src = path;
+                });
             }
 
             function applyVnStyles() {
@@ -360,6 +593,7 @@
                     boxSizing:      'border-box',
                     zIndex:         '200',
                     display:        'none',
+                    overflow:       'visible',
                     cursor:         'pointer',
                     userSelect:     'none',
                     pointerEvents:  'auto',
@@ -367,7 +601,7 @@
             }
             applyVnStyles();
 
-            function showDialogue(text) {
+            function showDialogue(payload) {
                 // Cancel any running typewriter
                 if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
 
@@ -378,8 +612,20 @@
                     vnDismissHandler = null;
                 }
 
+                let text = '';
+                let portraitKey = 'Neutral';
+                if (typeof payload === 'string') {
+                    text = payload;
+                } else if (payload && typeof payload === 'object') {
+                    text = String(payload.text || '');
+                    portraitKey = String(payload.portrait || 'Neutral');
+                }
+
                 // Build inner HTML
                 vnBox.innerHTML =
+                    `<img id="vn-portrait" alt="character portrait" ` +
+                    `style="position:absolute;left:${VN.portraitLeft};bottom:${VN.portraitBottom};width:${VN.portraitWidth};height:auto;` +
+                    `pointer-events:none;user-select:none;image-rendering:pixelated;filter:drop-shadow(0 6px 16px rgba(0,0,0,0.45));">` +
                     `<div style="font-family:${VN.fontFamily};font-size:${VN.fontSize};` +
                     `line-height:${VN.lineHeight};color:${VN.color};" id="vn-body"></div>` +
                     `<div style="margin-top:10px;font-family:'Poppins',sans-serif;` +
@@ -388,7 +634,18 @@
 
                 vnBox.style.display = 'block';
 
+                const portraitEl = document.getElementById('vn-portrait');
                 const bodyEl = document.getElementById('vn-body');
+
+                let portraitPath = VN_PORTRAITS[portraitKey] || VN_PORTRAITS.Neutral;
+                if (portraitEl && portraitPath) {
+                    const accent = getCurrentArtAccentRgb();
+                    recolorPortrait(portraitPath, accent).then((src) => {
+                        if (portraitEl) portraitEl.src = src;
+                    });
+                } else if (portraitEl) {
+                    portraitEl.style.display = 'none';
+                }
 
                 if (VN.typeSpeed <= 0) {
                     bodyEl.textContent = text;
@@ -487,7 +744,7 @@
             const R1 = [
                 { s: -90, e: -18,  label: ['I Like'],           fill: FILL1  },
                 { s: -18, e:  54,  label: ['I Dislike'],         fill: FILL1b },
-                { s:  54, e: 126,  label: ['Suggest', 'Prompt'], fill: FILL1  },
+                { s:  54, e: 126,  label: ['Check', 'Up'],       fill: FILL1  },
                 { s: 126, e: 198,  label: ['Suggest', 'Style'],  fill: FILL1b },
                 { s: 198, e: 270,  label: ['Take a', 'Break'],   fill: FILL1  },
             ];
@@ -496,7 +753,7 @@
             const R2_DATA = {
                 0: { subs: ['Colours', 'Style'],         fills: [FILL2, FILL2b], actions: ['like-colours',    'like-style']    },
                 1: { subs: ['Colours', 'Style'],         fills: [FILL2, FILL2b], actions: ['dislike-colours', 'dislike-style'] },
-                2: null,
+                2: { subs: ['Check Up', 'Next\nGeneration'], fills: [FILL2, FILL2b], actions: ['check-up', 'next-generation'] },
                 3: { subs: ['Precision', 'Noise'],       fills: [FILL2, FILL2b], actions: [null, null]                        },
                 4: { subs: ['Long Rest', 'Short Rest'],  fills: [FILL2, FILL2b], actions: ['break-long',      'break-short']   },
             };
@@ -512,16 +769,27 @@
                 const menu = document.getElementById('ui-radial-menu');
                 if (menu) menu.classList.remove('radial-active');
 
-                // Show creature dialogue if responses exist
-                const pool = RESPONSES[key];
-                if (pool && pool.length) showDialogue(pick(pool));
-
                 switch (key) {
                     case 'like-colours':
-                    case 'like-style':      window._likeGeneration    && window._likeGeneration();       break;
+                        window._likeColours && window._likeColours();
+                        break;
+                    case 'like-style':
+                        window._likeStyle && window._likeStyle();
+                        break;
                     case 'dislike-colours':
-                    case 'dislike-style':   window._dislikeGeneration && window._dislikeGeneration();    break;
-                    case 'suggest-prompt':  window._showPromptInput   && window._showPromptInput();      break;
+                        window._dislikeColours && window._dislikeColours();
+                        break;
+                    case 'dislike-style':
+                        window._dislikeStyle && window._dislikeStyle();
+                        break;
+                    case 'check-up': {
+                        const msg = window._checkUp && window._checkUp();
+                        if (msg) showDialogue(prepareDialoguePayload(msg));
+                        return;
+                    }
+                    case 'next-generation':
+                        window._nextGeneration && window._nextGeneration();
+                        break;
                     case 'break-long':      window._takeBreak         && window._takeBreak('long');      break;
                     case 'break-short':     window._takeBreak         && window._takeBreak('short');     break;
                     case 'more-precise':    window._morePrecise       && window._morePrecise();          break;
@@ -529,6 +797,10 @@
                     case 'noisier':         window._noisier           && window._noisier();              break;
                     case 'cleaner':         window._cleaner           && window._cleaner();              break;
                 }
+
+                // Show creature dialogue if responses exist
+                const pool = RESPONSES[key];
+                if (pool && pool.length) showDialogue(prepareDialoguePayload(pick(pool)));
             }
 
             // ── SVG helpers ──────────────────────────────────────
@@ -702,7 +974,7 @@
                     const t = makeText(sec.label, tx, ty, 11.5, TEXT1);
 
                     path.addEventListener('mouseenter', () => { if (R2_DATA[i]) showR2(i); else hideR2(); });
-                    if (i === 2) path.addEventListener('click', () => runAction('suggest-prompt'));
+                    if (i === 2) path.addEventListener('click', () => runAction('check-up'));
 
                     g.appendChild(path);
                     g.appendChild(t);
