@@ -2037,6 +2037,7 @@ new p5(function(p) {
                 clearSavedProgressStorage();
                 applyFullProgressResetState({
                     shouldPlayPurchaseSound: false,
+                    initialCoins: 5000,
                     statusMessage: 'Fresh start ready. Progress and paintings were reset.',
                 });
             }
@@ -6304,6 +6305,9 @@ new p5(function(p) {
 
     function applyFullProgressResetState(options = {}) {
         let shouldPlayPurchaseSound = !!options.shouldPlayPurchaseSound;
+        let initialCoins = Number.isFinite(Number(options.initialCoins))
+            ? Math.max(0, Math.floor(Number(options.initialCoins)))
+            : 0;
         let statusMessage = typeof options.statusMessage === 'string'
             ? options.statusMessage
             : 'Progress reset complete.';
@@ -6336,7 +6340,7 @@ new p5(function(p) {
         activeShopMusicTrackId = null;
         stopShopMusic();
 
-        galleryCoins = 0;
+        galleryCoins = initialCoins;
         favouriteGenerationSerial = null;
         studioFavoritePaintingSerial = null;
         studioFavoritePaintingPendingSerial = null;
