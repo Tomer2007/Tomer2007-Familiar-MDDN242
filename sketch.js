@@ -31,6 +31,7 @@ new p5(function(p) {
     const SHOP_MUSIC_TRACKS = [
         { id: 'classical-background', label: 'Classical Background Music', price: 60, path: 'SoundEffects/ClassicalBackgroundMusic.mp3' },
     ];
+    const FIRST_TIME_VISITOR_PROMPT_KEY = 'first_time_visitor_prompt_v1';
     const SHOP_MUSIC_VOLUME = 0.46;
     const SOUND_EFFECT_VOLUMES = {
         purchase: 0.58,
@@ -533,7 +534,7 @@ new p5(function(p) {
     let ownedStudioWallThemeIds = ['cloud'];
     let activeStudioWallThemeId = 'cloud';
     let studioWallColour = [242, 238, 229];
-    let ownedStudioDecorThemeIds = ['frame-favorite'];
+    let ownedStudioDecorThemeIds = [];
     let studioFavoritePaintingImage = null;
     let studioFavoritePaintingSerial = null;
     let studioFavoritePaintingPendingSerial = null;
@@ -714,17 +715,13 @@ new p5(function(p) {
 
         function ensureStudioDecorState() {
             if (!Array.isArray(ownedStudioDecorThemeIds) || ownedStudioDecorThemeIds.length === 0) {
-                ownedStudioDecorThemeIds = ['frame-favorite'];
+                ownedStudioDecorThemeIds = [];
             }
 
             let validIds = new Set(STUDIO_DECOR_THEMES.map(theme => theme.id));
             ownedStudioDecorThemeIds = ownedStudioDecorThemeIds
                 .filter(id => validIds.has(id))
                 .filter((id, idx, arr) => arr.indexOf(id) === idx);
-
-            if (!ownedStudioDecorThemeIds.includes('frame-favorite')) {
-                ownedStudioDecorThemeIds.unshift('frame-favorite');
-            }
         }
     let lastArchivePreviewSyncAt = 0;
 
@@ -2029,9 +2026,27 @@ new p5(function(p) {
         refreshShopUI();
         updateSearchFeatureGateUI();
         setReferenceSearchPendingState(false);
+
+        let shouldFreshStartReset = false;
+        if (shouldAskForFirstTimeVisitorReset()) {
+            shouldFreshStartReset = window.confirm(
+                'Is this your first time on the website?\nPress OK for Yes (reset progress) or Cancel for No.'
+            );
+            rememberFirstTimeVisitorPromptAnswer(shouldFreshStartReset);
+            if (shouldFreshStartReset) {
+                clearSavedProgressStorage();
+                applyFullProgressResetState({
+                    shouldPlayPurchaseSound: false,
+                    statusMessage: 'Fresh start ready. Progress and paintings were reset.',
+                });
+            }
+        }
+
         loadGridDimensions();
-        loadGenerationHistoryFromStorage();
-        if (creature && creature.lastVisit) {
+        if (!shouldFreshStartReset) {
+            loadGenerationHistoryFromStorage();
+        }
+        if (!shouldFreshStartReset && creature && creature.lastVisit) {
             let hoursAway = Math.min((Date.now() - creature.lastVisit) / 3600000, AFK_MAX_HOURS);
             synthesizeOfflinePaintingHours(hoursAway);
         }
@@ -6257,7 +6272,52 @@ new p5(function(p) {
         }
 
         galleryCoins -= SHOP_PROGRESS_RESET_PRICE;
-        playSoundEffect('purchase');
+        applyFullProgressResetState({
+            shouldPlayPurchaseSound: true,
+            statusMessage: 'Progress reset complete. Easy style loaded and generation history cleared.',
+        });
+    }
+
+    function shouldAskForFirstTimeVisitorReset() {
+        try {
+            let answer = localStorage.getItem(FIRST_TIME_VISITOR_PROMPT_KEY);
+            return answer !== 'yes' && answer !== 'no';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function rememberFirstTimeVisitorPromptAnswer(isFirstTime) {
+        try {
+            localStorage.setItem(FIRST_TIME_VISITOR_PROMPT_KEY, isFirstTime ? 'yes' : 'no');
+        } catch (e) {}
+    }
+
+    function clearSavedProgressStorage() {
+        try {
+            localStorage.removeItem('creature_v2');
+            localStorage.removeItem('generation_history_v1');
+            localStorage.removeItem('grid_dimensions_v1');
+            localStorage.removeItem('gallery_owner_name_v1');
+        } catch (e) {}
+    }
+
+    function applyFullProgressResetState(options = {}) {
+        let shouldPlayPurchaseSound = !!options.shouldPlayPurchaseSound;
+        let statusMessage = typeof options.statusMessage === 'string'
+            ? options.statusMessage
+            : 'Progress reset complete.';
+
+        if (shouldPlayPurchaseSound) {
+            playSoundEffect('purchase');
+        }
+
+        if (creature) {
+            creature.need = 50;
+            creature.energy = 100;
+            creature.lastVisit = Date.now();
+            creature.totalVisits = 1;
+        }
 
         paletteUpgradeCount = 0;
         COLOR_SCHEME_COUNT = BASE_COLOR_SCHEME_COUNT;
@@ -6271,11 +6331,12 @@ new p5(function(p) {
         activeStudioWallThemeId = 'cloud';
         applyActiveStudioWallTheme();
 
-        ownedStudioDecorThemeIds = ['frame-favorite'];
+        ownedStudioDecorThemeIds = [];
         ownedShopMusicTrackIds = [];
         activeShopMusicTrackId = null;
         stopShopMusic();
 
+        galleryCoins = 0;
         favouriteGenerationSerial = null;
         studioFavoritePaintingSerial = null;
         studioFavoritePaintingPendingSerial = null;
@@ -6308,7 +6369,7 @@ new p5(function(p) {
         updateGenerationStripControls();
         saveGenerationHistoryToStorage();
 
-        setShopStatus('Progress reset complete. Easy style loaded and generation history cleared.');
+        setShopStatus(statusMessage);
         refreshShopUI();
         saveState(creature);
     }
@@ -6568,7 +6629,7 @@ new p5(function(p) {
             ensureGalleryWallState();
             ownedStudioWallThemeIds = Array.isArray(data.ownedStudioWallThemeIds) ? data.ownedStudioWallThemeIds.slice() : ['cloud'];
             activeStudioWallThemeId = typeof data.activeStudioWallThemeId === 'string' ? data.activeStudioWallThemeId : 'cloud';
-            ownedStudioDecorThemeIds = Array.isArray(data.ownedStudioDecorThemeIds) ? data.ownedStudioDecorThemeIds.slice() : ['frame-favorite'];
+            ownedStudioDecorThemeIds = Array.isArray(data.ownedStudioDecorThemeIds) ? data.ownedStudioDecorThemeIds.slice() : [];
             if (typeof data.activeStudioDecorThemeId === 'string') {
                 ownedStudioDecorThemeIds.push(data.activeStudioDecorThemeId);
             }
