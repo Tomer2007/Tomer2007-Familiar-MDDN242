@@ -16,6 +16,49 @@ new p5(function(p) {
 
     const USE_REFERENCE_SPRITE_OVERRIDE = true;
     const OPENVERSE_IMAGE_SEARCH_URL = 'https://api.openverse.org/v1/images/';
+    const CANVAS_SPRITE_PATH = 'Environment/Canvas.png';
+    const SEARCH_COMPUTER_IDLE_SPRITE_PATH = 'Environment/SearchComputerIdle.png';
+    const SEARCH_COMPUTER_SEARCH_SPRITE_PATH = 'Environment/SearchComputerSearch.png';
+    const SEARCH_COMPUTER_DISPLAY_SPRITE_PATH = 'Environment/SearchComputerDisplay.png';
+    const PAINTBRUSH_BUTTON_SPRITE_PATH = 'Environment/PaintbrushButton.png';
+    const EXIT_BUTTON_SPRITE_PATH = 'Environment/ExitButton.png';
+    const SOUND_EFFECT_PATHS = {
+        purchase: 'SoundEffects/Purchase.mp3',
+        renovate: 'SoundEffects/Renovate.mp3',
+        eating: 'SoundEffects/Eating.wav',
+        shakeWake: 'SoundEffects/ShakeWake.wav',
+    };
+    const SHOP_MUSIC_TRACKS = [
+        { id: 'classical-background', label: 'Classical Background Music', price: 60, path: 'SoundEffects/ClassicalBackgroundMusic.mp3' },
+    ];
+    const SHOP_MUSIC_VOLUME = 0.46;
+    const SOUND_EFFECT_VOLUMES = {
+        purchase: 0.58,
+        renovate: 0.62,
+        eating: 0.5,
+        shakeWake: 0.56,
+    };
+    const AREA_BUTTON_LAYOUT = {
+        spriteSize: 360,
+        searchButtonX: 20,
+        searchButtonY: 70,
+        canvasButtonOffsetX: 0.55,
+        canvasButtonOffsetY: 0.2,
+        galleryButtonBottom: 420,
+        searchScreenLeft: 29,
+        searchScreenTop: 31.5,
+        searchScreenWidth: 26.5,
+        searchScreenHeight: 19,
+        searchScreenObjectPosition: 'center',
+        searchHitboxTop: 18,
+        searchHitboxRight: 19,
+        searchHitboxBottom: 16,
+        searchHitboxLeft: 15,
+        canvasHitboxTop: 8,
+        canvasHitboxRight: 24,
+        canvasHitboxBottom: 4,
+        canvasHitboxLeft: 24,
+    };
     const REFERENCE_SPRITE_PATHS = [
         'References/FamiliarBallReference.png',
         'References/FamiliarBirdReference.png',
@@ -51,14 +94,20 @@ new p5(function(p) {
 
 
     // ============================================================
-    //  SETTINGS  —  tweak these, or use the sidebar sliders
+    //  TWEAKABLE SETTINGS HUB
+    //  Edit values here. Runtime state lives further below.
     // ============================================================
 
     const SHOW_UI      = true;   // set false to hide the sidebar while designing
 
-    let CREATURE_SIZE  = 220;    // body diameter in pixels
-    let DECAY_RATE     = 0.003;  // need rise per frame while tab is focused
-    let AWAY_RATE      = 0.020;  // need rise per frame while tab is hidden
+    // --- Creature core ---
+    let CREATURE_SIZE  = 300;    // body diameter in pixels
+    let CREATURE_HOME_X = 0.65;   // normalized home position (0..1)
+    let CREATURE_HOME_Y = 0.48;   // normalized home position (0..1)
+
+    // --- Hunger / energy ---
+    let DECAY_RATE     = 0.003;  // need change per frame over time
+    let AWAY_RATE      = 0.020;  // kept for compatibility with older saves/settings
     let SHORT_REST_ENERGY_RECOVERY = 0.0025; // energy gain per frame during short rest
     let LONG_REST_ENERGY_RECOVERY = 0.008;   // energy gain per frame during long rest
 
@@ -70,10 +119,12 @@ new p5(function(p) {
     let SLEEPING_FRAMES = 800;     // how long the creature stays asleep
     let BOUNCE_SCALE   = 1.0;    // multiplier for all bounce amounts
     
+    // --- Grid generation ---
     let GRID_COLS      = 30;
     let GRID_ROWS      = 30;
     let GRID_SIZE      = 16;
     let GRID_GAP       = 2;
+    let GRID_BUTTON_OPEN_SIZE_MULTIPLIER = 0.8;
     let GRID_MARGIN    = 26;
     let GRID_MAX_COLS = 220;
     let GRID_MAX_ROWS = 220;
@@ -85,9 +136,15 @@ new p5(function(p) {
     let GRID_PANEL_MIN_HEIGHT = 100;
     let GRID_PANEL_MAX_WIDTH = 1600;
     let GRID_PANEL_MAX_HEIGHT = 1200;
+    let GRID_DEFAULT_OPEN_SCALE = 0.58;
+    const GRID_TAB_HEIGHT = 34;
+    const GRID_TAB_GAP = 6;
+    const GRID_TAB_BUTTON_W = 34;
+    const GRID_PANEL_PADDING = 10;
 
     let GRID_RANDOM_INTERVAL_MS = 0.15;
    
+    // --- Style / colour evolution ---
     let COLOR_SCHEME_COUNT = 6;
     let COLOR_SCHEME_OFFSET_RANGE = 20;
     let REFERENCE_MATCH_RGB_RANGE = 10; // Added dedicated RGB range variable
@@ -99,11 +156,12 @@ new p5(function(p) {
 
     let PAUSE_INTERACTION_THRESHOLD = 0.99;
     let PAUSE_AFTER_THRESHOLD_CHANCE = 0.10;
+
+    // --- Grid painting UI ---
     let SCHEME_TILE_SIZE = 16;
     let SCHEME_GAP = 4;
-    let RESET_BUTTON_HEIGHT = 25;
     let PALETTE_TILE_SIZE = 16;
-    let PAINT_BUTTON_HEIGHT = 25;
+    let PAINT_BUTTON_HEIGHT = 38;
     let PAINTING_SPRITE_SHEET_PATH = 'Animations/FamiliarPaintingAnimation.png';
     let PAINTING_SPRITE_COLS = 4;
     let PAINTING_SPRITE_ROWS = 4;
@@ -121,6 +179,7 @@ new p5(function(p) {
     let DISLIKE_STYLE_RANGE_MIN = 6;
     let DISLIKE_STYLE_RANGE_MAX = 14;
 
+    // --- Creature / menu placement ---
     let CREATURE_CENTER_OFFSET_X = -280;
     let CREATURE_CENTER_OFFSET_Y = 0;
     // Radial menu centre offsets (edit directly in code).
@@ -129,18 +188,49 @@ new p5(function(p) {
 
     let GRID_PANEL_OFFSET_X = -250;
     let GRID_PANEL_OFFSET_Y = 0;
+    let GRID_OPEN_CANVAS_BUTTON_GAP_X = 42;
+    let GRID_OPEN_CANVAS_BUTTON_OFFSET_Y = -24;
     let GRID_TAB_OFFSET_X = 0;
     let GRID_TAB_OFFSET_Y = 0;
     let GRID_TAB_WIDTH = 120;
-    let GRID_AREAS_VISIBLE = true;
+    let GRID_CANVAS_Z_INDEX = 500;
+    let AREA_OPEN_BUTTONS_Z_INDEX = 1;
 
+    let ENERGY_DRINK_GRID_UPS_MULTIPLIER = 5.2;
+    let ENERGY_DRINK_ENERGY_DRAIN_MULTIPLIER = 5.2;
+    let ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER = 3;
+    let ENERGY_DRINK_BOOST_TARGET_ENERGY = 50;
+
+    let CREATURE_QUESTION_MIN_INTERVAL_MS = 45000;
+    let CREATURE_QUESTION_MAX_INTERVAL_MS = 95000;
+    let CREATURE_QUESTION_MARK_OFFSET_Y = -190;
+
+    let GRID_CANVAS_TAB_BUTTON_SIZE = GRID_TAB_HEIGHT * 3;
+    let GRID_CLOSE_BUTTON_OFFSET_X = 5 * (GRID_TAB_WIDTH + GRID_TAB_GAP);
+    let GRID_CLOSE_BUTTON_OFFSET_Y = -2.6 * (GRID_TAB_WIDTH + GRID_TAB_GAP);
+    let GRID_PAINT_BUTTON_OFFSET_X = 0;
+    let GRID_PAINT_BUTTON_OFFSET_Y = 0;
+
+    
+    let GRID_AREAS_VISIBLE = true;
+    let STUDIO_WALL_FLOOR_SPLIT_Y = 0.62;
+    let STUDIO_FLOOR_DARKEN = 0.82;
+    
+    let STUDIO_FAVORITE_FRAME_X = 0.82;
+    let STUDIO_FAVORITE_FRAME_Y = 0.2;
+    let STUDIO_FAVORITE_FRAME_W = 120;
+    let STUDIO_FAVORITE_FRAME_H = 120;
+    let STUDIO_FAVORITE_FRAME_SIZE_SCALE = 1.0;
+
+    // --- World hotspot buttons ---
     let WORLD_AREA_1_X = 80;
     let WORLD_AREA_1_Y = 92;
     let WORLD_AREA_2_X = 80;
     let WORLD_AREA_2_Y = 208;
     let WORLD_AREA_SIZE = 92;
-    let WORLD_AREA_BUTTONS_VISIBLE = true;
+    let WORLD_AREA_BUTTONS_VISIBLE = false;
 
+    // --- Generation thumbnails / announcements ---
     let GENERATION_THUMB_WIDTH = 100;
     let GENERATION_THUMB_HEIGHT = 100;
 
@@ -152,7 +242,7 @@ new p5(function(p) {
     let BULK_SALE_TOTAL_DELAY_MS = 700;
     let BULK_SALE_TOTAL_DURATION_MS = 2000;
 
-    // Openverse prompt-search tuning.
+    // --- Search / rest tuning ---
     let OPENVERSE_SEARCH_RESULT_COUNT = 20;
     let OPENVERSE_RANDOM_POOL_SIZE = 6;
     let BASE_LONG_REST_DURATION_MS = 0.5 * 60 * 1000;
@@ -165,6 +255,59 @@ new p5(function(p) {
     let GENERATING_ENERGY_DRAIN = 0.0018;
     let ENERGY_DECREASE_SPEED = 1.2;
     let ENERGY_INCREASE_SPEED = 1.0;
+    const ARCHIVE_PREVIEW_SYNC_MS = 180;
+
+    // --- Shop economy ---
+    const SHOP_NEED_PRICE = 25;
+    const SHOP_NEED_DELTA = 35;
+    const SHOP_ENERGY_PRICE = 20;
+    const SHOP_ENERGY_DELTA = 25;
+    const SHOP_CANVAS_LONG_PRICE = 65;
+    const SHOP_CANVAS_WIDE_PRICE = 65;
+    const SHOP_CANVAS_BIG_PRICE = 110;
+    const SHOP_CANVAS_CUSTOM_PRICE_PER_CELL = 0.04;
+    const SHOP_PALETTE_UPGRADE_BASE_PRICE = 70;
+    const SHOP_PALETTE_UPGRADE_STEP_PRICE = 35;
+    const SHOP_PALETTE_MAX_SLOTS = 14;
+    const SHOP_COMPUTER_PRICE = 180;
+    const SHOP_PROGRESS_RESET_PRICE = 900;
+    const SHOP_FOOD_VARIANTS = [
+        { id: 'apple', label: 'Apple', hungerGain: 18, price: 19, spritePath: 'FoodSprites/Apple.png' },
+        { id: 'burger', label: 'Burger', hungerGain: 32, price: 35, spritePath: 'FoodSprites/Burger.png' },
+        { id: 'sandwich', label: 'Sandwich', hungerGain: 24, price: 26, spritePath: 'FoodSprites/Sandwhich.png' },
+        { id: 'energy-drink', label: 'Energy Drink', energyGain: 25, price: 20, spritePath: 'FoodSprites/EnergyDrink.png' },
+    ];
+    let FOOD_ITEM_SIZE = 122;
+    let FOOD_GRAVITY = 0.45;
+    let FOOD_MAX_FALL_SPEED = 8;
+    let FOOD_FLOOR_Y = 0.65;
+    const FOOD_DROP_HITBOX_SCALE = 0.55;
+    const FOOD_HOVER_OUTLINE_COLOUR = [235, 135, 42, 245];
+
+    // --- Theme presets ---
+    const GALLERY_WALL_THEMES = [
+        { id: 'sage', label: 'Sage Mist', colour: [220, 242, 210], price: 0 },
+        { id: 'linen', label: 'Warm Linen', colour: [244, 236, 217], price: 55 },
+        { id: 'clay', label: 'Terracotta Clay', colour: [232, 202, 176], price: 65 },
+        { id: 'slate', label: 'Slate Blue', colour: [188, 203, 218], price: 80 },
+    ];
+    const STUDIO_WALL_THEMES = [
+        { id: 'cloud', label: 'Cloud Studio', colour: [242, 238, 229], price: 0 },
+        { id: 'rose', label: 'Rose Studio', colour: [245, 226, 225], price: 35 },
+        { id: 'ink', label: 'Ink Studio', colour: [220, 228, 236], price: 45 },
+        { id: 'moss', label: 'Moss Studio', colour: [224, 233, 214], price: 45 },
+    ];
+    const STUDIO_DECOR_THEMES = [
+        { id: 'frame-favorite', label: 'Framed favorite painting', price: 200, spritePath: null, worldX: 0.82, worldY: 0.2, spriteW: 120, spriteH: 120 },
+        { id: 'plant-vase', label: 'Plant Vase', price: 35, spritePath: 'Environment/PlantVase.png', worldX: 0.72, worldY: 0.42, spriteW: 130, spriteH: 130 },
+        { id: 'golden-statue', label: 'Golden Statue', price: 350, spritePath: 'Environment/GoldenStatue.png', worldX: 0.62, worldY: 0.42, spriteW: 150, spriteH: 150 },
+        { id: 'pet-mush', label: 'Pet Mush', price: 100, spritePath: 'Environment/PetMush.png', worldX: 0.8, worldY: 0.5, spriteW: 128, spriteH: 128 },
+        { id: 'lamp', label: 'Lamp', price: 50, spritePath: 'Environment/Lamp.png', worldX: 0.8, worldY: 0.5, spriteW: 128, spriteH: 128 },
+        { id: 'expensive_painting', label: 'Expensive Painting', price: 600, spritePath: 'Environment/ExpensivePainting.png', worldX: 0.8, worldY: 0.5, spriteW: 128, spriteH: 128 },
+    ];
+    const BASE_COLOR_SCHEME_COUNT = 6;
+    const PAINT_BLACK = [20, 20, 20];
+    const PAINT_WHITE = [255, 255, 255];
 
     // Art market preferences. Add new buyers by appending objects with these fields.
     const BUYER_PROFILES = [
@@ -373,50 +516,15 @@ new p5(function(p) {
         maxScale: 2.8,
         isPanning: false,
         isVisible: false,
+        openedViaCanvasButton: false,
+        canvasButtonAnchorX: null,
+        canvasButtonAnchorY: null,
         isZoomedTab: false,
         spaceDown: false,
     };
 
     let paintModeEnabled = false;
     let selectedPaintColourIndex = 0;
-    const GRID_TAB_HEIGHT = 22;
-    const GRID_TAB_GAP = 6;
-    const GRID_TAB_BUTTON_W = 22;
-    const GRID_PANEL_PADDING = 10;
-    const ARCHIVE_PREVIEW_SYNC_MS = 180;
-
-    const SHOP_NEED_PRICE = 25;
-    const SHOP_NEED_DELTA = 35;
-    const SHOP_ENERGY_PRICE = 20;
-    const SHOP_ENERGY_DELTA = 25;
-    const SHOP_CANVAS_LONG_PRICE = 65;
-    const SHOP_CANVAS_WIDE_PRICE = 65;
-    const SHOP_CANVAS_BIG_PRICE = 110;
-    const SHOP_CANVAS_CUSTOM_PRICE_PER_CELL = 0.04;
-    const SHOP_PALETTE_UPGRADE_BASE_PRICE = 70;
-    const SHOP_PALETTE_UPGRADE_STEP_PRICE = 35;
-    const SHOP_PALETTE_MAX_SLOTS = 14;
-    const SHOP_COMPUTER_PRICE = 180;
-    const GALLERY_WALL_THEMES = [
-        { id: 'sage', label: 'Sage Mist', colour: [220, 242, 210], price: 0 },
-        { id: 'linen', label: 'Warm Linen', colour: [244, 236, 217], price: 55 },
-        { id: 'clay', label: 'Terracotta Clay', colour: [232, 202, 176], price: 65 },
-        { id: 'slate', label: 'Slate Blue', colour: [188, 203, 218], price: 80 },
-    ];
-    const STUDIO_WALL_THEMES = [
-        { id: 'cloud', label: 'Cloud Studio', colour: [242, 238, 229], price: 0 },
-        { id: 'rose', label: 'Rose Studio', colour: [245, 226, 225], price: 35 },
-        { id: 'ink', label: 'Ink Studio', colour: [220, 228, 236], price: 45 },
-        { id: 'moss', label: 'Moss Studio', colour: [224, 233, 214], price: 45 },
-    ];
-    const STUDIO_DECOR_THEMES = [
-        { id: 'frame-favorite', label: 'Framed favorite painting', price: 40 },
-        { id: 'plant', label: 'Small plant', price: 18 },
-        { id: 'lamp', label: 'Soft lamp', price: 22 },
-    ];
-    const BASE_COLOR_SCHEME_COUNT = 6;
-    const PAINT_BLACK = [20, 20, 20];
-    const PAINT_WHITE = [255, 255, 255];
 
     let paletteUpgradeCount = 0;
     let hasComputerUpgrade = false;
@@ -426,7 +534,6 @@ new p5(function(p) {
     let activeStudioWallThemeId = 'cloud';
     let studioWallColour = [242, 238, 229];
     let ownedStudioDecorThemeIds = ['frame-favorite'];
-    let activeStudioDecorThemeId = 'frame-favorite';
     let studioFavoritePaintingImage = null;
     let studioFavoritePaintingSerial = null;
     let studioFavoritePaintingPendingSerial = null;
@@ -434,6 +541,31 @@ new p5(function(p) {
     let frozenSchemeSlots = [];
     let frozenSchemeValues = [];
     let archivedPreviewDirty = false;
+    let foodSprites = new Map();
+    let foodOutlineSprites = new Map();
+    let pendingFoodSpriteLoads = new Set();
+    let studioDecorSprites = new Map();
+    let pendingStudioDecorSpriteLoads = new Set();
+    let foodItems = [];
+    let nextFoodItemId = 1;
+    let draggedFoodItemId = null;
+    let foodDragOffsetX = 0;
+    let foodDragOffsetY = 0;
+    let creatureFoodHoverActive = false;
+    let energyDrinkGridBoostActive = false;
+    let creatureQuestionState = {
+        active: false,
+        type: null,
+        prompt: '',
+        nextAtMs: 0,
+    };
+    let soundEffectTemplates = {};
+    let soundEffectLastPlayAt = {};
+    let shopMusicAudio = null;
+    let ownedShopMusicTrackIds = [];
+    let activeShopMusicTrackId = null;
+    let paintbrushButtonSprite = null;
+    let exitButtonSprite = null;
 
         function getGalleryWallThemeById(themeId) {
             return GALLERY_WALL_THEMES.find(theme => theme.id === themeId) || GALLERY_WALL_THEMES[0];
@@ -493,6 +625,89 @@ new p5(function(p) {
             studioWallColour = [...theme.colour];
         }
 
+        function getShopMusicTrackById(trackId) {
+            return SHOP_MUSIC_TRACKS.find(track => track.id === trackId) || SHOP_MUSIC_TRACKS[0];
+        }
+
+        function ensureShopMusicState() {
+            if (!Array.isArray(ownedShopMusicTrackIds)) {
+                ownedShopMusicTrackIds = [];
+            }
+
+            let validIds = new Set(SHOP_MUSIC_TRACKS.map(track => track.id));
+            ownedShopMusicTrackIds = ownedShopMusicTrackIds
+                .filter(id => validIds.has(id))
+                .filter((id, idx, arr) => arr.indexOf(id) === idx);
+
+            if (activeShopMusicTrackId && (!validIds.has(activeShopMusicTrackId) || !ownedShopMusicTrackIds.includes(activeShopMusicTrackId))) {
+                activeShopMusicTrackId = ownedShopMusicTrackIds[0] || null;
+            }
+        }
+
+        function stopShopMusic() {
+            if (shopMusicAudio) {
+                shopMusicAudio.pause();
+                shopMusicAudio.currentTime = 0;
+            }
+            shopMusicAudio = null;
+        }
+
+        function playShopMusic(trackId) {
+            ensureShopMusicState();
+            let track = getShopMusicTrackById(trackId);
+            if (!track || !ownedShopMusicTrackIds.includes(track.id)) return;
+
+            if (shopMusicAudio && activeShopMusicTrackId !== track.id) {
+                stopShopMusic();
+            }
+
+            if (!shopMusicAudio) {
+                shopMusicAudio = new Audio(track.path);
+                shopMusicAudio.loop = true;
+                shopMusicAudio.preload = 'auto';
+                shopMusicAudio.volume = SHOP_MUSIC_VOLUME;
+            }
+
+            activeShopMusicTrackId = track.id;
+            shopMusicAudio.currentTime = 0;
+            shopMusicAudio.play().catch(() => {});
+        }
+
+        function buyOrPlayShopMusic(trackId) {
+            ensureShopMusicState();
+            let track = getShopMusicTrackById(trackId);
+            if (!track) return;
+
+            let owned = ownedShopMusicTrackIds.includes(track.id);
+            let wasPurchasedNow = false;
+            if (!owned && track.price > 0) {
+                if (galleryCoins < track.price) {
+                    setShopStatus('Not enough coins for that music track.', true);
+                    return;
+                }
+                galleryCoins -= track.price;
+                playSoundEffect('purchase');
+                ownedShopMusicTrackIds.push(track.id);
+                setShopStatus(`Purchased music track: ${track.label}`);
+                wasPurchasedNow = true;
+            } else if (!owned) {
+                ownedShopMusicTrackIds.push(track.id);
+                setShopStatus(`Unlocked music track: ${track.label}`);
+                wasPurchasedNow = true;
+            } else if (activeShopMusicTrackId === track.id) {
+                setShopStatus(`Restarting music track: ${track.label}`);
+            } else {
+                setShopStatus(`Playing music track: ${track.label}`);
+            }
+
+            playShopMusic(track.id);
+            if (wasPurchasedNow) {
+                showShopPurchaseReaction('music', track.label);
+            }
+            refreshShopUI();
+            saveState(creature);
+        }
+
         function getStudioDecorThemeById(themeId) {
             return STUDIO_DECOR_THEMES.find(theme => theme.id === themeId) || STUDIO_DECOR_THEMES[0];
         }
@@ -509,10 +724,6 @@ new p5(function(p) {
 
             if (!ownedStudioDecorThemeIds.includes('frame-favorite')) {
                 ownedStudioDecorThemeIds.unshift('frame-favorite');
-            }
-
-            if (!validIds.has(activeStudioDecorThemeId) || !ownedStudioDecorThemeIds.includes(activeStudioDecorThemeId)) {
-                activeStudioDecorThemeId = ownedStudioDecorThemeIds[0] || 'frame-favorite';
             }
         }
     let lastArchivePreviewSyncAt = 0;
@@ -540,6 +751,229 @@ new p5(function(p) {
         };
     }
 
+    function applyAreaButtonLayoutVariables() {
+        let rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--area-sprite-size', `${AREA_BUTTON_LAYOUT.spriteSize}px`);
+        rootStyle.setProperty('--search-open-button-x', `${AREA_BUTTON_LAYOUT.searchButtonX}%`);
+        rootStyle.setProperty('--search-open-button-y', `${AREA_BUTTON_LAYOUT.searchButtonY}%`);
+        rootStyle.setProperty('--gallery-open-button-bottom', `${AREA_BUTTON_LAYOUT.galleryButtonBottom}px`);
+        rootStyle.setProperty('--search-screen-left', `${AREA_BUTTON_LAYOUT.searchScreenLeft}%`);
+        rootStyle.setProperty('--search-screen-top', `${AREA_BUTTON_LAYOUT.searchScreenTop}%`);
+        rootStyle.setProperty('--search-screen-width', `${AREA_BUTTON_LAYOUT.searchScreenWidth}%`);
+        rootStyle.setProperty('--search-screen-height', `${AREA_BUTTON_LAYOUT.searchScreenHeight}%`);
+        rootStyle.setProperty('--search-screen-object-position', AREA_BUTTON_LAYOUT.searchScreenObjectPosition);
+        rootStyle.setProperty('--search-hitbox-top', `${AREA_BUTTON_LAYOUT.searchHitboxTop}%`);
+        rootStyle.setProperty('--search-hitbox-right', `${AREA_BUTTON_LAYOUT.searchHitboxRight}%`);
+        rootStyle.setProperty('--search-hitbox-bottom', `${AREA_BUTTON_LAYOUT.searchHitboxBottom}%`);
+        rootStyle.setProperty('--search-hitbox-left', `${AREA_BUTTON_LAYOUT.searchHitboxLeft}%`);
+        rootStyle.setProperty('--canvas-hitbox-top', `${AREA_BUTTON_LAYOUT.canvasHitboxTop}%`);
+        rootStyle.setProperty('--canvas-hitbox-right', `${AREA_BUTTON_LAYOUT.canvasHitboxRight}%`);
+        rootStyle.setProperty('--canvas-hitbox-bottom', `${AREA_BUTTON_LAYOUT.canvasHitboxBottom}%`);
+        rootStyle.setProperty('--canvas-hitbox-left', `${AREA_BUTTON_LAYOUT.canvasHitboxLeft}%`);
+        rootStyle.setProperty('--grid-canvas-z-index', `${Math.floor(Number(GRID_CANVAS_Z_INDEX) || 0)}`);
+        rootStyle.setProperty('--open-area-buttons-z-index', `${Math.floor(Number(AREA_OPEN_BUTTONS_Z_INDEX) || 2)}`);
+        rootStyle.setProperty('--canvas-tab-button-z-index', `${Math.floor(Number(GRID_CANVAS_Z_INDEX) || 0)}`);
+    }
+
+    function isEnergyDrinkBoostActive(currentCreature = creature) {
+        return !!energyDrinkGridBoostActive
+            && !!currentCreature
+            && Number(currentCreature.energy) > ENERGY_DRINK_BOOST_TARGET_ENERGY;
+    }
+
+    function scheduleNextCreatureQuestion(nowMs = p.millis()) {
+        let minDelay = p.max(5000, Number(CREATURE_QUESTION_MIN_INTERVAL_MS) || 45000);
+        let maxDelay = p.max(minDelay + 1000, Number(CREATURE_QUESTION_MAX_INTERVAL_MS) || 95000);
+        creatureQuestionState.nextAtMs = nowMs + p.random(minDelay, maxDelay);
+    }
+
+    function pickCreatureQuestionType() {
+        let roll = p.random();
+        if (roll < 0.34) return 'colours';
+        if (roll < 0.67) return 'precision';
+        return 'noise';
+    }
+
+    function buildCreatureQuestionPrompt(type) {
+        if (type === 'precision') {
+            return 'Should I be more precise or more abstract right now? [expr:nervous]';
+        }
+        if (type === 'noise') {
+            return 'Do you want noisier or cleaner style while I paint this one? [expr:neutral]';
+        }
+        return 'Are these colours working, or should I shift the palette now? [expr:confident]';
+    }
+
+    function maybeStartCreatureQuestion(c) {
+        if (!c || creatureQuestionState.active) return;
+        if (generationPaused || isRestingNow()) return;
+        if (!c.isWatched) return;
+        let now = p.millis();
+        if (now < creatureQuestionState.nextAtMs) return;
+
+        let type = pickCreatureQuestionType();
+        creatureQuestionState.active = true;
+        creatureQuestionState.type = type;
+        creatureQuestionState.prompt = buildCreatureQuestionPrompt(type);
+        generationPaused = true;
+    }
+
+    function openCreatureQuestionInteraction() {
+        if (!creatureQuestionState.active) return;
+
+        if (typeof window._showNpcDialogueWithExpr === 'function') {
+            window._showNpcDialogueWithExpr(
+                creatureQuestionState.prompt || buildCreatureQuestionPrompt(creatureQuestionState.type || 'colours')
+            );
+        }
+
+        if (typeof window._openRadialForQuestion === 'function') {
+            window._openRadialForQuestion(creatureQuestionState.type || 'colours');
+        } else if (ui.radialMenu) {
+            ui.radialMenu.classList.add('radial-active');
+        }
+        if (ui.radialMenu) updateRadialMenuPosition(creature);
+    }
+
+    function drawCreatureQuestionIndicator(c) {
+        if (!creatureQuestionState.active || !c) return;
+        p.push();
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textSize(44);
+        p.fill(255, 243, 120, 240);
+        p.stroke(40, 40, 40, 180);
+        p.strokeWeight(2.5);
+        p.text('!', c.x, c.y + CREATURE_QUESTION_MARK_OFFSET_Y);
+        p.pop();
+    }
+
+    function onLikeColoursFeedbackImmediate() {
+        if (colourPreference.mode === 'like' && Array.isArray(colourPreference.targetScheme)) {
+            colourPreference.targetScheme = blendSchemeToward(colourPreference.targetScheme, colorScheme, 0.5);
+            colourPreference.likeStreak = Math.min(10, (colourPreference.likeStreak || 0) + 1);
+        } else {
+            colourPreference.targetScheme = colorScheme.map(col => [...col]);
+            colourPreference.likeStreak = 1;
+        }
+        colourPreference.mode = 'like';
+        // Keep current colours unchanged for in-generation question feedback.
+        colorScheme = colorScheme.map(col => [...col]);
+        applyFrozenSchemeConstraints();
+        lastFeedbackAction = 'like-colours-now';
+    }
+
+    function onDislikeColoursFeedbackImmediate() {
+        colourPreference.mode = 'dislike';
+        colourPreference.targetScheme = colorScheme.map(col => [...col]);
+        colourPreference.likeStreak = 0;
+        colorScheme = buildDislikedScheme(colorScheme);
+        applyFrozenSchemeConstraints();
+        lastFeedbackAction = 'dislike-colours-now';
+    }
+
+    function onLikeStyleFeedbackImmediate() {
+        let wasLike = stylePreference.mode === 'like';
+        let snap = captureCurrentStyleSnapshot();
+        if (wasLike && stylePreference.target) {
+            stylePreference.target = {
+                referenceRulePrecision: p.lerp(stylePreference.target.referenceRulePrecision, snap.referenceRulePrecision, 0.5),
+                colorSchemeOffsetRange: p.lerp(stylePreference.target.colorSchemeOffsetRange, snap.colorSchemeOffsetRange, 0.5),
+                neighborSimilarRange: p.lerp(stylePreference.target.neighborSimilarRange, snap.neighborSimilarRange, 0.5),
+                referenceMatchRgbRange: p.lerp(stylePreference.target.referenceMatchRgbRange, snap.referenceMatchRgbRange, 0.5),
+                adjacentSchemeOverrideChance: p.lerp(stylePreference.target.adjacentSchemeOverrideChance, snap.adjacentSchemeOverrideChance, 0.5),
+                globalRandomColorChance: p.lerp(stylePreference.target.globalRandomColorChance, snap.globalRandomColorChance, 0.5),
+                enableGlobalRandomColorRule: snap.enableGlobalRandomColorRule,
+            };
+            stylePreference.likeStreak = Math.min(10, (stylePreference.likeStreak || 0) + 1);
+        } else {
+            stylePreference.target = snap;
+            stylePreference.likeStreak = 1;
+        }
+        stylePreference.mode = 'like';
+        applyStyleSnapshot(buildLikedStyleSnapshot(stylePreference.target));
+        lastFeedbackAction = 'like-style-now';
+    }
+
+    function onDislikeStyleFeedbackImmediate() {
+        stylePreference.mode = 'dislike';
+        stylePreference.target = captureCurrentStyleSnapshot();
+        stylePreference.likeStreak = 0;
+        applyStyleSnapshot(buildDislikedStyleSnapshot(stylePreference.target));
+        lastFeedbackAction = 'dislike-style-now';
+    }
+
+    function getOfflineLikedStyleSnapshot() {
+        if (stylePreference && stylePreference.mode === 'like' && stylePreference.target) {
+            return {
+                referenceRulePrecision: Number(stylePreference.target.referenceRulePrecision) || REFERENCE_RULE_PRECISION,
+                colorSchemeOffsetRange: Number(stylePreference.target.colorSchemeOffsetRange) || COLOR_SCHEME_OFFSET_RANGE,
+                neighborSimilarRange: Number(stylePreference.target.neighborSimilarRange) || NEIGHBOR_SIMILAR_RANGE,
+                referenceMatchRgbRange: Number(stylePreference.target.referenceMatchRgbRange) || REFERENCE_MATCH_RGB_RANGE,
+                adjacentSchemeOverrideChance: Number(stylePreference.target.adjacentSchemeOverrideChance) || ADJACENT_SCHEME_OVERRIDE_CHANCE,
+                globalRandomColorChance: Number(stylePreference.target.globalRandomColorChance) || GLOBAL_RANDOM_COLOR_CHANCE,
+                enableGlobalRandomColorRule: !!stylePreference.target.enableGlobalRandomColorRule,
+            };
+        }
+        if (easyStyleProfile && easyStyleProfile.style) {
+            return { ...easyStyleProfile.style };
+        }
+        return captureCurrentStyleSnapshot();
+    }
+
+    function getOfflineLikedColourScheme() {
+        if (colourPreference && colourPreference.mode === 'like' && Array.isArray(colourPreference.targetScheme) && colourPreference.targetScheme.length > 0) {
+            return colourPreference.targetScheme.map(col => [...col]);
+        }
+        if (Array.isArray(colorScheme) && colorScheme.length > 0) {
+            return colorScheme.map(col => [...col]);
+        }
+        if (easyStyleProfile && Array.isArray(easyStyleProfile.colorScheme) && easyStyleProfile.colorScheme.length > 0) {
+            return easyStyleProfile.colorScheme.map(col => [...col]);
+        }
+        return [[20, 20, 20], [255, 255, 255]];
+    }
+
+    function synthesizeOfflinePaintingHours(hoursAway) {
+        let paintingsToCreate = Math.max(0, Math.floor(Number(hoursAway) || 0));
+        if (paintingsToCreate <= 0 || !ui.generationStripList) return 0;
+
+        let baseStyle = getOfflineLikedStyleSnapshot();
+        let baseScheme = getOfflineLikedColourScheme();
+
+        let styleBackup = captureCurrentStyleSnapshot();
+        let schemeBackup = Array.isArray(colorScheme) ? colorScheme.map(col => [...col]) : [];
+        let pausedBackup = generationPaused;
+
+        for (let i = 0; i < paintingsToCreate; i++) {
+            applyStyleSnapshot(baseStyle);
+            colorScheme = baseScheme.map(col => [...col]);
+            initColorGrid();
+
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    gridColors[r][c] = schemeConstrainedColour(COLOR_SCHEME_OFFSET_RANGE);
+                    markGridChanged(r, c);
+                }
+            }
+
+            generationPaused = true;
+            archiveCurrentGeneration('offline-hourly');
+            generationSerial += 1;
+            archivedGenerationSerial = 0;
+        }
+
+        applyStyleSnapshot(styleBackup);
+        colorScheme = schemeBackup.length ? schemeBackup.map(col => [...col]) : colorScheme;
+        initColorGrid();
+        generationPaused = pausedBackup;
+        refreshShopUI();
+        rebuildGenerationStripFromHistory();
+        updateGenerationStripControls();
+        saveGenerationHistoryToStorage();
+
+        return paintingsToCreate;
+    }
+
     function getGridSpacePoint(mx, my) {
         return {
             x: (mx - gridView.panX) / gridView.scale,
@@ -549,8 +983,8 @@ new p5(function(p) {
 
     function getCreatureHomePosition() {
         return {
-            x: (p.width * 0.5) + CREATURE_CENTER_OFFSET_X,
-            y: (p.height * 0.5) + CREATURE_CENTER_OFFSET_Y,
+            x: (p.width * CREATURE_HOME_X) + CREATURE_CENTER_OFFSET_X,
+            y: (p.height * CREATURE_HOME_Y) + CREATURE_CENTER_OFFSET_Y,
         };
     }
 
@@ -772,6 +1206,12 @@ new p5(function(p) {
         p.tint(255, c.bodyAlpha);
         p.drawingContext.imageSmoothingEnabled = false;
         p.imageMode(p.CENTER);
+        if (creatureFoodHoverActive) {
+            let outlineBuffer = buildSpriteOutlineBuffer(sleepingFrameBuffer, FOOD_HOVER_OUTLINE_COLOUR);
+            if (outlineBuffer) {
+                p.image(outlineBuffer, 0, 0, drawW, drawH);
+            }
+        }
         p.image(sleepingFrameBuffer, 0, 0, drawW, drawH);
         p.pop();
         return true;
@@ -879,6 +1319,57 @@ new p5(function(p) {
         if (ui.referencePromptInput) ui.referencePromptInput.disabled = isPending || !hasComputerUpgrade;
         if (ui.radialPromptSubmit) ui.radialPromptSubmit.disabled = isPending || !hasComputerUpgrade;
         if (ui.radialPromptInput) ui.radialPromptInput.disabled = isPending || !hasComputerUpgrade;
+        refreshAreaButtonSprites();
+    }
+
+    function getSearchOpenButtonPreviewImage() {
+        if (queuedReferenceForNextGeneration && queuedReferenceForNextGeneration.thumbnailUrl) {
+            return queuedReferenceForNextGeneration.thumbnailUrl;
+        }
+
+        if (activeReferencePreview && activeReferencePreview.imageUrl) {
+            let caption = activeReferencePreview.caption || '';
+            if (caption.startsWith('Active: prompt reference') || caption.startsWith('Active: expression sprite')) {
+                return activeReferencePreview.imageUrl;
+            }
+        }
+
+        return '';
+    }
+
+    function getSearchOpenButtonState() {
+        if (!hasComputerUpgrade) return 'locked';
+        if (referenceSearchPending) return 'search';
+        if (getSearchOpenButtonPreviewImage()) return 'display';
+        return 'idle';
+    }
+
+    function refreshAreaButtonSprites() {
+        if (!ui.searchOpenButton) return;
+
+        let state = getSearchOpenButtonState();
+        ui.searchOpenButton.dataset.spriteState = state;
+
+        if (ui.searchOpenSprite) {
+            if (state === 'search') {
+                ui.searchOpenSprite.src = SEARCH_COMPUTER_SEARCH_SPRITE_PATH;
+            } else if (state === 'display') {
+                ui.searchOpenSprite.src = SEARCH_COMPUTER_DISPLAY_SPRITE_PATH;
+            } else {
+                ui.searchOpenSprite.src = SEARCH_COMPUTER_IDLE_SPRITE_PATH;
+            }
+        }
+
+        if (ui.searchOpenScreenImage) {
+            let previewImage = state === 'display' ? getSearchOpenButtonPreviewImage() : '';
+            if (previewImage) {
+                ui.searchOpenScreenImage.src = previewImage;
+                ui.searchOpenScreenImage.hidden = false;
+            } else {
+                ui.searchOpenScreenImage.removeAttribute('src');
+                ui.searchOpenScreenImage.hidden = true;
+            }
+        }
     }
 
     function refreshReferencePreviewCard() {
@@ -909,6 +1400,7 @@ new p5(function(p) {
         }
 
         ui.referencePreviewCaption.textContent = previewCaption;
+        refreshAreaButtonSprites();
     }
 
     function normalizeOpenverseThumbnailUrl(rawUrl) {
@@ -1138,6 +1630,14 @@ new p5(function(p) {
         if (ui.radialPromptStatus) ui.radialPromptStatus.textContent = '';
     }
 
+    function toggleRadialPromptModal() {
+        if (ui.radialPromptModal && ui.radialPromptModal.classList.contains('active')) {
+            closeRadialPromptModal();
+            return;
+        }
+        openRadialPromptModal();
+    }
+
     function openRadialPromptModal() {
         if (!hasComputerUpgrade) {
             if (ui.radialPromptStatus) {
@@ -1156,6 +1656,28 @@ new p5(function(p) {
             ui.radialPromptInput.value = seed || '';
             window.requestAnimationFrame(() => ui.radialPromptInput.focus());
         }
+    }
+
+    function toggleGridView() {
+        let opening = !gridView.isVisible;
+        gridView.isVisible = opening;
+        gridView.openedViaCanvasButton = opening;
+        if (opening) {
+            let scaleBounds = getGridScaleBoundsFromPanelSize();
+            gridView.scale = p.constrain(GRID_DEFAULT_OPEN_SCALE, scaleBounds.min, scaleBounds.max);
+            gridView.isZoomedTab = false;
+        }
+        if (!gridView.isVisible) {
+            gridView.isPanning = false;
+            gridView.isZoomedTab = false;
+        }
+    }
+
+    function getActiveGridCellSize() {
+        if (gridView.isVisible && gridView.openedViaCanvasButton) {
+            return p.max(6, p.floor(GRID_SIZE * GRID_BUTTON_OPEN_SIZE_MULTIPLIER));
+        }
+        return GRID_SIZE;
     }
 
     function onRadialPromptInputKeyDown(event) {
@@ -1191,6 +1713,7 @@ new p5(function(p) {
         cnv.elt.addEventListener('contextmenu', event => event.preventDefault());
         p.noSmooth();
         cnv.elt.style.imageRendering = 'pixelated';
+        applyAreaButtonLayoutVariables();
 
         let home = getCreatureHomePosition();
         creature = createCreature(home.x, home.y);
@@ -1206,6 +1729,16 @@ new p5(function(p) {
             SLEEPING_SPRITE_SHEET_PATH,
             (img) => { sleepingSpriteSheet = img; },
             (err) => { console.warn('Sleeping animation sprite failed to load:', err); }
+        );
+        p.loadImage(
+            PAINTBRUSH_BUTTON_SPRITE_PATH,
+            (img) => { paintbrushButtonSprite = img; },
+            () => {}
+        );
+        p.loadImage(
+            EXIT_BUTTON_SPRITE_PATH,
+            (img) => { exitButtonSprite = img; },
+            () => {}
         );
         initColorGrid();
         generateColorScheme();
@@ -1270,12 +1803,19 @@ new p5(function(p) {
         ui.radialPromptStatus = document.getElementById('ui-radial-prompt-status');
         ui.shopOpenButton = document.getElementById('ui-shop-open-btn');
         ui.searchOpenButton = document.getElementById('ui-search-open-btn');
+        ui.searchOpenSprite = document.getElementById('ui-search-open-sprite');
+        ui.searchOpenScreenImage = document.getElementById('ui-search-open-screen-image');
         ui.galleryOpenButton = document.getElementById('ui-gallery-open-btn');
         ui.reopenGridButton = document.getElementById('ui-reopen-grid-btn');
+        ui.reopenGridSprite = document.getElementById('ui-reopen-grid-sprite');
+        if (ui.searchOpenSprite) ui.searchOpenSprite.src = SEARCH_COMPUTER_IDLE_SPRITE_PATH;
+        if (ui.reopenGridSprite) ui.reopenGridSprite.src = CANVAS_SPRITE_PATH;
         ui.shopModal = document.getElementById('ui-shop-modal');
         ui.shopCloseButton = document.getElementById('ui-shop-close-btn');
-        ui.shopBuyNeedButton = document.getElementById('ui-shop-buy-need');
-        ui.shopBuyEnergyButton = document.getElementById('ui-shop-buy-energy');
+        ui.shopBuyFoodAppleButton = document.getElementById('ui-shop-buy-food-apple');
+        ui.shopBuyFoodBurgerButton = document.getElementById('ui-shop-buy-food-burger');
+        ui.shopBuyFoodSandwichButton = document.getElementById('ui-shop-buy-food-sandwich');
+        ui.shopBuyFoodEnergyDrinkButton = document.getElementById('ui-shop-buy-food-energy-drink');
         ui.shopBuyCanvasLongButton = document.getElementById('ui-shop-buy-canvas-long');
         ui.shopBuyCanvasWideButton = document.getElementById('ui-shop-buy-canvas-wide');
         ui.shopBuyCanvasBigButton = document.getElementById('ui-shop-buy-canvas-big');
@@ -1284,13 +1824,19 @@ new p5(function(p) {
         ui.shopCustomRowsInput = document.getElementById('ui-shop-custom-rows');
         ui.shopBuyPaletteButton = document.getElementById('ui-shop-buy-palette');
         ui.shopBuyComputerButton = document.getElementById('ui-shop-buy-computer');
+        ui.shopBuyProgressResetButton = document.getElementById('ui-shop-buy-progress-reset');
+        ui.shopMusicClassicalButton = document.getElementById('ui-shop-music-classical');
         ui.shopStudioWallCloudButton = document.getElementById('ui-shop-studio-wall-cloud');
         ui.shopStudioWallRoseButton = document.getElementById('ui-shop-studio-wall-rose');
         ui.shopStudioWallInkButton = document.getElementById('ui-shop-studio-wall-ink');
         ui.shopStudioWallMossButton = document.getElementById('ui-shop-studio-wall-moss');
         ui.shopStudioDecorFavoriteButton = document.getElementById('ui-shop-studio-decor-fav');
-        ui.shopStudioDecorPlantButton = document.getElementById('ui-shop-studio-decor-plant');
-        ui.shopStudioDecorLampButton = document.getElementById('ui-shop-studio-decor-light');
+        ui.shopStudioDecorPlantVaseButton = document.getElementById('ui-shop-studio-decor-plant-vase');
+        ui.shopStudioDecorGoldenStatueButton = document.getElementById('ui-shop-studio-decor-golden-statue');
+        ui.shopStudioDecorPetMushButton = document.getElementById('ui-shop-studio-decor-pet-mush');
+        ui.shopStudioDecorLampButton = document.getElementById('ui-shop-studio-decor-lamp');
+        ui.shopStudioDecorExpensivePaintingButton = document.getElementById('ui-shop-studio-decor-expensive-painting');
+
         ui.shopWallSageButton = document.getElementById('ui-shop-wall-sage');
         ui.shopWallLinenButton = document.getElementById('ui-shop-wall-linen');
         ui.shopWallClayButton = document.getElementById('ui-shop-wall-clay');
@@ -1339,7 +1885,11 @@ new p5(function(p) {
             ui.shopOpenButton.addEventListener('click', openShopModal);
         }
         if (ui.searchOpenButton) {
-            ui.searchOpenButton.addEventListener('click', openRadialPromptModal);
+            ui.searchOpenButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleRadialPromptModal();
+            });
         }
         if (ui.galleryOpenButton) {
             ui.galleryOpenButton.addEventListener('click', () => {
@@ -1347,18 +1897,26 @@ new p5(function(p) {
             });
         }
         if (ui.reopenGridButton) {
-            ui.reopenGridButton.addEventListener('click', () => {
-                gridView.isVisible = true;
+            ui.reopenGridButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleGridView();
             });
         }
         if (ui.shopCloseButton) {
             ui.shopCloseButton.addEventListener('click', closeShopModal);
         }
-        if (ui.shopBuyNeedButton) {
-            ui.shopBuyNeedButton.addEventListener('click', buyShopNeedRelief);
+        if (ui.shopBuyFoodAppleButton) {
+            ui.shopBuyFoodAppleButton.addEventListener('click', () => buyFoodItem('apple'));
         }
-        if (ui.shopBuyEnergyButton) {
-            ui.shopBuyEnergyButton.addEventListener('click', buyShopEnergySnack);
+        if (ui.shopBuyFoodBurgerButton) {
+            ui.shopBuyFoodBurgerButton.addEventListener('click', () => buyFoodItem('burger'));
+        }
+        if (ui.shopBuyFoodSandwichButton) {
+            ui.shopBuyFoodSandwichButton.addEventListener('click', () => buyFoodItem('sandwich'));
+        }
+        if (ui.shopBuyFoodEnergyDrinkButton) {
+            ui.shopBuyFoodEnergyDrinkButton.addEventListener('click', () => buyFoodItem('energy-drink'));
         }
         if (ui.shopBuyCanvasLongButton) {
             ui.shopBuyCanvasLongButton.addEventListener('click', () => buyCanvasPreset('long', 52, 24, SHOP_CANVAS_LONG_PRICE));
@@ -1384,6 +1942,12 @@ new p5(function(p) {
         if (ui.shopBuyComputerButton) {
             ui.shopBuyComputerButton.addEventListener('click', buyComputerUpgrade);
         }
+        if (ui.shopBuyProgressResetButton) {
+            ui.shopBuyProgressResetButton.addEventListener('click', buyProgressReset);
+        }
+        if (ui.shopMusicClassicalButton) {
+            ui.shopMusicClassicalButton.addEventListener('click', () => buyOrPlayShopMusic('classical-background'));
+        }
         if (ui.shopStudioWallCloudButton) {
             ui.shopStudioWallCloudButton.addEventListener('click', () => buyOrSelectStudioWall('cloud'));
         }
@@ -1399,12 +1963,22 @@ new p5(function(p) {
         if (ui.shopStudioDecorFavoriteButton) {
             ui.shopStudioDecorFavoriteButton.addEventListener('click', () => buyOrSelectStudioDecor('frame-favorite'));
         }
-        if (ui.shopStudioDecorPlantButton) {
-            ui.shopStudioDecorPlantButton.addEventListener('click', () => buyOrSelectStudioDecor('plant'));
+        if (ui.shopStudioDecorPlantVaseButton) {
+            ui.shopStudioDecorPlantVaseButton.addEventListener('click', () => buyOrSelectStudioDecor('plant-vase'));
+        }
+        if (ui.shopStudioDecorGoldenStatueButton) {
+            ui.shopStudioDecorGoldenStatueButton.addEventListener('click', () => buyOrSelectStudioDecor('golden-statue'));
+        }
+        if (ui.shopStudioDecorPetMushButton) {
+            ui.shopStudioDecorPetMushButton.addEventListener('click', () => buyOrSelectStudioDecor('pet-mush'));
         }
         if (ui.shopStudioDecorLampButton) {
             ui.shopStudioDecorLampButton.addEventListener('click', () => buyOrSelectStudioDecor('lamp'));
         }
+        if (ui.shopStudioDecorExpensivePaintingButton) {
+            ui.shopStudioDecorExpensivePaintingButton.addEventListener('click', () => buyOrSelectStudioDecor('expensive_painting'));
+        }
+
         if (ui.shopWallSageButton) {
             ui.shopWallSageButton.addEventListener('click', () => buyOrSelectGalleryWall('sage'));
         }
@@ -1457,6 +2031,13 @@ new p5(function(p) {
         setReferenceSearchPendingState(false);
         loadGridDimensions();
         loadGenerationHistoryFromStorage();
+        if (creature && creature.lastVisit) {
+            let hoursAway = Math.min((Date.now() - creature.lastVisit) / 3600000, AFK_MAX_HOURS);
+            synthesizeOfflinePaintingHours(hoursAway);
+        }
+        scheduleNextCreatureQuestion();
+        ensureFoodSprites();
+        ensureStudioDecorSprites();
 
 
 
@@ -1474,12 +2055,18 @@ new p5(function(p) {
     // ============================================================
 
     p.draw = function() {
+        applyActiveGalleryWallTheme();
+        applyActiveStudioWallTheme();
         p.background(...bgColour);
 
         updateMic(creature);
         drawStudioEnvironment(creature);
         updateCreature(creature);
+        maybeStartCreatureQuestion(creature);
+        updateFoodDragHoverState();
         drawCreature(creature);
+        drawCreatureQuestionIndicator(creature);
+        drawFoodItems();
         drawWorldAreaButtons(creature);
         drawLongRestMeter(creature);
         randomizeGridSquareOverTime();
@@ -1723,21 +2310,28 @@ new p5(function(p) {
             c.sleepTimer--;
         }
 
-        // Need (hunger meter) drains over time
-        let rate = c.isWatched ? DECAY_RATE : AWAY_RATE;
-            let isGenerating = !generationPaused && !isRestingNow();
-            let tiredRate = 0;
+        // Need (hunger meter) now decays at one consistent rate over time.
+        let hungerRate = DECAY_RATE;
+        let isGenerating = !generationPaused && !isRestingNow();
+        let tiredRate = 0;
 
-            if (restingActive) {
-                tiredRate = longRestActive
-                    ? -(LONG_REST_ENERGY_RECOVERY * ENERGY_INCREASE_SPEED)
-                    : -(SHORT_REST_ENERGY_RECOVERY * ENERGY_INCREASE_SPEED);
-            } else if (isGenerating) {
-                tiredRate = (GENERATING_ENERGY_DRAIN + (c.exciteTimer > 0 ? 0.01 : 0)) * ENERGY_DECREASE_SPEED;
+        if (restingActive) {
+            tiredRate = longRestActive
+                ? -(LONG_REST_ENERGY_RECOVERY * ENERGY_INCREASE_SPEED)
+                : -(SHORT_REST_ENERGY_RECOVERY * ENERGY_INCREASE_SPEED);
+        } else if (isGenerating) {
+            tiredRate = (GENERATING_ENERGY_DRAIN + (c.exciteTimer > 0 ? 0.01 : 0)) * ENERGY_DECREASE_SPEED;
+            if (isEnergyDrinkBoostActive(c)) {
+                tiredRate *= p.max(1, Number(ENERGY_DRINK_ENERGY_DRAIN_MULTIPLIER) || 1);
             }
+        }
 
-        c.need = p.constrain(c.need - rate, 0, 100);
+        c.need = p.constrain(c.need - hungerRate, 0, 100);
         c.energy = p.constrain(c.energy - tiredRate, 0, 100);
+
+        if (energyDrinkGridBoostActive && c.energy <= ENERGY_DRINK_BOOST_TARGET_ENERGY) {
+                energyDrinkGridBoostActive = false;
+        }
 
         // State machine
         c.state = getState(c);
@@ -1750,8 +2344,11 @@ new p5(function(p) {
 
         // Animation phases
         if (c.sleepTimer === 0) {
-            c.breathe += 0.018;
-            c.bob     += 0.012;
+            let animationSpeed = isEnergyDrinkBoostActive(c)
+                ? p.max(1, Number(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER) || 1)
+                : 1;
+            c.breathe += 0.018 * animationSpeed;
+            c.bob     += 0.012 * animationSpeed;
         }
 
         // Keep character anchored; excited state now affects style only, not roaming.
@@ -1836,6 +2433,243 @@ new p5(function(p) {
         p.pop();
     }
 
+    function ensureFoodSprites() {
+        if (foodSprites.size === SHOP_FOOD_VARIANTS.length) return;
+        for (let i = 0; i < SHOP_FOOD_VARIANTS.length; i++) {
+            let type = SHOP_FOOD_VARIANTS[i];
+            if (foodSprites.has(type.id) || pendingFoodSpriteLoads.has(type.id)) continue;
+            pendingFoodSpriteLoads.add(type.id);
+            p.loadImage(
+                type.spritePath,
+                (img) => {
+                    foodSprites.set(type.id, img);
+                    foodOutlineSprites.delete(type.id);
+                    pendingFoodSpriteLoads.delete(type.id);
+                },
+                () => {
+                    foodSprites.set(type.id, buildFoodSpriteGraphic(type));
+                    foodOutlineSprites.delete(type.id);
+                    pendingFoodSpriteLoads.delete(type.id);
+                }
+            );
+        }
+    }
+
+    function buildFoodSpriteGraphic(type) {
+        let g = p.createGraphics(FOOD_SPRITE_SIZE, FOOD_SPRITE_SIZE);
+        g.pixelDensity(1);
+        g.noSmooth();
+        g.clear();
+        g.noStroke();
+
+        if (type.id === 'apple') {
+            g.fill(205, 54, 46);
+            g.ellipse(21, 24, 22, 22);
+            g.fill(90, 150, 70);
+            g.ellipse(24, 12, 11, 7);
+            g.fill(85, 55, 32);
+            g.rect(20, 8, 2, 6, 1);
+        } else if (type.id === 'sandwich') {
+            g.fill(240, 137, 36);
+            g.triangle(12, 14, 30, 14, 21, 34);
+            g.fill(84, 160, 82);
+            g.rect(18, 6, 2, 8, 1);
+            g.rect(22, 5, 2, 9, 1);
+            g.rect(14, 6, 2, 7, 1);
+        } else {
+            g.fill(120, 86, 48);
+            g.ellipse(21, 27, 28, 10);
+            g.fill(214, 171, 110);
+            g.ellipse(21, 22, 24, 12);
+            g.fill(180, 90, 60);
+            g.ellipse(16, 22, 6, 4);
+            g.fill(90, 150, 80);
+            g.ellipse(24, 21, 6, 4);
+        }
+        return g;
+    }
+
+    function getFoodById(foodId) {
+        for (let i = 0; i < foodItems.length; i++) {
+            if (foodItems[i].id === foodId) return foodItems[i];
+        }
+        return null;
+    }
+
+    function getFoodTypeById(typeId) {
+        for (let i = 0; i < SHOP_FOOD_VARIANTS.length; i++) {
+            if (SHOP_FOOD_VARIANTS[i].id === typeId) return SHOP_FOOD_VARIANTS[i];
+        }
+        return SHOP_FOOD_VARIANTS[0];
+    }
+
+    function pickRandomFoodType() {
+        return SHOP_FOOD_VARIANTS[Math.floor(p.random(SHOP_FOOD_VARIANTS.length))];
+    }
+
+    function getFoodSpawnPosition() {
+        let half = FOOD_ITEM_SIZE * 0.5;
+        let x = p.constrain(p.width * 0.78 + p.random(-35, 35), half, p.width - half);
+        let y = p.constrain(p.height * 0.18 + p.random(-24, 24), half, p.height - half);
+        return { x, y };
+    }
+
+    function getFoodFloorY() {
+        let half = FOOD_ITEM_SIZE * 0.5;
+        return p.constrain(p.height * FOOD_FLOOR_Y, half, p.height - half);
+    }
+
+    function spawnFoodItem(foodType) {
+        let spawn = getFoodSpawnPosition();
+        foodItems.push({
+            id: nextFoodItemId++,
+            typeId: foodType.id,
+            x: spawn.x,
+            y: spawn.y,
+            vy: 0,
+        });
+    }
+
+    function drawFoodItems() {
+        if (!foodItems.length) return;
+        ensureFoodSprites();
+        let hoveredIndex = draggedFoodItemId == null ? getFoodItemIndexAt(p.mouseX, p.mouseY) : -1;
+        let floorY = getFoodFloorY();
+
+        for (let i = 0; i < foodItems.length; i++) {
+            let item = foodItems[i];
+            let sprite = foodSprites.get(item.typeId);
+            if (!sprite) continue;
+
+            let dragging = item.id === draggedFoodItemId;
+            let hovered = i === hoveredIndex;
+            if (!dragging) {
+                item.vy = p.constrain((Number(item.vy) || 0) + FOOD_GRAVITY, -FOOD_MAX_FALL_SPEED, FOOD_MAX_FALL_SPEED);
+                item.y += item.vy;
+                if (item.y > floorY) {
+                    item.y = floorY;
+                    item.vy = 0;
+                }
+            }
+            let drawX = dragging ? p.mouseX + foodDragOffsetX : item.x;
+            let drawY = dragging ? p.mouseY + foodDragOffsetY : item.y;
+            let size = dragging ? FOOD_ITEM_SIZE * 1.06 : FOOD_ITEM_SIZE;
+            let outlineSprite = (dragging || hovered) ? getFoodOutlineSprite(item.typeId) : null;
+
+            p.push();
+            p.imageMode(p.CENTER);
+            if (!dragging) {
+                p.noStroke();
+                p.fill(20, 20, 20, 35);
+                p.ellipse(drawX + 1, drawY + FOOD_ITEM_SIZE * 0.28, FOOD_ITEM_SIZE * 0.58, FOOD_ITEM_SIZE * 0.24);
+            }
+            if (outlineSprite) {
+                p.image(outlineSprite, drawX, drawY, size, size);
+            }
+            p.image(sprite, drawX, drawY, size, size);
+            p.pop();
+        }
+    }
+
+    function foodEffectText(foodType) {
+        if (!foodType) return '';
+        let hunger = Number(foodType.hungerGain) || 0;
+        let energy = Number(foodType.energyGain) || 0;
+        let parts = [];
+        if (hunger > 0) parts.push(`+${hunger} hunger`);
+        if (energy > 0) parts.push(`+${energy} energy`);
+        if (foodType.id === 'energy-drink') parts.push('boost speed while energy > 50%');
+        return parts.join(', ');
+    }
+
+    function getFoodOutlineSprite(typeId) {
+        if (foodOutlineSprites.has(typeId)) return foodOutlineSprites.get(typeId);
+        let sprite = foodSprites.get(typeId);
+        if (!sprite) return null;
+        let outline = buildSpriteOutlineBuffer(sprite, FOOD_HOVER_OUTLINE_COLOUR);
+        if (!outline) return null;
+        foodOutlineSprites.set(typeId, outline);
+        return outline;
+    }
+
+    function getFoodItemIndexAt(x, y) {
+        for (let i = foodItems.length - 1; i >= 0; i--) {
+            let item = foodItems[i];
+            let drawX = item.id === draggedFoodItemId ? p.mouseX + foodDragOffsetX : item.x;
+            let drawY = item.id === draggedFoodItemId ? p.mouseY + foodDragOffsetY : item.y;
+            if (Math.abs(x - drawX) <= FOOD_ITEM_SIZE * 0.5 && Math.abs(y - drawY) <= FOOD_ITEM_SIZE * 0.5) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function startFoodDragAt(x, y) {
+        let idx = getFoodItemIndexAt(x, y);
+        if (idx < 0) return false;
+
+        let picked = foodItems.splice(idx, 1)[0];
+        foodItems.push(picked);
+        draggedFoodItemId = picked.id;
+        foodDragOffsetX = picked.x - x;
+        foodDragOffsetY = picked.y - y;
+        return true;
+    }
+
+    function updateFoodDragHoverState() {
+        if (!creature || draggedFoodItemId == null) {
+            creatureFoodHoverActive = false;
+            return;
+        }
+        let dragged = getFoodById(draggedFoodItemId);
+        if (!dragged) {
+            creatureFoodHoverActive = false;
+            return;
+        }
+
+        let dragX = p.mouseX + foodDragOffsetX;
+        let dragY = p.mouseY + foodDragOffsetY;
+        creatureFoodHoverActive = p.dist(dragX, dragY, creature.x, creature.y) <= CREATURE_SIZE * FOOD_DROP_HITBOX_SCALE;
+    }
+
+    function finishFoodDrag() {
+        if (draggedFoodItemId == null) return false;
+
+        let dragged = getFoodById(draggedFoodItemId);
+        if (!dragged || !creature) {
+            draggedFoodItemId = null;
+            creatureFoodHoverActive = false;
+            return true;
+        }
+
+        let dropX = p.constrain(p.mouseX + foodDragOffsetX, FOOD_ITEM_SIZE * 0.5, p.width - FOOD_ITEM_SIZE * 0.5);
+        let dropY = p.constrain(p.mouseY + foodDragOffsetY, FOOD_ITEM_SIZE * 0.5, p.height - FOOD_ITEM_SIZE * 0.5);
+        let overCreature = p.dist(dropX, dropY, creature.x, creature.y) <= CREATURE_SIZE * FOOD_DROP_HITBOX_SCALE;
+
+        if (overCreature) {
+            let foodType = getFoodTypeById(dragged.typeId);
+            let hunger = Number(foodType.hungerGain) || 0;
+            let energy = Number(foodType.energyGain) || 0;
+            if (hunger > 0) creature.need = p.min(100, creature.need + hunger);
+            if (energy > 0) creature.energy = p.min(100, creature.energy + energy);
+            if (foodType.id === 'energy-drink') {
+                energyDrinkGridBoostActive = creature.energy > ENERGY_DRINK_BOOST_TARGET_ENERGY;
+            }
+            foodItems = foodItems.filter(item => item.id !== draggedFoodItemId);
+            playEatingSoundBurst();
+            setShopStatus(`Used ${foodType.label} (${foodEffectText(foodType)}).`);
+            saveState(creature);
+        } else {
+            dragged.x = dropX;
+            dragged.y = dropY;
+            dragged.vy = 0;
+        }
+
+        draggedFoodItemId = null;
+        creatureFoodHoverActive = false;
+        return true;
+    }
+
     function drawWorldAreaButtons(c) {
         if (!WORLD_AREA_BUTTONS_VISIBLE) return;
 
@@ -1915,8 +2749,53 @@ new p5(function(p) {
         return outlineBuffer;
     }
 
+    function ensureStudioDecorSprites() {
+        for (let i = 0; i < STUDIO_DECOR_THEMES.length; i++) {
+            let theme = STUDIO_DECOR_THEMES[i];
+            if (!theme.spritePath) continue;
+            if (studioDecorSprites.has(theme.id) || pendingStudioDecorSpriteLoads.has(theme.id)) continue;
+            pendingStudioDecorSpriteLoads.add(theme.id);
+            p.loadImage(
+                theme.spritePath,
+                (img) => {
+                    studioDecorSprites.set(theme.id, img);
+                    pendingStudioDecorSpriteLoads.delete(theme.id);
+                },
+                () => {
+                    pendingStudioDecorSpriteLoads.delete(theme.id);
+                }
+            );
+        }
+    }
+
+    function getStudioDecorRenderRect(theme) {
+        if (theme.id === 'frame-favorite') {
+            let baseSide = Math.max(STUDIO_FAVORITE_FRAME_W, STUDIO_FAVORITE_FRAME_H);
+            if (studioFavoritePaintingImage) {
+                let sourceSide = Math.max(studioFavoritePaintingImage.width || 0, studioFavoritePaintingImage.height || 0);
+                if (sourceSide > 0) {
+                    baseSide = sourceSide;
+                }
+            }
+            let side = Math.max(32, Math.round(baseSide * STUDIO_FAVORITE_FRAME_SIZE_SCALE));
+            return {
+                x: p.width * STUDIO_FAVORITE_FRAME_X,
+                y: p.height * STUDIO_FAVORITE_FRAME_Y,
+                w: side,
+                h: side,
+            };
+        }
+
+        return {
+            x: p.width * (Number(theme.worldX) || 0.82),
+            y: p.height * (Number(theme.worldY) || 0.2),
+            w: Number(theme.spriteW) || 120,
+            h: Number(theme.spriteH) || 120,
+        };
+    }
+
     function syncStudioFavoritePaintingImage() {
-        if (activeStudioDecorThemeId !== 'frame-favorite') return;
+        if (!ownedStudioDecorThemeIds.includes('frame-favorite')) return;
         if (favouriteGenerationSerial == null) {
             studioFavoritePaintingImage = null;
             studioFavoritePaintingSerial = null;
@@ -1943,65 +2822,128 @@ new p5(function(p) {
     }
 
     function drawStudioEnvironment(c) {
+        let splitY = p.height * p.constrain(STUDIO_WALL_FLOOR_SPLIT_Y, 0.2, 0.9);
+        let floorColour = [
+            clampByte(studioWallColour[0] * STUDIO_FLOOR_DARKEN),
+            clampByte(studioWallColour[1] * STUDIO_FLOOR_DARKEN),
+            clampByte(studioWallColour[2] * STUDIO_FLOOR_DARKEN),
+        ];
+
         p.push();
         p.noStroke();
-        p.fill(...studioWallColour, 48);
-        p.rect(0, 0, p.width, p.height);
+        p.fill(...studioWallColour);
+        p.rect(0, 0, p.width, splitY);
+        drawStudioWallTexture(splitY);
+        p.fill(...floorColour);
+        p.rect(0, splitY, p.width, p.height - splitY);
         p.pop();
 
-        if (activeStudioDecorThemeId === 'frame-favorite') {
-            syncStudioFavoritePaintingImage();
-        }
-
-        let frameX = p.width - 190;
-        let frameY = 116;
-        let frameW = 120;
-        let frameH = 120;
+        ensureStudioDecorSprites();
+        syncStudioFavoritePaintingImage();
 
         p.push();
         p.noStroke();
 
-        if (activeStudioDecorThemeId === 'frame-favorite') {
+        for (let i = 0; i < STUDIO_DECOR_THEMES.length; i++) {
+            let theme = STUDIO_DECOR_THEMES[i];
+            if (!ownedStudioDecorThemeIds.includes(theme.id)) continue;
+            if (theme.id !== 'frame-favorite') continue;
+
+            let rect = getStudioDecorRenderRect(theme);
             p.fill(255, 255, 255, 152);
-            p.rect(frameX - 8, frameY - 8, frameW + 16, frameH + 16, 10);
+            p.rect(rect.x - 8, rect.y - 8, rect.w + 16, rect.h + 16, 0);
             p.fill(30, 30, 30, 120);
-            p.rect(frameX - 2, frameY - 2, frameW + 4, frameH + 4, 8);
+            p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
             if (studioFavoritePaintingImage) {
                 p.tint(255, 145);
                 p.imageMode(p.CORNER);
-                p.image(studioFavoritePaintingImage, frameX, frameY, frameW, frameH);
+                p.image(studioFavoritePaintingImage, rect.x, rect.y, rect.w, rect.h);
                 p.noTint();
             } else {
                 p.fill(...studioWallColour, 180);
-                p.rect(frameX, frameY, frameW, frameH, 4);
+                p.rect(rect.x, rect.y, rect.w, rect.h, 0);
                 p.fill(20, 20, 20, 120);
                 p.textAlign(p.CENTER, p.CENTER);
                 p.textSize(11);
-                p.text('Favourite', frameX + frameW / 2, frameY + frameH / 2 - 6);
-                p.text('painting', frameX + frameW / 2, frameY + frameH / 2 + 8);
+                p.text('Favourite', rect.x + rect.w / 2, rect.y + rect.h / 2 - 6);
+                p.text('painting', rect.x + rect.w / 2, rect.y + rect.h / 2 + 8);
             }
             p.noFill();
             p.stroke(130, 98, 52, 220);
             p.strokeWeight(8);
-            p.rect(frameX - 2, frameY - 2, frameW + 4, frameH + 4, 8);
-        } else if (activeStudioDecorThemeId === 'plant') {
-            p.fill(92, 71, 47, 200);
-            p.rect(frameX + 20, frameY + 78, 48, 24, 6);
-            p.fill(116, 152, 96, 190);
-            p.ellipse(frameX + 30, frameY + 64, 34, 44);
-            p.ellipse(frameX + 52, frameY + 58, 30, 40);
-            p.ellipse(frameX + 40, frameY + 46, 38, 46);
-            p.fill(255, 255, 255, 120);
-            p.rect(frameX + 16, frameY + 20, 56, 4, 2);
-        } else if (activeStudioDecorThemeId === 'lamp') {
-            p.fill(120, 120, 110, 120);
-            p.rect(frameX + 36, frameY + 22, 8, 82, 4);
-            p.fill(246, 226, 145, 150);
-            p.ellipse(frameX + 40, frameY + 24, 42, 28);
-            p.fill(92, 88, 78, 200);
-            p.rect(frameX + 18, frameY + 100, 44, 10, 4);
+            p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
+            p.noStroke();
         }
 
+        for (let i = 0; i < STUDIO_DECOR_THEMES.length; i++) {
+            let theme = STUDIO_DECOR_THEMES[i];
+            if (!ownedStudioDecorThemeIds.includes(theme.id)) continue;
+            if (theme.id === 'frame-favorite') continue;
+
+            let rect = getStudioDecorRenderRect(theme);
+            let sprite = studioDecorSprites.get(theme.id);
+            if (sprite) {
+                p.imageMode(p.CORNER);
+                p.image(sprite, rect.x, rect.y, rect.w, rect.h);
+            } else {
+                p.fill(255, 255, 255, 105);
+                p.rect(rect.x, rect.y, rect.w, rect.h, 8);
+                p.fill(30, 30, 30, 150);
+                p.textAlign(p.CENTER, p.CENTER);
+                p.textSize(10);
+                p.text(theme.label, rect.x + rect.w / 2, rect.y + rect.h / 2);
+            }
+        }
+
+        p.pop();
+    }
+
+    function drawStudioWallTexture(splitY) {
+        if (activeStudioWallThemeId === 'ink') {
+            drawBrickWallTexture(splitY);
+            return;
+        }
+
+        if (activeStudioWallThemeId === 'rose') {
+            p.push();
+            p.stroke(196, 136, 136, 78);
+            p.strokeWeight(1.2);
+            for (let x = -p.height; x < p.width + p.height; x += 24) {
+                p.line(x, 0, x + splitY * 0.75, splitY);
+            }
+            p.pop();
+            return;
+        }
+
+        if (activeStudioWallThemeId === 'moss') {
+            p.push();
+            p.stroke(120, 154, 118, 62);
+            p.strokeWeight(1.5);
+            for (let y = 10; y < splitY; y += 22) {
+                p.line(0, y, p.width, y);
+            }
+            p.pop();
+        }
+    }
+
+    function drawBrickWallTexture(splitY) {
+        let brickH = 24;
+        let brickW = 68;
+
+        p.push();
+        p.stroke(114, 120, 132, 82);
+        p.strokeWeight(1.4);
+
+        for (let y = brickH; y < splitY; y += brickH) {
+            p.line(0, y, p.width, y);
+        }
+
+        for (let row = 0, y = 0; y < splitY; row += 1, y += brickH) {
+            let xOffset = (row % 2) * (brickW * 0.5);
+            for (let x = xOffset; x < p.width; x += brickW) {
+                p.line(x, y, x, p.min(splitY, y + brickH));
+            }
+        }
         p.pop();
     }
 
@@ -2024,7 +2966,10 @@ new p5(function(p) {
 
         if (paintingSpriteSheet) {
             let now = p.millis();
-            let frameDuration = 1000 / p.max(1, PAINTING_SPRITE_FPS);
+            let paintingSpeed = isEnergyDrinkBoostActive(c)
+                ? p.max(1, Number(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER) || 1)
+                : 1;
+            let frameDuration = 1000 / p.max(1, PAINTING_SPRITE_FPS * paintingSpeed);
             let isGenerating = !generationPaused && !isRestingNow();
 
             if (isGenerating && now - lastPaintingFrameAt >= frameDuration) {
@@ -2075,8 +3020,11 @@ new p5(function(p) {
             p.tint(255, c.bodyAlpha);
             p.drawingContext.imageSmoothingEnabled = false;
             p.imageMode(p.CENTER);
-            if (hoveringCreature) {
-                let outlineBuffer = buildSpriteOutlineBuffer(paintingFrameBuffer, [255, 255, 255, 230]);
+            let outlineColour = creatureFoodHoverActive
+                ? FOOD_HOVER_OUTLINE_COLOUR
+                : (hoveringCreature ? [255, 255, 255, 230] : null);
+            if (outlineColour) {
+                let outlineBuffer = buildSpriteOutlineBuffer(paintingFrameBuffer, outlineColour);
                 if (outlineBuffer) {
                     p.image(outlineBuffer, 0, 0, drawW, drawH);
                 }
@@ -2676,9 +3624,60 @@ new p5(function(p) {
         };
     }
 
+    function getReferenceKeywordFromSnapshot(snapshot) {
+        if (snapshot.referenceKeyword && String(snapshot.referenceKeyword).trim()) {
+            return String(snapshot.referenceKeyword).trim();
+        }
+
+        let path = snapshot.referencePath || '';
+        if (path.startsWith('prompt:')) {
+            let promptKeyword = path.slice('prompt:'.length).trim();
+            return promptKeyword || 'Prompt Study';
+        }
+
+        return inferReferenceKeywordFromPath(path);
+    }
+
+    function stableSeedForSnapshotTitle(snapshot, salt) {
+        let serial = Number(snapshot.serial) || 0;
+        let precisionBits = Math.round((Number(snapshot.referenceRulePrecision) || 0) * 1000);
+        let offsetBits = Number(snapshot.colorSchemeOffsetRange) || 0;
+        let neighborBits = Number(snapshot.neighborSimilarRange) || 0;
+        let refBits = Number(snapshot.referenceMatchRgbRange) || 0;
+        let seed = serial * 131 + precisionBits * 17 + offsetBits * 31 + neighborBits * 13 + refBits * 7 + salt * 97;
+        return Math.abs(seed);
+    }
+
+    function pickSnapshotTitleVariant(snapshot, options, salt) {
+        if (!Array.isArray(options) || options.length === 0) return '';
+        let seed = stableSeedForSnapshotTitle(snapshot, salt);
+        let index = seed % options.length;
+        return options[index];
+    }
+
+    function generationTitlePrefix(snapshot) {
+        let precision = Number(snapshot.referenceRulePrecision) || 0.5;
+        if (precision < 0.25) {
+            return pickSnapshotTitleVariant(snapshot, ['The Essence of ', 'The Ideal ', 'Death of a ', 'Scribble of ', 'My '], 1);
+        }
+        if (precision < 0.5) {
+            return pickSnapshotTitleVariant(snapshot, ['Abstracted ', 'Deconstructed ', 'Sketch of ', 'Exploded ', 'Chaotic ', 'Impasto Painting of '], 2);
+        }
+        if (precision < 0.8) {
+            return pickSnapshotTitleVariant(snapshot, ['Study of ', 'Painting of ', 'Midday Light on ', 'Morning Render with ', 'Reality of ', 'The World of '], 3);
+        }
+        return pickSnapshotTitleVariant(snapshot, ['Portrait of ', 'Hyperrealistic Painting with ', 'My ', 'Photograph of '], 4);
+    }
+
+    function generatedSnapshotTitle(snapshot) {
+        let keyword = getReferenceKeywordFromSnapshot(snapshot);
+        let year = Number(snapshot.createdAtYear) || new Date().getFullYear();
+        return `${generationTitlePrefix(snapshot)}${keyword} (${year})`;
+    }
+
     function snapshotLabelText(snapshot) {
         let soldTag = snapshot.sold ? ' [sold]' : '';
-        return `#${snapshot.serial} ${snapshot.reason}${soldTag}`;
+        return `${generatedSnapshotTitle(snapshot)}${soldTag}`;
     }
 
     function updateGenerationStripControls() {
@@ -2737,11 +3736,11 @@ new p5(function(p) {
         if (snapshot.sold) card.classList.add('generation-thumb-sold');
         if (selectedSellSerials.has(snapshot.serial)) card.classList.add('generation-thumb-selected');
         card.dataset.serial = String(snapshot.serial);
-        card.title = `Generation ${snapshot.serial}`;
+        card.title = generatedSnapshotTitle(snapshot);
 
         let img = document.createElement('img');
         img.src = snapshot.imageDataUrl;
-        img.alt = `Generation ${snapshot.serial}`;
+        img.alt = generatedSnapshotTitle(snapshot);
         img.style.width = `${GENERATION_THUMB_WIDTH}px`;
         img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
 
@@ -3860,22 +4859,45 @@ new p5(function(p) {
     }
 
     function getGridRect() {
-        let w = GRID_COLS * GRID_SIZE + (GRID_COLS - 1) * GRID_GAP;
-        let h = GRID_ROWS * GRID_SIZE + (GRID_ROWS - 1) * GRID_GAP;
-        let topOffset = PAINT_BUTTON_HEIGHT + SCHEME_GAP + PALETTE_TILE_SIZE + SCHEME_GAP + SCHEME_TILE_SIZE + SCHEME_GAP + RESET_BUTTON_HEIGHT + 10;
+        let cellSize = getActiveGridCellSize();
+        let w = GRID_COLS * cellSize + (GRID_COLS - 1) * GRID_GAP;
+        let h = GRID_ROWS * cellSize + (GRID_ROWS - 1) * GRID_GAP;
+        let topOffset = 10;
+
+        let x = p.width - GRID_MARGIN - w + GRID_PANEL_OFFSET_X;
+        let y = GRID_MARGIN + topOffset + GRID_PANEL_OFFSET_Y;
+
+        if (
+            gridView.isVisible &&
+            gridView.openedViaCanvasButton &&
+            Number.isFinite(gridView.canvasButtonAnchorX) &&
+            Number.isFinite(gridView.canvasButtonAnchorY)
+        ) {
+            x = gridView.canvasButtonAnchorX + GRID_OPEN_CANVAS_BUTTON_GAP_X;
+            y = gridView.canvasButtonAnchorY + GRID_OPEN_CANVAS_BUTTON_OFFSET_Y;
+
+            let minX = GRID_MARGIN;
+            let maxX = p.width - GRID_MARGIN - w;
+            let minY = GRID_MARGIN + topOffset;
+            let maxY = p.height - GRID_MARGIN - h;
+
+            x = p.constrain(x, minX, Math.max(minX, maxX));
+            y = p.constrain(y, minY, Math.max(minY, maxY));
+        }
+
         return {
-            x: p.width - GRID_MARGIN - w + GRID_PANEL_OFFSET_X,
-            y: GRID_MARGIN + topOffset + GRID_PANEL_OFFSET_Y,
+            x,
+            y,
             w,
             h,
         };
     }
 
     function getGridTabRect() {
-        let paintRect = getPaintButtonRect();
+        let gridRect = getGridRect();
         return {
-            x: paintRect.x + GRID_TAB_OFFSET_X,
-            y: paintRect.y - GRID_TAB_HEIGHT - GRID_TAB_GAP + GRID_TAB_OFFSET_Y,
+            x: gridRect.x + GRID_TAB_OFFSET_X,
+            y: gridRect.y - GRID_TAB_HEIGHT - GRID_TAB_GAP + GRID_TAB_OFFSET_Y,
             w: GRID_TAB_WIDTH,
             h: GRID_TAB_HEIGHT,
         };
@@ -3884,11 +4906,17 @@ new p5(function(p) {
     function getGridPanelBoundsRect() {
         let tab = getGridTabRect();
         let grid = getGridRect();
+        let close = getGridTabCloseRect();
+        let paint = getPaintButtonRect();
+        let palette = paintModeEnabled ? getPaletteRect() : null;
+        let scheme = getSchemeRect();
 
-        let minX = Math.min(tab.x, grid.x);
+        let minX = Math.min(tab.x, grid.x, close.x, paint.x, scheme.x);
+        if (palette) minX = Math.min(minX, palette.x);
         let maxX = Math.max(tab.x + tab.w, grid.x + grid.w);
-        let minY = tab.y;
-        let maxY = grid.y + grid.h;
+        let minY = Math.min(tab.y, close.y, paint.y);
+        let maxY = Math.max(grid.y + grid.h, close.y + close.h, paint.y + paint.h, scheme.y + scheme.h);
+        if (palette) maxY = Math.max(maxY, palette.y + palette.h);
 
         return {
             x: minX - GRID_PANEL_PADDING,
@@ -3899,22 +4927,16 @@ new p5(function(p) {
     }
 
     function getGridTabCloseRect() {
-        let tab = getGridTabRect();
+        let rect = getGridRect();
+        let buttonGap = 6;
+        let buttonSize = Math.max(10, GRID_CANVAS_TAB_BUTTON_SIZE);
+        let clusterHeight = buttonSize * 2 + buttonGap;
+        let baseY = rect.y + rect.h * 0.5 - clusterHeight * 0.5;
         return {
-            x: tab.x + tab.w - GRID_TAB_BUTTON_W,
-            y: tab.y,
-            w: GRID_TAB_BUTTON_W,
-            h: tab.h,
-        };
-    }
-
-    function getGridTabZoomRect() {
-        let close = getGridTabCloseRect();
-        return {
-            x: close.x - GRID_TAB_BUTTON_W - 2,
-            y: close.y,
-            w: GRID_TAB_BUTTON_W,
-            h: close.h,
+            x: rect.x - buttonSize - GRID_TAB_GAP + GRID_CLOSE_BUTTON_OFFSET_X,
+            y: baseY + GRID_CLOSE_BUTTON_OFFSET_Y,
+            w: buttonSize,
+            h: buttonSize,
         };
     }
 
@@ -3952,43 +4974,38 @@ new p5(function(p) {
 
     function getPaintButtonRect() {
         let gridRect = getGridRect();
-        let schemeWidth = COLOR_SCHEME_COUNT * SCHEME_TILE_SIZE + (COLOR_SCHEME_COUNT - 1) * SCHEME_GAP;
+        let sideSize = Math.max(10, GRID_CANVAS_TAB_BUTTON_SIZE);
         return {
-            x: gridRect.x,
-            y: GRID_MARGIN,
-            w: schemeWidth,
-            h: PAINT_BUTTON_HEIGHT,
+            x: gridRect.x - sideSize - SCHEME_GAP + GRID_PAINT_BUTTON_OFFSET_X,
+            y: gridRect.y + GRID_PAINT_BUTTON_OFFSET_Y,
+            w: sideSize,
+            h: sideSize,
         };
     }
 
     function getPaletteRect() {
         let paintRect = getPaintButtonRect();
+        let paletteCount = getPaintPaletteChoices().length;
         return {
             x: paintRect.x,
             y: paintRect.y + paintRect.h + SCHEME_GAP,
             w: paintRect.w,
-            h: PALETTE_TILE_SIZE,
+            h: paletteCount * PALETTE_TILE_SIZE + (paletteCount - 1) * SCHEME_GAP,
         };
     }
 
     function getSchemeRect() {
-        let paletteRect = getPaletteRect();
-        let w = COLOR_SCHEME_COUNT * SCHEME_TILE_SIZE + (COLOR_SCHEME_COUNT - 1) * SCHEME_GAP;
+        let paintRect = getPaintButtonRect();
+        let y = paintRect.y + paintRect.h + SCHEME_GAP;
+        let x = paintRect.x;
+        if (paintModeEnabled) {
+            x = paintRect.x + paintRect.w + SCHEME_GAP * 2;
+        }
         return {
-            x: getGridRect().x,
-            y: paletteRect.y + paletteRect.h + SCHEME_GAP,
-            w,
-            h: SCHEME_TILE_SIZE,
-        };
-    }
-
-    function getResetButtonRect() {
-        let schemeRect = getSchemeRect();
-        return {
-            x: schemeRect.x,
-            y: schemeRect.y + schemeRect.h + SCHEME_GAP,
-            w: schemeRect.w,
-            h: RESET_BUTTON_HEIGHT,
+            x,
+            y,
+            w: paintRect.w,
+            h: COLOR_SCHEME_COUNT * SCHEME_TILE_SIZE + (COLOR_SCHEME_COUNT - 1) * SCHEME_GAP,
         };
     }
 
@@ -4010,11 +5027,9 @@ new p5(function(p) {
         let paintRect = getPaintButtonRect();
         let paletteRect = getPaletteRect();
         let schemeRect = getSchemeRect();
-        let resetRect = getResetButtonRect();
         let rect = getGridRect();
         let tabRect = getGridTabRect();
         let closeRect = getGridTabCloseRect();
-        let zoomRect = getGridTabZoomRect();
         let panelBounds = getGridPanelBoundsRect();
 
         p.push();
@@ -4038,57 +5053,60 @@ new p5(function(p) {
             p.noStroke();
         }
 
-        p.fill(242, 240, 236, 245);
-        p.rect(tabRect.x, tabRect.y, tabRect.w, tabRect.h, 6);
-        p.fill(45);
-        p.textAlign(p.LEFT, p.CENTER);
-        p.textSize(10);
-        p.text('Canvas Squares', tabRect.x + 8, tabRect.y + tabRect.h / 2);
-
-        p.fill(250);
-        p.rect(zoomRect.x, zoomRect.y, zoomRect.w, zoomRect.h, 4);
+        p.fill(248);
         p.rect(closeRect.x, closeRect.y, closeRect.w, closeRect.h, 4);
-        p.fill(45);
-        p.textAlign(p.CENTER, p.CENTER);
-        p.text(gridView.isZoomedTab ? '↙' : '↗', zoomRect.x + zoomRect.w / 2, zoomRect.y + zoomRect.h / 2);
-        p.text('×', closeRect.x + closeRect.w / 2, closeRect.y + closeRect.h / 2);
+        if (exitButtonSprite) {
+            p.imageMode(p.CORNER);
+            p.image(exitButtonSprite, closeRect.x, closeRect.y, closeRect.w, closeRect.h);
+        } else {
+            p.fill(45);
+            p.text('×', closeRect.x + closeRect.w / 2, closeRect.y + closeRect.h / 2);
+        }
 
-        p.fill(paintModeEnabled ? 52 : 248);
+        p.fill(248);
         p.rect(paintRect.x, paintRect.y, paintRect.w, paintRect.h, 4);
-        p.fill(paintModeEnabled ? 255 : 40);
-        p.textAlign(p.CENTER, p.CENTER);
-        p.textSize(11);
-        p.text(paintModeEnabled ? 'Paintbrush ON' : 'Paintbrush OFF', paintRect.x + paintRect.w / 2, paintRect.y + paintRect.h / 2);
+        if (paintbrushButtonSprite) {
+            p.imageMode(p.CORNER);
+            p.image(paintbrushButtonSprite, paintRect.x, paintRect.y, paintRect.w, paintRect.h);
+        } else {
+            p.fill(40);
+            p.textSize(15);
+            p.text('🖌', paintRect.x + paintRect.w / 2, paintRect.y + paintRect.h / 2 + 0.5);
+        }
+        if (paintModeEnabled) {
+            p.noFill();
+            p.stroke(52);
+            p.strokeWeight(2);
+            p.rect(paintRect.x - 1, paintRect.y - 1, paintRect.w + 2, paintRect.h + 2, 5);
+            p.noStroke();
+        }
 
         let paintPalette = getPaintPaletteChoices();
         if (selectedPaintColourIndex >= paintPalette.length) {
             selectedPaintColourIndex = 0;
         }
 
-        let paletteCount = paintPalette.length;
-        let swatchSize = p.max(8, p.floor((paletteRect.w - (paletteCount - 1) * SCHEME_GAP) / paletteCount));
-        let totalSwatchWidth = paletteCount * swatchSize + (paletteCount - 1) * SCHEME_GAP;
-        let paletteStartX = paletteRect.x + p.max(0, (paletteRect.w - totalSwatchWidth) * 0.5);
+        if (paintModeEnabled) {
+            for (let i = 0; i < paintPalette.length; i++) {
+                let px = paletteRect.x;
+                let py = paletteRect.y + i * (PALETTE_TILE_SIZE + SCHEME_GAP);
+                let col = paintPalette[i];
+                p.fill(col[0], col[1], col[2]);
+                p.rect(px, py, PALETTE_TILE_SIZE, PALETTE_TILE_SIZE, 3);
 
-        for (let i = 0; i < paletteCount; i++) {
-            let px = paletteStartX + i * (swatchSize + SCHEME_GAP);
-            let py = paletteRect.y;
-            let col = paintPalette[i];
-            p.fill(col[0], col[1], col[2]);
-            p.rect(px, py, swatchSize, paletteRect.h, 3);
-
-            if (i === selectedPaintColourIndex) {
-                p.noFill();
-                p.stroke(20);
-                p.strokeWeight(2);
-                p.rect(px - 2, py - 2, swatchSize + 4, paletteRect.h + 4, 4);
-                p.noStroke();
+                if (i === selectedPaintColourIndex) {
+                    p.noFill();
+                    p.stroke(20);
+                    p.strokeWeight(2);
+                    p.rect(px - 2, py - 2, PALETTE_TILE_SIZE + 4, PALETTE_TILE_SIZE + 4, 4);
+                    p.noStroke();
+                }
             }
         }
 
         for (let i = 0; i < colorScheme.length; i++) {
-            let sx = schemeRect.x + i * (SCHEME_TILE_SIZE + SCHEME_GAP);
-            let sy = schemeRect.y;
+            let sx = schemeRect.x;
+            let sy = schemeRect.y + i * (SCHEME_TILE_SIZE + SCHEME_GAP);
             p.fill(...colorScheme[i]);
             p.rect(sx, sy, SCHEME_TILE_SIZE, SCHEME_TILE_SIZE, 3);
 
@@ -4103,27 +5121,16 @@ new p5(function(p) {
             }
         }
 
-        p.fill(248);
-        p.rect(resetRect.x, resetRect.y, resetRect.w, resetRect.h, 4);
-        p.fill(40);
-        p.textAlign(p.CENTER, p.CENTER);
-        p.textSize(11);
-        p.text('Reset Generation', resetRect.x + resetRect.w / 2, resetRect.y + resetRect.h / 2);
-        if (generationPaused) {
-            p.fill(180, 40, 40);
-            p.textSize(10);
-            p.text('paused', resetRect.x + resetRect.w / 2, resetRect.y - 8);
-        }
-
         p.fill(255, 235);
         p.rect(rect.x - 8, rect.y - 8, rect.w + 16, rect.h + 16, 8);
 
+        let cellSize = getActiveGridCellSize();
         for (let r = 0; r < GRID_ROWS; r++) {
             for (let c = 0; c < GRID_COLS; c++) {
-                let x = rect.x + c * (GRID_SIZE + GRID_GAP);
-                let y = rect.y + r * (GRID_SIZE + GRID_GAP);
+                let x = rect.x + c * (cellSize + GRID_GAP);
+                let y = rect.y + r * (cellSize + GRID_GAP);
                 p.fill(...gridColors[r][c]);
-                p.rect(x, y, GRID_SIZE, GRID_SIZE, 3);
+                p.rect(x, y, cellSize, cellSize, 3);
             }
         }
 
@@ -4138,47 +5145,29 @@ new p5(function(p) {
     function drawReferenceDebugOverlay(rect) {
         p.push();
 
-        let statusX = rect.x;
-        let statusY = rect.y - 22;
-        p.noStroke();
-        p.fill(255, 245);
-        p.rect(statusX, statusY, 260, 16, 3);
-        p.textAlign(p.LEFT, p.CENTER);
-        p.textSize(9);
-
-        if (referenceRuleReady && referenceAssociations && referenceColourMap) {
-            p.fill(40, 120, 55);
-            let spriteName = currentReferenceSpritePath
-                ? currentReferenceSpritePath.split('/').pop()
-                : 'unknown';
-            p.text(`ref clusters active: ${spriteName}`, statusX + 5, statusY + 8);
-        } else {
-            p.fill(170, 50, 45);
-            p.text('ref clusters inactive: using fallback rules', statusX + 5, statusY + 8);
-        }
-
         if (referenceRuleReady && referenceAssociations && referenceColourMap) {
             p.textAlign(p.CENTER, p.CENTER);
             p.textSize(8);
+            let cellSize = getActiveGridCellSize();
             for (let r = 0; r < GRID_ROWS; r++) {
                 for (let c = 0; c < GRID_COLS; c++) {
                     let associationIndex = referenceAssociations[r][c];
                     if (associationIndex < 0) continue;
 
-                    let x = rect.x + c * (GRID_SIZE + GRID_GAP);
-                    let y = rect.y + r * (GRID_SIZE + GRID_GAP);
+                    let x = rect.x + c * (cellSize + GRID_GAP);
+                    let y = rect.y + r * (cellSize + GRID_GAP);
                     let mapped = referenceColourMap[associationIndex] || [0, 0, 0];
 
                     p.noFill();
                     p.stroke(mapped[0], mapped[1], mapped[2], 200);
                     p.strokeWeight(1);
-                    p.rect(x + 1, y + 1, GRID_SIZE - 2, GRID_SIZE - 2, 2);
+                    p.rect(x + 1, y + 1, cellSize - 2, cellSize - 2, 2);
 
-                    if (GRID_SIZE >= 12) {
+                    if (cellSize >= 12) {
                         let labelLum = colourLuminance(mapped);
                         p.noStroke();
                         p.fill(labelLum > 140 ? 15 : 245);
-                        p.text(String(associationIndex), x + GRID_SIZE * 0.5, y + GRID_SIZE * 0.52);
+                        p.text(String(associationIndex), x + cellSize * 0.5, y + cellSize * 0.52);
                     }
                 }
             }
@@ -4380,6 +5369,9 @@ new p5(function(p) {
 
         let hungerSpeed = p.constrain((creature ? creature.need : 50) / 100, 0.08, 1);
         let effectiveUpdatesPerSecond = GRID_UPDATES_PER_SECOND * hungerSpeed;
+        if (isEnergyDrinkBoostActive(creature)) {
+            effectiveUpdatesPerSecond *= p.max(1, ENERGY_DRINK_GRID_UPS_MULTIPLIER);
+        }
 
         // Convert elapsed time into a bounded batch count so updates are not tied to frame rate.
         let updates = Math.floor((elapsedMs * effectiveUpdatesPerSecond) / 1000);
@@ -4452,9 +5444,10 @@ new p5(function(p) {
 
         for (let r = 0; r < GRID_ROWS; r++) {
             for (let c = 0; c < GRID_COLS; c++) {
-                let x = rect.x + c * (GRID_SIZE + GRID_GAP);
-                let y = rect.y + r * (GRID_SIZE + GRID_GAP);
-                if (point.x >= x && point.x <= x + GRID_SIZE && point.y >= y && point.y <= y + GRID_SIZE) {
+                let cellSize = getActiveGridCellSize();
+                let x = rect.x + c * (cellSize + GRID_GAP);
+                let y = rect.y + r * (cellSize + GRID_GAP);
+                if (point.x >= x && point.x <= x + cellSize && point.y >= y && point.y <= y + cellSize) {
                     let paintPalette = getPaintPaletteChoices();
                     let choice = paintPalette[selectedPaintColourIndex] || paintPalette[0];
                     gridColors[r][c] = [...choice];
@@ -4472,6 +5465,10 @@ new p5(function(p) {
             let reopen = getGridReopenTabRectScreen();
             if (mx >= reopen.x && mx <= reopen.x + reopen.w && my >= reopen.y && my <= reopen.y + reopen.h) {
                 gridView.isVisible = true;
+                gridView.openedViaCanvasButton = false;
+                let scaleBounds = getGridScaleBoundsFromPanelSize();
+                gridView.scale = p.constrain(GRID_DEFAULT_OPEN_SCALE, scaleBounds.min, scaleBounds.max);
+                gridView.isZoomedTab = false;
                 return true;
             }
             return false;
@@ -4483,20 +5480,7 @@ new p5(function(p) {
         if (point.x >= closeRect.x && point.x <= closeRect.x + closeRect.w &&
             point.y >= closeRect.y && point.y <= closeRect.y + closeRect.h) {
             gridView.isVisible = false;
-            return true;
-        }
-
-        let zoomRect = getGridTabZoomRect();
-        if (point.x >= zoomRect.x && point.x <= zoomRect.x + zoomRect.w &&
-            point.y >= zoomRect.y && point.y <= zoomRect.y + zoomRect.h) {
-            let scaleBounds = getGridScaleBoundsFromPanelSize();
-            if (!gridView.isZoomedTab) {
-                gridView.scale = p.constrain(1.6, scaleBounds.min, scaleBounds.max);
-                gridView.isZoomedTab = true;
-            } else {
-                gridView.scale = p.constrain(1, scaleBounds.min, scaleBounds.max);
-                gridView.isZoomedTab = gridView.scale > (scaleBounds.min + 0.02);
-            }
+            gridView.openedViaCanvasButton = false;
             return true;
         }
 
@@ -4508,17 +5492,13 @@ new p5(function(p) {
         }
 
         let paletteRect = getPaletteRect();
-        if (point.x >= paletteRect.x && point.x <= paletteRect.x + paletteRect.w &&
+        if (paintModeEnabled &&
+            point.x >= paletteRect.x && point.x <= paletteRect.x + paletteRect.w &&
             point.y >= paletteRect.y && point.y <= paletteRect.y + paletteRect.h) {
             let paintPalette = getPaintPaletteChoices();
-            let paletteCount = paintPalette.length;
-            let swatchSize = p.max(8, p.floor((paletteRect.w - (paletteCount - 1) * SCHEME_GAP) / paletteCount));
-            let totalSwatchWidth = paletteCount * swatchSize + (paletteCount - 1) * SCHEME_GAP;
-            let paletteStartX = paletteRect.x + p.max(0, (paletteRect.w - totalSwatchWidth) * 0.5);
-
-            for (let i = 0; i < paletteCount; i++) {
-                let px = paletteStartX + i * (swatchSize + SCHEME_GAP);
-                if (point.x >= px && point.x <= px + swatchSize) {
+            for (let i = 0; i < paintPalette.length; i++) {
+                let py = paletteRect.y + i * (PALETTE_TILE_SIZE + SCHEME_GAP);
+                if (point.y >= py && point.y <= py + PALETTE_TILE_SIZE) {
                     selectedPaintColourIndex = i;
                     return true;
                 }
@@ -4530,8 +5510,8 @@ new p5(function(p) {
         if (point.x >= schemeRect.x && point.x <= schemeRect.x + schemeRect.w &&
             point.y >= schemeRect.y && point.y <= schemeRect.y + schemeRect.h) {
             for (let i = 0; i < colorScheme.length; i++) {
-                let sx = schemeRect.x + i * (SCHEME_TILE_SIZE + SCHEME_GAP);
-                if (point.x >= sx && point.x <= sx + SCHEME_TILE_SIZE) {
+                let sy = schemeRect.y + i * (SCHEME_TILE_SIZE + SCHEME_GAP);
+                if (point.y >= sy && point.y <= sy + SCHEME_TILE_SIZE) {
                     ensureSchemeLockArraysLength();
                     frozenSchemeSlots[i] = !frozenSchemeSlots[i];
                     frozenSchemeValues[i] = frozenSchemeSlots[i] ? [...colorScheme[i]] : null;
@@ -4542,13 +5522,6 @@ new p5(function(p) {
                     return true;
                 }
             }
-            return true;
-        }
-
-        let resetRect = getResetButtonRect();
-        if (point.x >= resetRect.x && point.x <= resetRect.x + resetRect.w &&
-            point.y >= resetRect.y && point.y <= resetRect.y + resetRect.h) {
-            resetGeneration();
             return true;
         }
 
@@ -4569,6 +5542,10 @@ new p5(function(p) {
     // ============================================================
 
     function onCanvasPointerDown(event) {
+        if (event.button === 0 && startFoodDragAt(p.mouseX, p.mouseY)) {
+            return false;
+        }
+
         if (!gridView.isVisible) {
             onCanvasClick();
             return false;
@@ -4579,9 +5556,7 @@ new p5(function(p) {
         let panelRect = getGridPanelBoundsRect();
         let paintRect = getPaintButtonRect();
         let paletteRect = getPaletteRect();
-        let resetRect = getResetButtonRect();
         let closeRect = getGridTabCloseRect();
-        let zoomRect = getGridTabZoomRect();
 
         let pointInRect = (pt, r) => (
             pt.x >= r.x && pt.x <= r.x + r.w &&
@@ -4589,28 +5564,27 @@ new p5(function(p) {
         );
 
         let onClose = pointInRect(point, closeRect);
-        let onZoom = pointInRect(point, zoomRect);
         let onPaintToggle = pointInRect(point, paintRect);
-        let onPalette = pointInRect(point, paletteRect);
+        let onPalette = paintModeEnabled && pointInRect(point, paletteRect);
         let schemeRect = getSchemeRect();
         let onScheme = pointInRect(point, schemeRect);
-        let onReset = pointInRect(point, resetRect);
 
         let rect = getGridRect();
         let onCanvasSquare = false;
         if (point.x >= rect.x && point.y >= rect.y && point.x <= rect.x + rect.w && point.y <= rect.y + rect.h) {
-            let cellStep = GRID_SIZE + GRID_GAP;
+            let cellSize = getActiveGridCellSize();
+            let cellStep = cellSize + GRID_GAP;
             let localX = point.x - rect.x;
             let localY = point.y - rect.y;
-            let xInCell = (localX % cellStep) <= GRID_SIZE;
-            let yInCell = (localY % cellStep) <= GRID_SIZE;
+            let xInCell = (localX % cellStep) <= cellSize;
+            let yInCell = (localY % cellStep) <= cellSize;
             onCanvasSquare = xInCell && yInCell;
         }
 
         if (event.button === 0 && point.x >= tabRect.x && point.x <= tabRect.x + tabRect.w &&
             point.y >= tabRect.y && point.y <= tabRect.y + tabRect.h) {
             // Skip drag when clicking action buttons.
-            if (!onClose && !onZoom) {
+            if (!onClose) {
                 gridView.isPanning = true;
                 return false;
             }
@@ -4618,7 +5592,7 @@ new p5(function(p) {
 
         // Drag from panel/background when not clicking controls and not clicking a paintable square.
         if (event.button === 0 && pointInRect(point, panelRect)) {
-            if (!onClose && !onZoom && !onPaintToggle && !onPalette && !onScheme && !onReset) {
+            if (!onClose && !onPaintToggle && !onPalette && !onScheme) {
                 if (!paintModeEnabled || !onCanvasSquare) {
                     gridView.isPanning = true;
                     return false;
@@ -4634,16 +5608,38 @@ new p5(function(p) {
         return false;
     }
 
+    p.mouseDragged = function() {
+        if (draggedFoodItemId != null) {
+            return false;
+        }
+
+        if (gridView.isPanning) {
+            gridView.panX += p.movedX;
+            gridView.panY += p.movedY;
+            return false;
+        }
+
+        if (paintModeEnabled && p.mouseButton === p.LEFT) {
+            if (paintGridCellAt(p.mouseX, p.mouseY)) return false;
+        }
+    };
+
     function onCanvasClick() {
         if (gridView.spaceDown || gridView.isPanning) return;
         if (handleGridClick(p.mouseX, p.mouseY)) return;
-        if (isPointInWorldAreaButton(p.mouseX, p.mouseY, WORLD_AREA_1_X, WORLD_AREA_1_Y)) {
-            openRadialPromptModal();
-            return;
-        }
-        if (isPointInWorldAreaButton(p.mouseX, p.mouseY, WORLD_AREA_2_X, WORLD_AREA_2_Y)) {
-            gridView.isVisible = true;
-            return;
+        if (WORLD_AREA_BUTTONS_VISIBLE) {
+            if (isPointInWorldAreaButton(p.mouseX, p.mouseY, WORLD_AREA_1_X, WORLD_AREA_1_Y)) {
+                openRadialPromptModal();
+                return;
+            }
+            if (isPointInWorldAreaButton(p.mouseX, p.mouseY, WORLD_AREA_2_X, WORLD_AREA_2_Y)) {
+                gridView.isVisible = true;
+                gridView.openedViaCanvasButton = false;
+                let scaleBounds = getGridScaleBoundsFromPanelSize();
+                gridView.scale = p.constrain(GRID_DEFAULT_OPEN_SCALE, scaleBounds.min, scaleBounds.max);
+                gridView.isZoomedTab = false;
+                return;
+            }
         }
         if (!micActive) startMic();
         
@@ -4655,6 +5651,7 @@ new p5(function(p) {
                 if (ui.radialMenu) ui.radialMenu.classList.remove('radial-active');
 
                 if (longRestActive) {
+                    playSoundEffect('shakeWake');
                     restState.longRestUntil = Math.max(Date.now(), restState.longRestUntil - LONG_REST_CLICK_REDUCTION_MS);
                     restWakeShakeFrames = REST_WAKE_SHAKE_FRAMES;
                     if (!isLongRestActive()) {
@@ -4667,6 +5664,7 @@ new p5(function(p) {
                 }
 
                 if (shortRestActive) {
+                    playSoundEffect('shakeWake');
                     shortRestWakeClicks += 1;
                     restWakeShakeFrames = REST_WAKE_SHAKE_FRAMES;
                     if (shortRestWakeClicks >= SHORT_REST_WAKE_CLICKS_REQUIRED) {
@@ -4682,10 +5680,13 @@ new p5(function(p) {
             }
 
             if (ui.radialMenu) {
-                ui.radialMenu.classList.add('radial-active');
-                updateRadialMenuPosition(creature);
+                if (creatureQuestionState.active) {
+                    openCreatureQuestionInteraction();
+                } else {
+                    ui.radialMenu.classList.add('radial-active');
+                    updateRadialMenuPosition(creature);
+                }
             }
-            creature.need = p.min(100, creature.need + CLICK_FEED);
         } else {
             // Close menu if clicking outside creature
             if (ui.radialMenu) {
@@ -4694,19 +5695,11 @@ new p5(function(p) {
         }
     }
 
-    p.mouseDragged = function() {
-        if (gridView.isPanning) {
-            gridView.panX += p.movedX;
-            gridView.panY += p.movedY;
+    p.mouseReleased = function() {
+        if (finishFoodDrag()) {
+            gridView.isPanning = false;
             return false;
         }
-
-        if (paintModeEnabled && p.mouseButton === p.LEFT) {
-            if (paintGridCellAt(p.mouseX, p.mouseY)) return false;
-        }
-    };
-
-    p.mouseReleased = function() {
         gridView.isPanning = false;
     };
 
@@ -4753,16 +5746,40 @@ new p5(function(p) {
         ui.shopStatus.style.color = isError ? '#b4432b' : 'var(--dark)';
     }
 
+    function showShopPurchaseReaction(kind, label = '') {
+        if (typeof window._showNpcDialogueWithExpr !== 'function') return;
+
+        let text = '';
+        if (kind === 'palette') {
+            text = 'More colours to play with. I can already see new combinations. [expr:happy]';
+        } else if (kind === 'computer') {
+            text = 'A computer? Nice. I can search for references properly now. [expr:confident]';
+        } else if (kind === 'music') {
+            text = `This track sets a good mood for painting: ${label}. [expr:pride]`;
+        } else if (kind === 'studio-wall') {
+            text = `The studio feels different already with ${label}. [expr:confident]`;
+        } else if (kind === 'studio-decor') {
+            text = `${label} makes the space feel more like ours. [expr:happy]`;
+        } else if (kind === 'gallery-wall') {
+            text = `${label} gives the gallery a cleaner look. [expr:neutral]`;
+        }
+
+        if (text) {
+            window._showNpcDialogueWithExpr(text);
+        }
+    }
+
     function updateSearchFeatureGateUI() {
         if (ui.searchOpenButton) {
             ui.searchOpenButton.disabled = !hasComputerUpgrade;
-            ui.searchOpenButton.style.display = hasComputerUpgrade ? 'inline-block' : 'none';
+            ui.searchOpenButton.style.display = hasComputerUpgrade ? 'flex' : 'none';
         }
         if (ui.shopComputerNote) {
             ui.shopComputerNote.textContent = hasComputerUpgrade
                 ? 'Computer installed. Search Generation is unlocked.'
                 : 'Computer not owned. Buy one to unlock Search Generation.';
         }
+        refreshAreaButtonSprites();
     }
 
     function getPaletteUpgradePrice() {
@@ -4787,6 +5804,21 @@ new p5(function(p) {
     }
 
     function refreshShopUI() {
+        let foodButtonMap = {
+            apple: ui.shopBuyFoodAppleButton,
+            burger: ui.shopBuyFoodBurgerButton,
+            sandwich: ui.shopBuyFoodSandwichButton,
+            'energy-drink': ui.shopBuyFoodEnergyDrinkButton,
+        };
+
+        for (let i = 0; i < SHOP_FOOD_VARIANTS.length; i++) {
+            let foodType = SHOP_FOOD_VARIANTS[i];
+            let button = foodButtonMap[foodType.id];
+            if (!button) continue;
+            setShopButtonLabel(button, `${foodType.label} (${foodEffectText(foodType)}) · ${foodType.price} coins`);
+            button.disabled = galleryCoins < foodType.price;
+        }
+
         if (ui.shopBuyCanvasLongButton) {
             ui.shopBuyCanvasLongButton.textContent = `Long canvas (52x24) · ${SHOP_CANVAS_LONG_PRICE} coins`;
         }
@@ -4817,7 +5849,34 @@ new p5(function(p) {
                 ? 'Computer purchased (search unlocked)'
                 : `Buy computer (unlock search) · ${SHOP_COMPUTER_PRICE} coins`;
             ui.shopBuyComputerButton.disabled = hasComputerUpgrade;
+        }
+        if (ui.shopBuyProgressResetButton) {
+            ui.shopBuyProgressResetButton.textContent = `Progress Reset · ${SHOP_PROGRESS_RESET_PRICE} coins`;
+            ui.shopBuyProgressResetButton.disabled = galleryCoins < SHOP_PROGRESS_RESET_PRICE;
+        }
+
+        let musicButtonMap = {
+            'classical-background': ui.shopMusicClassicalButton,
+        };
+
+        for (let i = 0; i < SHOP_MUSIC_TRACKS.length; i++) {
+            let track = SHOP_MUSIC_TRACKS[i];
+            let button = musicButtonMap[track.id];
+            if (!button) continue;
+
+            let owned = ownedShopMusicTrackIds.includes(track.id);
+            let active = activeShopMusicTrackId === track.id;
+
+            if (owned && active) {
+                setShopButtonLabel(button, `${track.label} (playing)`);
+            } else if (owned) {
+                setShopButtonLabel(button, `${track.label} (owned)`);
+            } else {
+                setShopButtonLabel(button, `${track.label} · ${track.price} coins`);
             }
+            button.disabled = false;
+        }
+
         function setShopButtonLabel(button, text) {
             if (!button) return;
             let labelNode = button.querySelector('.shop-item-label');
@@ -4855,8 +5914,11 @@ new p5(function(p) {
 
         let studioDecorButtonMap = {
             'frame-favorite': ui.shopStudioDecorFavoriteButton,
-            plant: ui.shopStudioDecorPlantButton,
-            lamp: ui.shopStudioDecorLampButton,
+            'plant-vase': ui.shopStudioDecorPlantVaseButton,
+            'golden-statue': ui.shopStudioDecorGoldenStatueButton,
+            'pet-mush': ui.shopStudioDecorPetMushButton,
+            'expensive_painting': ui.shopStudioDecorExpensivePaintingButton,
+            'lamp': ui.shopStudioDecorLampButton,
         };
 
         for (let i = 0; i < STUDIO_DECOR_THEMES.length; i++) {
@@ -4865,12 +5927,9 @@ new p5(function(p) {
             if (!button) continue;
 
             let owned = ownedStudioDecorThemeIds.includes(theme.id);
-            let active = activeStudioDecorThemeId === theme.id;
 
-            if (owned && active) {
-                setShopButtonLabel(button, `${theme.label} (active)`);
-            } else if (owned) {
-                setShopButtonLabel(button, `${theme.label} (owned)`);
+            if (owned) {
+                setShopButtonLabel(button, `${theme.label} (active, owned)`);
             } else {
                 setShopButtonLabel(button, `${theme.label} · ${theme.price} coins`);
             }
@@ -4909,6 +5968,8 @@ new p5(function(p) {
         ensureGalleryWallState();
         let theme = getGalleryWallThemeById(themeId);
         let owned = ownedGalleryWallThemeIds.includes(theme.id);
+        let previousThemeId = activeGalleryWallThemeId;
+        let wasPurchasedNow = false;
 
         if (!owned && theme.price > 0) {
             if (galleryCoins < theme.price) {
@@ -4916,17 +5977,26 @@ new p5(function(p) {
                 return;
             }
             galleryCoins -= theme.price;
+            playSoundEffect('purchase');
             ownedGalleryWallThemeIds.push(theme.id);
             setShopStatus(`Purchased gallery wall: ${theme.label}`);
+            wasPurchasedNow = true;
         } else if (!owned) {
             ownedGalleryWallThemeIds.push(theme.id);
             setShopStatus(`Unlocked gallery wall: ${theme.label}`);
+            wasPurchasedNow = true;
         } else {
             setShopStatus(`Selected gallery wall: ${theme.label}`);
         }
 
         activeGalleryWallThemeId = theme.id;
         applyActiveGalleryWallTheme();
+        if (activeGalleryWallThemeId !== previousThemeId) {
+            playSoundEffect('renovate');
+        }
+        if (wasPurchasedNow) {
+            showShopPurchaseReaction('gallery-wall', theme.label);
+        }
         refreshShopUI();
         saveState(creature);
     }
@@ -4935,6 +6005,8 @@ new p5(function(p) {
         ensureStudioWallState();
         let theme = getStudioWallThemeById(themeId);
         let owned = ownedStudioWallThemeIds.includes(theme.id);
+        let previousThemeId = activeStudioWallThemeId;
+        let wasPurchasedNow = false;
 
         if (!owned && theme.price > 0) {
             if (galleryCoins < theme.price) {
@@ -4942,17 +6014,26 @@ new p5(function(p) {
                 return;
             }
             galleryCoins -= theme.price;
+            playSoundEffect('purchase');
             ownedStudioWallThemeIds.push(theme.id);
             setShopStatus(`Purchased studio wall: ${theme.label}`);
+            wasPurchasedNow = true;
         } else if (!owned) {
             ownedStudioWallThemeIds.push(theme.id);
             setShopStatus(`Unlocked studio wall: ${theme.label}`);
+            wasPurchasedNow = true;
         } else {
             setShopStatus(`Selected studio wall: ${theme.label}`);
         }
 
         activeStudioWallThemeId = theme.id;
         applyActiveStudioWallTheme();
+        if (activeStudioWallThemeId !== previousThemeId) {
+            playSoundEffect('renovate');
+        }
+        if (wasPurchasedNow) {
+            showShopPurchaseReaction('studio-wall', theme.label);
+        }
         refreshShopUI();
         saveState(creature);
     }
@@ -4961,6 +6042,7 @@ new p5(function(p) {
         ensureStudioDecorState();
         let theme = getStudioDecorThemeById(themeId);
         let owned = ownedStudioDecorThemeIds.includes(theme.id);
+        let wasPurchasedNow = false;
 
         if (!owned && theme.price > 0) {
             if (galleryCoins < theme.price) {
@@ -4968,18 +6050,57 @@ new p5(function(p) {
                 return;
             }
             galleryCoins -= theme.price;
+            playSoundEffect('purchase');
             ownedStudioDecorThemeIds.push(theme.id);
             setShopStatus(`Purchased studio decor: ${theme.label}`);
+            wasPurchasedNow = true;
         } else if (!owned) {
             ownedStudioDecorThemeIds.push(theme.id);
             setShopStatus(`Unlocked studio decor: ${theme.label}`);
+            wasPurchasedNow = true;
         } else {
-            setShopStatus(`Selected studio decor: ${theme.label}`);
+            setShopStatus(`Studio decor already active: ${theme.label}`);
         }
 
-        activeStudioDecorThemeId = theme.id;
+        if (wasPurchasedNow) {
+            showShopPurchaseReaction('studio-decor', theme.label);
+        }
         refreshShopUI();
         saveState(creature);
+    }
+
+    function getSoundEffectTemplate(effectId) {
+        let path = SOUND_EFFECT_PATHS[effectId];
+        if (!path) return null;
+        if (!soundEffectTemplates[effectId]) {
+            soundEffectTemplates[effectId] = new Audio(path);
+            soundEffectTemplates[effectId].preload = 'auto';
+        }
+        return soundEffectTemplates[effectId];
+    }
+
+    function playSoundEffect(effectId, customVolume = null) {
+        let template = getSoundEffectTemplate(effectId);
+        if (!template) return;
+
+        let audio = template.cloneNode();
+        let volume = customVolume == null ? SOUND_EFFECT_VOLUMES[effectId] : customVolume;
+        audio.volume = p.constrain(Number(volume) || 0.5, 0, 1);
+        soundEffectLastPlayAt[effectId] = Date.now();
+        audio.play().catch(() => {});
+    }
+
+    function playEatingSoundBurst() {
+        let playCount = p.floor(p.random(1, 4));
+        let elapsedMs = 0;
+        for (let i = 0; i < playCount; i++) {
+            let jitter = p.floor(p.random(120, 260));
+            elapsedMs += jitter;
+            let volume = p.random(0.42, 0.58);
+            setTimeout(() => {
+                playSoundEffect('eating', volume);
+            }, elapsedMs);
+        }
     }
 
     function openShopModal() {
@@ -4996,17 +6117,25 @@ new p5(function(p) {
         ui.shopModal.setAttribute('aria-hidden', 'true');
     }
 
-    function buyShopNeedRelief() {
+    function buyFoodItem(foodTypeId) {
         if (!creature) return;
-        if (galleryCoins < SHOP_NEED_PRICE) {
+        let foodType = getFoodTypeById(foodTypeId);
+        if (!foodType) return;
+
+        if (galleryCoins < foodType.price) {
             setShopStatus('Not enough coins for that item.', true);
             return;
         }
-        galleryCoins -= SHOP_NEED_PRICE;
-        creature.need = p.min(100, creature.need + SHOP_NEED_DELTA);
-        setShopStatus('Purchased: Feed Familiar');
+
+        galleryCoins -= foodType.price;
+        playSoundEffect('purchase');
+        spawnFoodItem(foodType);
+        setShopStatus(`Purchased: ${foodType.label}. Drag it to your Familiar (${foodEffectText(foodType)}).`);
         refreshShopUI();
         saveState(creature);
+    }
+    function buyShopNeedRelief() {
+        buyFoodItem('apple');
     }
 
     function buyShopEnergySnack() {
@@ -5016,6 +6145,7 @@ new p5(function(p) {
             return;
         }
         galleryCoins -= SHOP_ENERGY_PRICE;
+        playSoundEffect('purchase');
         creature.energy = p.min(100, creature.energy + SHOP_ENERGY_DELTA);
         setShopStatus('Purchased: Energy Snack');
         refreshShopUI();
@@ -5029,6 +6159,7 @@ new p5(function(p) {
         }
 
         galleryCoins -= price;
+        playSoundEffect('purchase');
         setGridDimensions(cols, rows);
         resetGeneration({ keepCurrentReference: true });
         setShopStatus(`Purchased ${name} canvas (${cols}x${rows}).`);
@@ -5044,6 +6175,7 @@ new p5(function(p) {
         }
 
         galleryCoins -= draft.price;
+        playSoundEffect('purchase');
         setGridDimensions(draft.cols, draft.rows);
         resetGeneration({ keepCurrentReference: true });
         setShopStatus(`Purchased custom canvas (${draft.cols}x${draft.rows}).`);
@@ -5064,6 +6196,7 @@ new p5(function(p) {
         }
 
         galleryCoins -= price;
+        playSoundEffect('purchase');
         paletteUpgradeCount += 1;
         COLOR_SCHEME_COUNT = Math.min(SHOP_PALETTE_MAX_SLOTS, BASE_COLOR_SCHEME_COUNT + paletteUpgradeCount);
         ensureEasyStyleProfile();
@@ -5085,6 +6218,7 @@ new p5(function(p) {
         buildReferenceRuleData();
 
         setShopStatus('Purchased: +1 palette colour slot');
+        showShopPurchaseReaction('palette');
         refreshShopUI();
         saveState(creature);
     }
@@ -5102,8 +6236,79 @@ new p5(function(p) {
         }
 
         galleryCoins -= SHOP_COMPUTER_PRICE;
+        playSoundEffect('purchase');
         hasComputerUpgrade = true;
         setShopStatus('Purchased: Computer unlocked search features.');
+        showShopPurchaseReaction('computer');
+        refreshShopUI();
+        saveState(creature);
+    }
+
+    function buyProgressReset() {
+        if (galleryCoins < SHOP_PROGRESS_RESET_PRICE) {
+            setShopStatus('Not enough coins for Progress Reset.', true);
+            return;
+        }
+
+        let confirmed = window.confirm('Progress Reset removes purchased upgrades/decor and clears all generation history. Continue?');
+        if (!confirmed) {
+            setShopStatus('Progress Reset cancelled.');
+            return;
+        }
+
+        galleryCoins -= SHOP_PROGRESS_RESET_PRICE;
+        playSoundEffect('purchase');
+
+        paletteUpgradeCount = 0;
+        COLOR_SCHEME_COUNT = BASE_COLOR_SCHEME_COUNT;
+        hasComputerUpgrade = false;
+
+        ownedGalleryWallThemeIds = ['sage'];
+        activeGalleryWallThemeId = 'sage';
+        applyActiveGalleryWallTheme();
+
+        ownedStudioWallThemeIds = ['cloud'];
+        activeStudioWallThemeId = 'cloud';
+        applyActiveStudioWallTheme();
+
+        ownedStudioDecorThemeIds = ['frame-favorite'];
+        ownedShopMusicTrackIds = [];
+        activeShopMusicTrackId = null;
+        stopShopMusic();
+
+        favouriteGenerationSerial = null;
+        studioFavoritePaintingSerial = null;
+        studioFavoritePaintingPendingSerial = null;
+        studioFavoritePaintingImage = null;
+
+        pendingFeedback = null;
+        pendingInStyleSnapshot = null;
+        pendingWithColoursSnapshot = null;
+        foodItems = [];
+        draggedFoodItemId = null;
+        creatureFoodHoverActive = false;
+
+        generationHistory = [];
+        generationSerial = 1;
+        archivedGenerationSerial = 0;
+        generationPaused = false;
+        selectedHistorySerial = null;
+        selectedSellSerials.clear();
+        selectSellModeActive = false;
+
+        easyStyleProfile = null;
+        ensureEasyStyleProfile();
+        applyStyleSnapshot(easyStyleProfile.style);
+        colorScheme = easyStyleProfile.colorScheme.map(col => [...col]);
+        chooseArtAccentFromPalette();
+
+        initColorGrid();
+        closeGenerationPopup();
+        rebuildGenerationStripFromHistory();
+        updateGenerationStripControls();
+        saveGenerationHistoryToStorage();
+
+        setShopStatus('Progress reset complete. Easy style loaded and generation history cleared.');
         refreshShopUI();
         saveState(creature);
     }
@@ -5139,11 +6344,6 @@ new p5(function(p) {
     function updateNpcActionButtonsPosition(creature) {
         if (!ui.reopenGridButton) return;
 
-        if (gridView.isVisible) {
-            ui.reopenGridButton.style.display = 'none';
-            return;
-        }
-
         let canvasEl = document.querySelector('#canvas-container canvas');
         if (!canvasEl) {
             ui.reopenGridButton.style.display = 'none';
@@ -5162,10 +6362,15 @@ new p5(function(p) {
         let creatureDOMY = canvasRect.top + (creature.y / p.height) * canvasRect.height;
         let relativeX = creatureDOMX - canvasAreaRect.left;
         let relativeY = creatureDOMY - canvasAreaRect.top;
+        let buttonOffsetX = CREATURE_SIZE * AREA_BUTTON_LAYOUT.canvasButtonOffsetX;
+        let buttonOffsetY = CREATURE_SIZE * AREA_BUTTON_LAYOUT.canvasButtonOffsetY;
 
-        ui.reopenGridButton.style.display = 'block';
-        ui.reopenGridButton.style.left = `${Math.round(relativeX + CREATURE_SIZE * 0.45)}px`;
-        ui.reopenGridButton.style.top = `${Math.round(relativeY - CREATURE_SIZE * 0.2)}px`;
+        ui.reopenGridButton.style.display = 'inline-flex';
+        ui.reopenGridButton.style.left = `${Math.round(relativeX + buttonOffsetX)}px`;
+        ui.reopenGridButton.style.top = `${Math.round(relativeY + buttonOffsetY)}px`;
+
+        gridView.canvasButtonAnchorX = creature.x + buttonOffsetX;
+        gridView.canvasButtonAnchorY = creature.y + buttonOffsetY;
     }
 
 
@@ -5308,14 +6513,18 @@ new p5(function(p) {
                 fullEnergyStyleSnapshot,
                 fullEnergyColorScheme,
                 lastEnergyStyleInfluence,
+                colourPreference,
+                stylePreference,
                 frozenSchemeSlots,
                 frozenSchemeValues,
+                energyDrinkGridBoostActive,
                 ownedGalleryWallThemeIds,
                 activeGalleryWallThemeId,
                 ownedStudioWallThemeIds,
                 activeStudioWallThemeId,
                 ownedStudioDecorThemeIds,
-                activeStudioDecorThemeId,
+                ownedShopMusicTrackIds,
+                activeShopMusicTrackId,
                 favouriteGenerationSerial,
             }));
             saveGenerationHistoryToStorage();
@@ -5336,6 +6545,21 @@ new p5(function(p) {
             COLOR_SCHEME_COUNT = Math.min(SHOP_PALETTE_MAX_SLOTS, BASE_COLOR_SCHEME_COUNT + paletteUpgradeCount);
             hasComputerUpgrade = !!data.hasComputerUpgrade;
             easyStyleProfile = normalizeEasyStyleProfile(data.easyStyleProfile);
+            if (data.colourPreference && typeof data.colourPreference === 'object') {
+                colourPreference.mode = data.colourPreference.mode || null;
+                colourPreference.targetScheme = Array.isArray(data.colourPreference.targetScheme)
+                    ? data.colourPreference.targetScheme.map(col => (Array.isArray(col) ? [...col] : col)).filter(Array.isArray)
+                    : null;
+                colourPreference.likeStreak = Math.max(0, Number(data.colourPreference.likeStreak) || 0);
+            }
+            if (data.stylePreference && typeof data.stylePreference === 'object') {
+                stylePreference.mode = data.stylePreference.mode || null;
+                stylePreference.target = data.stylePreference.target && typeof data.stylePreference.target === 'object'
+                    ? { ...data.stylePreference.target }
+                    : null;
+                stylePreference.likeStreak = Math.max(0, Number(data.stylePreference.likeStreak) || 0);
+            }
+            energyDrinkGridBoostActive = !!data.energyDrinkGridBoostActive;
             ownedGalleryWallThemeIds = Array.isArray(data.ownedGalleryWallThemeIds) ? data.ownedGalleryWallThemeIds.slice() : ['sage'];
             activeGalleryWallThemeId = typeof data.activeGalleryWallThemeId === 'string' ? data.activeGalleryWallThemeId : 'sage';
             favouriteGenerationSerial = Number.isFinite(Number(data.favouriteGenerationSerial))
@@ -5345,9 +6569,17 @@ new p5(function(p) {
             ownedStudioWallThemeIds = Array.isArray(data.ownedStudioWallThemeIds) ? data.ownedStudioWallThemeIds.slice() : ['cloud'];
             activeStudioWallThemeId = typeof data.activeStudioWallThemeId === 'string' ? data.activeStudioWallThemeId : 'cloud';
             ownedStudioDecorThemeIds = Array.isArray(data.ownedStudioDecorThemeIds) ? data.ownedStudioDecorThemeIds.slice() : ['frame-favorite'];
-            activeStudioDecorThemeId = typeof data.activeStudioDecorThemeId === 'string' ? data.activeStudioDecorThemeId : 'frame-favorite';
+            if (typeof data.activeStudioDecorThemeId === 'string') {
+                ownedStudioDecorThemeIds.push(data.activeStudioDecorThemeId);
+            }
+            ownedShopMusicTrackIds = Array.isArray(data.ownedShopMusicTrackIds) ? data.ownedShopMusicTrackIds.slice() : [];
+            activeShopMusicTrackId = typeof data.activeShopMusicTrackId === 'string' ? data.activeShopMusicTrackId : null;
             ensureStudioWallState();
             ensureStudioDecorState();
+            ensureShopMusicState();
+            stopShopMusic();
+            activeShopMusicTrackId = null;
+            applyActiveGalleryWallTheme();
             applyActiveStudioWallTheme();
             frozenSchemeSlots = Array.isArray(data.frozenSchemeSlots) ? data.frozenSchemeSlots.map(v => !!v) : [];
             frozenSchemeValues = Array.isArray(data.frozenSchemeValues)
@@ -5383,7 +6615,6 @@ new p5(function(p) {
             }
             if (c.lastVisit) {
                 let hours = Math.min((Date.now() - c.lastVisit) / 3600000, AFK_MAX_HOURS);
-                c.need = Math.max(c.need - hours * AFK_PER_HOUR, 0);
                 c.energy = Math.min(c.energy + hours * AFK_PER_HOUR, 100);
             }
             ensureEasyStyleProfile();
@@ -5471,6 +6702,19 @@ new p5(function(p) {
     window._moreAbstract = () => { decreasePrecision(); };
     window._noisier = () => { increaseNoise(); };
     window._cleaner = () => { decreaseNoise(); };
+    window._likeColoursImmediate = () => { onLikeColoursFeedbackImmediate(); };
+    window._dislikeColoursImmediate = () => { onDislikeColoursFeedbackImmediate(); };
+    window._likeStyleImmediate = () => { onLikeStyleFeedbackImmediate(); };
+    window._dislikeStyleImmediate = () => { onDislikeStyleFeedbackImmediate(); };
+    window._onRadialQuestionAnswered = (actionKey, questionType) => {
+        if (!creatureQuestionState.active) return;
+        creatureQuestionState.active = false;
+        creatureQuestionState.type = null;
+        creatureQuestionState.prompt = '';
+        generationPaused = false;
+        scheduleNextCreatureQuestion();
+        saveState(creature);
+    };
     window._checkUp = () => { return checkUpStatusMessage(); };
     window._prepareDialogueTextWithExpression = text => { return prepareDialogueTextWithExpression(String(text || '')); };
     window._showPromptInput = () => { openRadialPromptModal(); };

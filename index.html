@@ -42,7 +42,7 @@
         <div class="state-card">
             <div class="state-card-label">state</div>
             <div class="state-card-value" id="ui-state">neutral</div>
-            <div class="state-card-desc" id="ui-desc">need is rising — slightly transparent</div>
+            <div class="state-card-desc" id="ui-desc">hunger is rising — slightly transparent</div>
         </div>
         <!-- ── Stats ── -->
         <div class="stats-row">
@@ -71,10 +71,10 @@
         <div class="control-section">
             <h3>Influence</h3>
             <ul class="hint-list">
-                <li><span class="key">click</span> Click the creature to feed it (−need)</li>
-                <li><span class="key">tab away</span> Need rises faster when unwatched</li>
+                <li><span class="key">click</span> Click the creature to feed it (+hunger)</li>
+                <li><span class="key">time</span> Hunger changes at a steady rate over time</li>
                 <li><span class="key">loud noise</span> Triggers excited state (click first to allow mic)</li>
-                <li><span class="key">time away</span> AFK need builds up over hours</li>
+                <li><span class="key">food</span> Hunger recovers by eating food</li>
             </ul>
         </div>
 
@@ -85,7 +85,7 @@
             <h3>Behaviour</h3>
 
             <div class="control-group">
-                <label>Need decay rate</label>
+                <label>Hunger decay rate</label>
                 <div class="slider-row">
                     <input type="range" id="sl-decay" min="0.001" max="0.045" step="0.001" value="0.003"
                         oninput="window._setDecay && window._setDecay(+this.value); document.getElementById('dv-decay').textContent = parseFloat(this.value).toFixed(3)">
@@ -109,8 +109,8 @@
         <!-- ── Actions ── -->
         <div class="control-section">
             <h3>Actions</h3>
-            <button class="button danger" onclick="window._resetNeed && window._resetNeed()">Reset need to 0</button>
-            <button class="button secondary" onclick="window._maxNeed && window._maxNeed()">Max need (→ distressed)</button>
+            <button class="button danger" onclick="window._resetNeed && window._resetNeed()">Reset hunger to 0</button>
+            <button class="button secondary" onclick="window._maxNeed && window._maxNeed()">Max hunger (→ distressed)</button>
         </div>
 
         <hr class="divider">
@@ -179,11 +179,6 @@
 
     <!-- ════════════════════ CANVAS ════════════════════ -->
     <div class="canvas-area">
-        <aside class="image-panel" id="reference-panel" aria-live="polite">
-            <div class="image-panel-title">Reference image</div>
-            <img id="ui-reference-preview-image" alt="Current or queued reference image preview">
-            <div class="image-panel-caption" id="ui-reference-preview-caption">Using default local references.</div>
-        </aside>
         <div class="scene-meters" aria-live="polite">
             <div class="scene-meter-card">
                 <div class="scene-meter-title">Hunger Meter</div>
@@ -211,9 +206,20 @@
         <div id="canvas-container"></div>
         <div class="scene-cash-display" id="ui-scene-cash">Cash: 0</div>
         <button class="shop-open-btn" id="ui-shop-open-btn" type="button">Shop</button>
-        <button class="search-open-btn" id="ui-search-open-btn" type="button">Search Generation</button>
+        <button class="search-open-btn area-sprite-btn" id="ui-search-open-btn" type="button" aria-label="Search Generation">
+            <span class="area-sprite-stage area-sprite-stage--search" aria-hidden="true">
+                <img class="area-sprite-frame" id="ui-search-open-sprite" src="Environment/SearchComputerIdle.png" alt="">
+                <span class="area-sprite-screen">
+                    <img class="area-sprite-screen-image" id="ui-search-open-screen-image" alt="">
+                </span>
+            </span>
+        </button>
         <button class="gallery-open-btn" id="ui-gallery-open-btn" type="button">User Gallery</button>
-        <button class="reopen-grid-btn" id="ui-reopen-grid-btn" type="button">Open Canvas Tab</button>
+        <button class="reopen-grid-btn area-sprite-btn" id="ui-reopen-grid-btn" type="button" aria-label="Open Canvas Tab">
+            <span class="area-sprite-stage area-sprite-stage--canvas" aria-hidden="true">
+                <img class="area-sprite-frame" id="ui-reopen-grid-sprite" src="Environment/Canvas.png" alt="">
+            </span>
+        </button>
 
         <div class="shop-modal" id="ui-shop-modal" aria-hidden="true">
             <div class="shop-card">
@@ -225,10 +231,24 @@
                 <div class="shop-scroll">
                 <div class="shop-sections">
                     <section class="shop-section">
-                        <div class="shop-subtitle">Recovery</div>
+                        <div class="shop-subtitle">Food And Recovery</div>
                         <div class="shop-item-list">
-                            <button class="shop-item-btn" id="ui-shop-buy-need" type="button">Feed Familiar (+35 hunger) · 25 coins</button>
-                            <button class="shop-item-btn" id="ui-shop-buy-energy" type="button">Energy Snack (+25 energy) · 20 coins</button>
+                            <button class="shop-item-btn shop-food-btn" id="ui-shop-buy-food-apple" type="button">
+                                <img class="shop-food-icon" src="FoodSprites/Apple.png" alt="">
+                                <span class="shop-item-label">Apple</span>
+                            </button>
+                            <button class="shop-item-btn shop-food-btn" id="ui-shop-buy-food-burger" type="button">
+                                <img class="shop-food-icon" src="FoodSprites/Burger.png" alt="">
+                                <span class="shop-item-label">Burger</span>
+                            </button>
+                            <button class="shop-item-btn shop-food-btn" id="ui-shop-buy-food-sandwich" type="button">
+                                <img class="shop-food-icon" src="FoodSprites/Sandwhich.png" alt="">
+                                <span class="shop-item-label">Sandwich</span>
+                            </button>
+                            <button class="shop-item-btn shop-food-btn" id="ui-shop-buy-food-energy-drink" type="button">
+                                <img class="shop-food-icon" src="FoodSprites/EnergyDrink.png" alt="">
+                                <span class="shop-item-label">Energy Drink</span>
+                            </button>
                         </div>
                     </section>
 
@@ -256,6 +276,7 @@
                         <div class="shop-item-list">
                             <button class="shop-item-btn" id="ui-shop-buy-palette" type="button">+1 palette colour slot</button>
                             <button class="shop-item-btn" id="ui-shop-buy-computer" type="button">Buy computer (unlock search)</button>
+                            <button class="shop-item-btn" id="ui-shop-buy-progress-reset" type="button">Progress Reset</button>
                         </div>
                     </section>
 
@@ -273,8 +294,18 @@
                         <div class="shop-subtitle">Studio Decor</div>
                         <div class="shop-item-list">
                             <button class="shop-item-btn" id="ui-shop-studio-decor-fav" type="button">Framed favorite painting</button>
-                            <button class="shop-item-btn" id="ui-shop-studio-decor-plant" type="button">Small plant</button>
-                            <button class="shop-item-btn" id="ui-shop-studio-decor-light" type="button">Soft lamp</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-plant-vase" type="button">Plant Vase</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-golden-statue" type="button">Golden Statue</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-pet-mush" type="button">Pet Mush</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-lamp" type="button">Lamp</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-expensive_painting" type="button">Expensive Artwork</button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section">
+                        <div class="shop-subtitle">Music</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn" id="ui-shop-music-classical" type="button">Classical Background Music</button>
                         </div>
                     </section>
 
@@ -345,6 +376,9 @@
                 hintFontSize: '16px',
                 // Typewriter speed (ms per character, 0 = instant)
                 typeSpeed: 60,
+                dialogueBlipPath: 'SoundEffects/DialogueBlip.wav',
+                dialogueBlipVolume: 0.16,
+                dialogueBlipIntervalMs: 52,
             };
 
             // ═══════════════════════════════════════════════════
@@ -445,6 +479,36 @@
             let vnDismissHandler = null;
             let typeTimer = null;
             const portraitRecolorCache = new Map();
+            let dialogueBlipTemplate = null;
+            let lastDialogueBlipAt = 0;
+
+            function isDialogueBlipCharacter(ch) {
+                return !!ch && /[A-Za-z0-9]/.test(ch);
+            }
+
+            function playDialogueBlip(ch) {
+                if (!isDialogueBlipCharacter(ch)) return;
+
+                const now = (window.performance && typeof window.performance.now === 'function')
+                    ? window.performance.now()
+                    : Date.now();
+                if (now - lastDialogueBlipAt < VN.dialogueBlipIntervalMs) return;
+                lastDialogueBlipAt = now;
+
+                if (!dialogueBlipTemplate) {
+                    dialogueBlipTemplate = new Audio(VN.dialogueBlipPath);
+                    dialogueBlipTemplate.preload = 'auto';
+                    dialogueBlipTemplate.volume = VN.dialogueBlipVolume;
+                }
+
+                const oneShot = dialogueBlipTemplate.cloneNode(true);
+                oneShot.volume = VN.dialogueBlipVolume;
+                oneShot.currentTime = 0;
+                const promise = oneShot.play();
+                if (promise && typeof promise.catch === 'function') {
+                    promise.catch(() => {});
+                }
+            }
 
             function pick(arr) {
                 return arr[Math.floor(Math.random() * arr.length)];
@@ -655,7 +719,9 @@
                     bodyEl.textContent = '';
                     typeTimer = setInterval(() => {
                         if (idx < text.length) {
-                            bodyEl.textContent += text[idx++];
+                            const nextChar = text[idx++];
+                            bodyEl.textContent += nextChar;
+                            playDialogueBlip(nextChar);
                         } else {
                             clearInterval(typeTimer);
                             typeTimer = null;
@@ -764,23 +830,80 @@
                 '3-1': { subs: ['Noisier',       'Cleaner'       ], fills: [FILL3, FILL3b], actions: ['noisier',       'cleaner'      ] },
             };
 
+            let radialQuestionMode = null;
+            let radialActionPathRegistry = [];
+            const RADIAL_QUESTION_ALLOWED_ACTIONS = {
+                colours: new Set(['like-colours', 'dislike-colours']),
+                precision: new Set(['more-precise', 'more-abstract', 'like-style', 'dislike-style']),
+                noise: new Set(['noisier', 'cleaner', 'like-style', 'dislike-style']),
+            };
+
+            function canRunActionForQuestion(actionKey) {
+                if (!radialQuestionMode) return true;
+                const allowed = RADIAL_QUESTION_ALLOWED_ACTIONS[radialQuestionMode];
+                return !!allowed && allowed.has(actionKey);
+            }
+
+            function applyRadialQuestionMask() {
+                radialActionPathRegistry.forEach((item) => {
+                    if (!item || !item.path || !item.actionKey) return;
+                    const allowed = canRunActionForQuestion(item.actionKey);
+                    if (allowed) {
+                        item.path.setAttribute('fill', item.baseFill);
+                        item.path.setAttribute('stroke', STROKE);
+                        item.path.style.opacity = '1';
+                        item.path.style.pointerEvents = 'auto';
+                        item.path.style.cursor = 'pointer';
+                    } else {
+                        item.path.setAttribute('fill', 'rgba(168,176,184,0.92)');
+                        item.path.setAttribute('stroke', 'rgba(108,116,124,0.92)');
+                        item.path.style.opacity = '0.7';
+                        item.path.style.pointerEvents = 'none';
+                        item.path.style.cursor = 'not-allowed';
+                    }
+                });
+            }
+
+            function registerActionPath(path, actionKey, baseFill) {
+                if (!path || !actionKey) return;
+                radialActionPathRegistry.push({ path, actionKey, baseFill });
+            }
+
             // ── Action runner ────────────────────────────────────
             function runAction(key) {
+                if (!canRunActionForQuestion(key)) return;
+                const activeQuestionMode = radialQuestionMode;
                 const menu = document.getElementById('ui-radial-menu');
                 if (menu) menu.classList.remove('radial-active');
 
                 switch (key) {
                     case 'like-colours':
-                        window._likeColours && window._likeColours();
+                        if (activeQuestionMode) {
+                            window._likeColoursImmediate && window._likeColoursImmediate();
+                        } else {
+                            window._likeColours && window._likeColours();
+                        }
                         break;
                     case 'like-style':
-                        window._likeStyle && window._likeStyle();
+                        if (activeQuestionMode) {
+                            window._likeStyleImmediate && window._likeStyleImmediate();
+                        } else {
+                            window._likeStyle && window._likeStyle();
+                        }
                         break;
                     case 'dislike-colours':
-                        window._dislikeColours && window._dislikeColours();
+                        if (activeQuestionMode) {
+                            window._dislikeColoursImmediate && window._dislikeColoursImmediate();
+                        } else {
+                            window._dislikeColours && window._dislikeColours();
+                        }
                         break;
                     case 'dislike-style':
-                        window._dislikeStyle && window._dislikeStyle();
+                        if (activeQuestionMode) {
+                            window._dislikeStyleImmediate && window._dislikeStyleImmediate();
+                        } else {
+                            window._dislikeStyle && window._dislikeStyle();
+                        }
                         break;
                     case 'check-up': {
                         const msg = window._checkUp && window._checkUp();
@@ -801,6 +924,14 @@
                 // Show creature dialogue if responses exist
                 const pool = RESPONSES[key];
                 if (pool && pool.length) showDialogue(prepareDialoguePayload(pick(pool)));
+
+                if (activeQuestionMode) {
+                    if (typeof window._onRadialQuestionAnswered === 'function') {
+                        window._onRadialQuestionAnswered(key, activeQuestionMode);
+                    }
+                    radialQuestionMode = null;
+                    applyRadialQuestionMask();
+                }
             }
 
             // ── SVG helpers ──────────────────────────────────────
@@ -950,6 +1081,7 @@
                 r1Groups.length = 0;
                 r2Groups.length = 0;
                 Object.keys(r3Groups).forEach(k => delete r3Groups[k]);
+                radialActionPathRegistry = [];
                 clearNodeChildren(r1Layer);
                 clearNodeChildren(r2Layer);
                 clearNodeChildren(r3Layer);
@@ -975,6 +1107,7 @@
 
                     path.addEventListener('mouseenter', () => { if (R2_DATA[i]) showR2(i); else hideR2(); });
                     if (i === 2) path.addEventListener('click', () => runAction('check-up'));
+                    if (i === 2) registerActionPath(path, 'check-up', sec.fill);
 
                     g.appendChild(path);
                     g.appendChild(t);
@@ -1000,7 +1133,10 @@
 
                         const r3Key = `${i}-${j}`;
                         path.addEventListener('mouseenter', () => { if (R3_DATA[r3Key]) showR3(r3Key); else hideR3(); });
-                        if (data.actions[j]) path.addEventListener('click', () => runAction(data.actions[j]));
+                        if (data.actions[j]) {
+                            path.addEventListener('click', () => runAction(data.actions[j]));
+                            registerActionPath(path, data.actions[j], data.fills[j]);
+                        }
 
                         subG.appendChild(path);
                         subG.appendChild(t);
@@ -1030,7 +1166,10 @@
                         const lines = data.subs[j].split('\n');
                         const t = makeText(lines, tx, ty, 9.5, TEXT3);
 
-                        if (data.actions[j]) path.addEventListener('click', () => runAction(data.actions[j]));
+                        if (data.actions[j]) {
+                            path.addEventListener('click', () => runAction(data.actions[j]));
+                            registerActionPath(path, data.actions[j], data.fills[j]);
+                        }
 
                         g.appendChild(path);
                         g.appendChild(t);
@@ -1039,9 +1178,22 @@
                     r3Layer.appendChild(g);
                     r3Groups[key] = g;
                 });
+
+                applyRadialQuestionMask();
             }
 
             rebuildRadialGeometry();
+
+            window._openRadialForQuestion = function(questionType) {
+                radialQuestionMode = String(questionType || '').trim().toLowerCase();
+                applyRadialQuestionMask();
+                if (menu) menu.classList.add('radial-active');
+            };
+
+            window._clearRadialQuestionMode = function() {
+                radialQuestionMode = null;
+                applyRadialQuestionMask();
+            };
 
             // Hide rings on mouse-leave
             svg.addEventListener('mouseleave', () => { hideR2(); hideR3(); });
