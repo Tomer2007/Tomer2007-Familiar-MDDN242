@@ -32,12 +32,47 @@ new p5(function(p) {
         { id: 'classical-background', label: 'Classical Background Music', price: 60, path: 'SoundEffects/ClassicalBackgroundMusic.mp3' },
     ];
     const FIRST_TIME_VISITOR_PROMPT_KEY = 'first_time_visitor_prompt_v1';
+    const NEW_PLAYER_MENU_SPRITE_PATH = 'UI/NewPlayerMenu.png';
+    // Tutorial pages are configured here. Add new pages by appending an object.
+    const TUTORIAL_BOOK_PAGES = [
+        { sprite: 'UI/TutorialBookFront.png', leftText: '', rightText: '' },
+        {
+            sprite: 'UI/TutorialBookPage1.png',
+            leftText: '',
+            rightText: 'This scientefic hypothesis was written by Dr. Duxelles, in order to analyse the possibility of teaching a mushroom to paint. \n Of course, in the scientific community, we all know this is impossible as mushrooms lack the limbs, eyes, and brain necessary to paint, but this paper aims to solve how a hypothetical mushroom with the ability to paint would learn to do so.',
+        },
+        {
+            sprite: 'UI/TutorialBookPage2.png',
+            leftText: "Firstly in order to paint, the mushroom would need some basic equipment of a studio, canvas, paintbrush, and of course a teacher. \n Although it is possible for the mutated mushroom to paint on it's own, without human knowledge it would be unable to determine what is good and bad.",
+            rightText: 'Hence the importance of a teacher, by CLICKING on the mushroom, the teacher could find a way to communicate with the mushroom and give it guidance to teach it how to paint with a style and colour that a human would find appealing.',
+        },
+        {
+            sprite: 'UI/TutorialBookPage3.png',
+            leftText: "However, if this hypothetical mushroom had a brain, it would actively seek out advice by asking questions to the teacher, represented by a large ? over it's head. When seeing this the teacher should listen to the creature worries and questions to not only give it guidance, but to help it develop it's own judgement in the future.",
+            rightText: "Like every artist, the mushroom would need to rest it's overworked mind to regain it's energy. Not letting it get enough rest can result in it slipping back in to it's old style, creating art that can be unappealing to the human eye. However, substances like energy drinks could give a temporary boost to it's energy and even enhance the creature's speed.",
+        },
+        {
+            sprite: 'UI/TutorialBookPage4.png',
+            leftText: "This hypothetical creature's biology would also change greatly, as controlling brain's and limbs would require far more ENERGY than a standard muhroom could attain through absorption. As a result it would be sensible to FEED this creature human FOOD, which it would of course have the required organs to digest. However, without long limbs it's possible the creature would need to be fed by hand.",
+            rightText: "Now this all might seem like a lot of work just to teach a mushroom to paint, but you need to consider the potential for SCIENCE. imagine being able to teach a mushroom human creativity, by researching the creature we could understand how this phenomenon occurs, and solve art block for everyone! Although it may seem impossible, even the slightest chance someone could successfully do this their would be MILLIONS of DOLLARS in offer for just the research alone.",
+        },
+        {
+            sprite: 'UI/TutorialBookPage5.png',
+            leftText: "Of course, even if the potential cash return for such a scientific discovery, it wouldn't hurt to make a bit of extra cash by selling the practice paintings. However, when selling paintings you never know what kind of buyer you might get, with everyone having different tastes and preferences. So I would suggest making a variety of paintings to match different tastes, in order to optimise their earnings.",
+            rightText: "This extra cash can then be used to further improve the mushroom's teaching, buying it UPGRADES to improve it's skill, and buying DECOR to increase it's happiness.",
+        },
+        {
+            sprite: "UI/TutorialBookBlank.png",
+            leftText:"I didn't really know how to explain the rest of these mechanics in the context of a scientific paper, so this page is just written by Tomer: \n Some of the upgrades you can buy are the paintbrush, the computer, and the pallette upgrades. The Paintbrush can be selected in the canvas tab (found by clicking on the canvas to preview the generation), where you can chose a colour from the colour pallette to paint over the mushroom's paintings to fix mistakes or even guide the painting when done during generation.",
+            rightText:"The Computer can be clicked on to search for more reference images than the one's prebuilt into the code. The Pallette upgrades will increase the amount of different colours the creature can use during generation, however if you don't like having to many colours you can always freeze some pallettes by clicking them, which temporarily stores the colour and stops using it in the generation.",
+        }
+    ];
     const SHOP_MUSIC_VOLUME = 0.46;
     const SOUND_EFFECT_VOLUMES = {
-        purchase: 0.58,
-        renovate: 0.62,
-        eating: 0.5,
-        shakeWake: 0.56,
+        purchase: 0.38,
+        renovate: 0.32,
+        eating: 0.4,
+        shakeWake: 0.36,
     };
     const AREA_BUTTON_LAYOUT = {
         spriteSize: 360,
@@ -205,6 +240,67 @@ new p5(function(p) {
     let CREATURE_QUESTION_MIN_INTERVAL_MS = 45000;
     let CREATURE_QUESTION_MAX_INTERVAL_MS = 95000;
     let CREATURE_QUESTION_MARK_OFFSET_Y = -190;
+
+    // --- New player sprite menu ---
+    let NEW_PLAYER_MENU_WIDTH = 680;
+    let NEW_PLAYER_MENU_MAX_WIDTH_VW = 82;
+    let NEW_PLAYER_MENU_ASPECT = 1.64;
+    let NEW_PLAYER_MENU_YES_X = 0.28;
+    let NEW_PLAYER_MENU_YES_Y = 0.79;
+    let NEW_PLAYER_MENU_YES_W = 0.22;
+    let NEW_PLAYER_MENU_YES_H = 0.14;
+    let NEW_PLAYER_MENU_NO_X = 0.52;
+    let NEW_PLAYER_MENU_NO_Y = 0.79;
+    let NEW_PLAYER_MENU_NO_W = 0.22;
+    let NEW_PLAYER_MENU_NO_H = 0.14;
+
+    // --- Tutorial book UI ---
+    let TUTORIAL_BOOK_WIDTH = 760;
+    let TUTORIAL_BOOK_SCALE = 1.0;
+    let TUTORIAL_BOOK_MAX_WIDTH_VW = 92;
+    let TUTORIAL_BOOK_START_X = 120;
+    let TUTORIAL_BOOK_START_Y = 80;
+    let TUTORIAL_BOOK_SHOW_DRAG_AREA_DEBUG = true;
+
+    // Drag area for cover sprite (page index 0)
+    let TUTORIAL_BOOK_COVER_DRAG_OFFSET_X = 28;
+    let TUTORIAL_BOOK_COVER_DRAG_OFFSET_Y = 22;
+    let TUTORIAL_BOOK_COVER_DRAG_W = 700;
+    let TUTORIAL_BOOK_COVER_DRAG_H = 116;
+
+    // Drag area for numbered page sprites (page index 1..5)
+    let TUTORIAL_BOOK_PAGE_DRAG_OFFSET_X = 20;
+    let TUTORIAL_BOOK_PAGE_DRAG_OFFSET_Y = 16;
+    let TUTORIAL_BOOK_PAGE_DRAG_W = 720;
+    let TUTORIAL_BOOK_PAGE_DRAG_H = 112;
+
+    let TUTORIAL_BOOK_TEXTBOX_1_X = 88;
+    let TUTORIAL_BOOK_TEXTBOX_1_Y = 154;
+    let TUTORIAL_BOOK_TEXTBOX_1_W = 256;
+    let TUTORIAL_BOOK_TEXTBOX_1_H = 288;
+    let TUTORIAL_BOOK_TEXTBOX_2_X = 414;
+    let TUTORIAL_BOOK_TEXTBOX_2_Y = 154;
+    let TUTORIAL_BOOK_TEXTBOX_2_W = 256;
+    let TUTORIAL_BOOK_TEXTBOX_2_H = 288;
+    let TUTORIAL_BOOK_TEXT_OFFSET_X = 16;
+    let TUTORIAL_BOOK_TEXT_OFFSET_Y = 14;
+    let TUTORIAL_BOOK_TEXT_FONT_SIZE = 16;
+    let TUTORIAL_BOOK_TEXT_LINE_HEIGHT = 1.4;
+
+    // Navigation button offsets for the cover page.
+    let TUTORIAL_BOOK_COVER_PREV_BUTTON_X = 16;
+    let TUTORIAL_BOOK_COVER_NEXT_BUTTON_X = 702;
+    let TUTORIAL_BOOK_COVER_BUTTON_Y = 474;
+
+    // Navigation button offsets for all numbered pages.
+    let TUTORIAL_BOOK_NUMBERED_PREV_BUTTON_X = 28;
+    let TUTORIAL_BOOK_NUMBERED_NEXT_BUTTON_X = 690;
+    let TUTORIAL_BOOK_NUMBERED_BUTTON_Y = 474;
+
+    let TUTORIAL_BOOK_NAV_BUTTON_SIZE = 42;
+    let TUTORIAL_BOOK_CLOSE_BUTTON_RIGHT = 14;
+    let TUTORIAL_BOOK_CLOSE_BUTTON_TOP = 10;
+    let TUTORIAL_BOOK_CLOSE_BUTTON_SIZE = 34;
 
     let GRID_CANVAS_TAB_BUTTON_SIZE = GRID_TAB_HEIGHT * 3;
     let GRID_CLOSE_BUTTON_OFFSET_X = 5 * (GRID_TAB_WIDTH + GRID_TAB_GAP);
@@ -567,6 +663,16 @@ new p5(function(p) {
     let activeShopMusicTrackId = null;
     let paintbrushButtonSprite = null;
     let exitButtonSprite = null;
+    let pendingNewPlayerMenuChoice = null;
+    let tutorialBookState = {
+        isOpen: false,
+        pageIndex: 0,
+        isDragging: false,
+        dragOffsetX: 0,
+        dragOffsetY: 0,
+        x: TUTORIAL_BOOK_START_X,
+        y: TUTORIAL_BOOK_START_Y,
+    };
 
         function getGalleryWallThemeById(themeId) {
             return GALLERY_WALL_THEMES.find(theme => theme.id === themeId) || GALLERY_WALL_THEMES[0];
@@ -1702,6 +1808,465 @@ new p5(function(p) {
         onReferenceSearchSubmit();
     }
 
+    function getOverlayRootElement() {
+        return document.querySelector('.canvas-area') || document.body;
+    }
+
+    function ensureNewPlayerMenuUI() {
+        if (ui.newPlayerMenuBackdrop) return;
+
+        let root = getOverlayRootElement();
+        let backdrop = document.createElement('div');
+        backdrop.id = 'ui-new-player-menu-backdrop';
+        Object.assign(backdrop.style, {
+            position: 'absolute',
+            inset: '0',
+            display: 'none',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.45)',
+            zIndex: '950',
+            pointerEvents: 'auto',
+        });
+
+        let panel = document.createElement('div');
+        panel.id = 'ui-new-player-menu-panel';
+        Object.assign(panel.style, {
+            position: 'relative',
+            width: `${NEW_PLAYER_MENU_WIDTH}px`,
+            maxWidth: `${NEW_PLAYER_MENU_MAX_WIDTH_VW}vw`,
+            aspectRatio: String(NEW_PLAYER_MENU_ASPECT),
+            backgroundImage: `url(${NEW_PLAYER_MENU_SPRITE_PATH})`,
+            backgroundPosition: 'center',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            imageRendering: 'pixelated',
+            filter: 'drop-shadow(0 14px 24px rgba(0, 0, 0, 0.42))',
+        });
+
+        let yesButton = document.createElement('button');
+        yesButton.type = 'button';
+        yesButton.setAttribute('aria-label', 'Yes, first time visitor');
+        Object.assign(yesButton.style, {
+            position: 'absolute',
+            left: `${NEW_PLAYER_MENU_YES_X * 100}%`,
+            top: `${NEW_PLAYER_MENU_YES_Y * 100}%`,
+            width: `${NEW_PLAYER_MENU_YES_W * 100}%`,
+            height: `${NEW_PLAYER_MENU_YES_H * 100}%`,
+            transform: 'translate(-50%, -50%)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+        });
+
+        let noButton = document.createElement('button');
+        noButton.type = 'button';
+        noButton.setAttribute('aria-label', 'No, not first time visitor');
+        Object.assign(noButton.style, {
+            position: 'absolute',
+            left: `${NEW_PLAYER_MENU_NO_X * 100}%`,
+            top: `${NEW_PLAYER_MENU_NO_Y * 100}%`,
+            width: `${NEW_PLAYER_MENU_NO_W * 100}%`,
+            height: `${NEW_PLAYER_MENU_NO_H * 100}%`,
+            transform: 'translate(-50%, -50%)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+        });
+
+        yesButton.addEventListener('click', () => {
+            if (typeof pendingNewPlayerMenuChoice === 'function') {
+                pendingNewPlayerMenuChoice(true);
+            }
+            pendingNewPlayerMenuChoice = null;
+            closeNewPlayerMenu();
+        });
+
+        noButton.addEventListener('click', () => {
+            if (typeof pendingNewPlayerMenuChoice === 'function') {
+                pendingNewPlayerMenuChoice(false);
+            }
+            pendingNewPlayerMenuChoice = null;
+            closeNewPlayerMenu();
+        });
+
+        panel.appendChild(yesButton);
+        panel.appendChild(noButton);
+        backdrop.appendChild(panel);
+        root.appendChild(backdrop);
+
+        ui.newPlayerMenuBackdrop = backdrop;
+        ui.newPlayerMenuPanel = panel;
+        ui.newPlayerMenuYesButton = yesButton;
+        ui.newPlayerMenuNoButton = noButton;
+    }
+
+    function openNewPlayerMenu(onChoice) {
+        ensureNewPlayerMenuUI();
+        pendingNewPlayerMenuChoice = typeof onChoice === 'function' ? onChoice : null;
+        if (ui.newPlayerMenuBackdrop) {
+            ui.newPlayerMenuBackdrop.style.display = 'flex';
+            ui.newPlayerMenuBackdrop.setAttribute('aria-hidden', 'false');
+        }
+    }
+
+    function closeNewPlayerMenu() {
+        if (!ui.newPlayerMenuBackdrop) return;
+        ui.newPlayerMenuBackdrop.style.display = 'none';
+        ui.newPlayerMenuBackdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    function ensureTutorialBookUI() {
+        if (ui.tutorialBookRoot) return;
+
+        let root = getOverlayRootElement();
+        let bookRoot = document.createElement('div');
+        bookRoot.id = 'ui-tutorial-book';
+        Object.assign(bookRoot.style, {
+            position: 'absolute',
+            left: `${tutorialBookState.x}px`,
+            top: `${tutorialBookState.y}px`,
+            width: `${TUTORIAL_BOOK_WIDTH * TUTORIAL_BOOK_SCALE}px`,
+            maxWidth: `${TUTORIAL_BOOK_MAX_WIDTH_VW}vw`,
+            display: 'none',
+            zIndex: '960',
+            userSelect: 'none',
+            touchAction: 'none',
+            filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.42))',
+        });
+
+        let bookImage = document.createElement('img');
+        bookImage.id = 'ui-tutorial-book-image';
+        bookImage.alt = 'Tutorial Book';
+        bookImage.draggable = false;
+        Object.assign(bookImage.style, {
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            imageRendering: 'pixelated',
+            pointerEvents: 'none',
+        });
+
+        let textBox1 = document.createElement('div');
+        let textBox2 = document.createElement('div');
+        let dragAreaDebug = document.createElement('div');
+        for (let box of [textBox1, textBox2]) {
+            Object.assign(box.style, {
+                position: 'absolute',
+                border: '1px solid rgba(96, 82, 58, 0.35)',
+                background: 'rgba(255, 252, 241, 0.28)',
+                color: '#2d2418',
+                fontFamily: "'Lora', serif",
+                overflow: 'hidden',
+                whiteSpace: 'pre-wrap',
+                pointerEvents: 'none',
+                boxSizing: 'border-box',
+            });
+        }
+
+        Object.assign(dragAreaDebug.style, {
+            position: 'absolute',
+            border: '2px dashed rgba(20, 190, 110, 0.95)',
+            background: 'rgba(20, 190, 110, 0.12)',
+            boxSizing: 'border-box',
+            pointerEvents: 'none',
+            display: TUTORIAL_BOOK_SHOW_DRAG_AREA_DEBUG ? 'block' : 'none',
+        });
+
+        let prevButton = document.createElement('button');
+        prevButton.type = 'button';
+        prevButton.textContent = '<';
+        Object.assign(prevButton.style, {
+            position: 'absolute',
+            left: '12px',
+            bottom: '10px',
+            width: '42px',
+            height: '42px',
+            borderRadius: '10px',
+            border: '1px solid rgba(70, 55, 35, 0.35)',
+            background: 'rgba(255, 248, 230, 0.82)',
+            color: '#3d2d1d',
+            fontSize: '24px',
+            lineHeight: '1',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+        });
+
+        let nextButton = document.createElement('button');
+        nextButton.type = 'button';
+        nextButton.textContent = '>';
+        Object.assign(nextButton.style, {
+            position: 'absolute',
+            width: `${TUTORIAL_BOOK_NAV_BUTTON_SIZE}px`,
+            height: `${TUTORIAL_BOOK_NAV_BUTTON_SIZE}px`,
+            borderRadius: '10px',
+            border: '1px solid rgba(70, 55, 35, 0.35)',
+            background: 'rgba(255, 248, 230, 0.82)',
+            color: '#3d2d1d',
+            fontSize: '24px',
+            lineHeight: '1',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+        });
+
+        let closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.textContent = 'X';
+        closeButton.setAttribute('aria-label', 'Close tutorial book');
+        Object.assign(closeButton.style, {
+            position: 'absolute',
+            right: `${TUTORIAL_BOOK_CLOSE_BUTTON_RIGHT}px`,
+            top: `${TUTORIAL_BOOK_CLOSE_BUTTON_TOP}px`,
+            width: `${TUTORIAL_BOOK_CLOSE_BUTTON_SIZE}px`,
+            height: `${TUTORIAL_BOOK_CLOSE_BUTTON_SIZE}px`,
+            borderRadius: '9px',
+            border: '1px solid rgba(70, 55, 35, 0.45)',
+            background: 'rgba(255, 247, 232, 0.9)',
+            color: '#3d2d1d',
+            fontSize: '18px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+            lineHeight: '1',
+        });
+
+        prevButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            setTutorialBookPage(tutorialBookState.pageIndex - 1);
+        });
+
+        nextButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            setTutorialBookPage(tutorialBookState.pageIndex + 1);
+        });
+
+        closeButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            closeTutorialBook();
+        });
+
+        bookRoot.addEventListener('pointerdown', onTutorialBookPointerDown);
+        document.addEventListener('pointermove', onTutorialBookPointerMove);
+        document.addEventListener('pointerup', onTutorialBookPointerUp);
+
+        bookRoot.appendChild(bookImage);
+        bookRoot.appendChild(textBox1);
+        bookRoot.appendChild(textBox2);
+        bookRoot.appendChild(dragAreaDebug);
+        bookRoot.appendChild(prevButton);
+        bookRoot.appendChild(nextButton);
+        bookRoot.appendChild(closeButton);
+        root.appendChild(bookRoot);
+
+        ui.tutorialBookRoot = bookRoot;
+        ui.tutorialBookImage = bookImage;
+        ui.tutorialBookTextBox1 = textBox1;
+        ui.tutorialBookTextBox2 = textBox2;
+        ui.tutorialBookDragAreaDebug = dragAreaDebug;
+        ui.tutorialBookPrevButton = prevButton;
+        ui.tutorialBookNextButton = nextButton;
+        ui.tutorialBookCloseButton = closeButton;
+    }
+
+    function getTutorialBookLayoutScale() {
+        if (!ui.tutorialBookRoot || !ui.tutorialBookRoot.clientWidth) {
+            return Math.max(0.01, Number(TUTORIAL_BOOK_SCALE) || 1);
+        }
+        return ui.tutorialBookRoot.clientWidth / TUTORIAL_BOOK_WIDTH;
+    }
+
+    function getTutorialBookDragAreaForPage(pageIndex) {
+        let scale = getTutorialBookLayoutScale();
+        if (pageIndex <= 0) {
+            return {
+                x: TUTORIAL_BOOK_COVER_DRAG_OFFSET_X * scale,
+                y: TUTORIAL_BOOK_COVER_DRAG_OFFSET_Y * scale,
+                w: TUTORIAL_BOOK_COVER_DRAG_W * scale,
+                h: TUTORIAL_BOOK_COVER_DRAG_H * scale,
+            };
+        }
+        return {
+            x: TUTORIAL_BOOK_PAGE_DRAG_OFFSET_X * scale,
+            y: TUTORIAL_BOOK_PAGE_DRAG_OFFSET_Y * scale,
+            w: TUTORIAL_BOOK_PAGE_DRAG_W * scale,
+            h: TUTORIAL_BOOK_PAGE_DRAG_H * scale,
+        };
+    }
+
+    function isPointInTutorialDragArea(localX, localY) {
+        let dragArea = getTutorialBookDragAreaForPage(tutorialBookState.pageIndex);
+        return localX >= dragArea.x &&
+            localY >= dragArea.y &&
+            localX <= dragArea.x + dragArea.w &&
+            localY <= dragArea.y + dragArea.h;
+    }
+
+    function onTutorialBookPointerDown(event) {
+        if (!tutorialBookState.isOpen || !ui.tutorialBookRoot) return;
+        if (event.target === ui.tutorialBookPrevButton ||
+            event.target === ui.tutorialBookNextButton ||
+            event.target === ui.tutorialBookCloseButton) {
+            return;
+        }
+
+        let rect = ui.tutorialBookRoot.getBoundingClientRect();
+        let localX = event.clientX - rect.left;
+        let localY = event.clientY - rect.top;
+
+        if (!isPointInTutorialDragArea(localX, localY)) return;
+
+        tutorialBookState.isDragging = true;
+        tutorialBookState.dragOffsetX = event.clientX - rect.left;
+        tutorialBookState.dragOffsetY = event.clientY - rect.top;
+        ui.tutorialBookRoot.style.cursor = 'grabbing';
+        event.preventDefault();
+    }
+
+    function onTutorialBookPointerMove(event) {
+        if (!tutorialBookState.isOpen || !tutorialBookState.isDragging || !ui.tutorialBookRoot) return;
+        let parent = ui.tutorialBookRoot.offsetParent || getOverlayRootElement();
+        let parentRect = parent.getBoundingClientRect();
+        tutorialBookState.x = event.clientX - parentRect.left - tutorialBookState.dragOffsetX;
+        tutorialBookState.y = event.clientY - parentRect.top - tutorialBookState.dragOffsetY;
+        ui.tutorialBookRoot.style.left = `${tutorialBookState.x}px`;
+        ui.tutorialBookRoot.style.top = `${tutorialBookState.y}px`;
+    }
+
+    function onTutorialBookPointerUp() {
+        if (!tutorialBookState.isDragging) return;
+        tutorialBookState.isDragging = false;
+        if (ui.tutorialBookRoot) {
+            ui.tutorialBookRoot.style.cursor = 'grab';
+        }
+    }
+
+    function setTutorialBookPage(nextPageIndex) {
+        let maxPage = TUTORIAL_BOOK_PAGES.length - 1;
+        tutorialBookState.pageIndex = p.constrain(nextPageIndex, 0, maxPage);
+        refreshTutorialBookUI();
+    }
+
+    function refreshTutorialBookUI() {
+        if (!ui.tutorialBookRoot || !ui.tutorialBookImage) return;
+        let pageIndex = tutorialBookState.pageIndex;
+        let pageData = TUTORIAL_BOOK_PAGES[pageIndex] || TUTORIAL_BOOK_PAGES[0];
+        let spritePath = pageData ? pageData.sprite : '';
+
+        ui.tutorialBookImage.src = spritePath;
+        ui.tutorialBookRoot.style.width = `${TUTORIAL_BOOK_WIDTH * TUTORIAL_BOOK_SCALE}px`;
+        ui.tutorialBookRoot.style.left = `${tutorialBookState.x}px`;
+        ui.tutorialBookRoot.style.top = `${tutorialBookState.y}px`;
+        ui.tutorialBookRoot.style.cursor = 'grab';
+
+        let scale = getTutorialBookLayoutScale();
+
+        let box1 = ui.tutorialBookTextBox1;
+        let box2 = ui.tutorialBookTextBox2;
+        let isNumberedPage = pageIndex > 0;
+
+        if (box1 && box2) {
+            box1.style.left = `${TUTORIAL_BOOK_TEXTBOX_1_X * scale}px`;
+            box1.style.top = `${TUTORIAL_BOOK_TEXTBOX_1_Y * scale}px`;
+            box1.style.width = `${TUTORIAL_BOOK_TEXTBOX_1_W * scale}px`;
+            box1.style.height = `${TUTORIAL_BOOK_TEXTBOX_1_H * scale}px`;
+
+            box2.style.left = `${TUTORIAL_BOOK_TEXTBOX_2_X * scale}px`;
+            box2.style.top = `${TUTORIAL_BOOK_TEXTBOX_2_Y * scale}px`;
+            box2.style.width = `${TUTORIAL_BOOK_TEXTBOX_2_W * scale}px`;
+            box2.style.height = `${TUTORIAL_BOOK_TEXTBOX_2_H * scale}px`;
+
+            box1.style.padding = `${TUTORIAL_BOOK_TEXT_OFFSET_Y * scale}px ${TUTORIAL_BOOK_TEXT_OFFSET_X * scale}px`;
+            box2.style.padding = `${TUTORIAL_BOOK_TEXT_OFFSET_Y * scale}px ${TUTORIAL_BOOK_TEXT_OFFSET_X * scale}px`;
+            box1.style.fontSize = `${TUTORIAL_BOOK_TEXT_FONT_SIZE * scale}px`;
+            box2.style.fontSize = `${TUTORIAL_BOOK_TEXT_FONT_SIZE * scale}px`;
+            box1.style.lineHeight = String(TUTORIAL_BOOK_TEXT_LINE_HEIGHT);
+            box2.style.lineHeight = String(TUTORIAL_BOOK_TEXT_LINE_HEIGHT);
+
+            if (isNumberedPage) {
+                box1.textContent = pageData && typeof pageData.leftText === 'string' ? pageData.leftText : '';
+                box2.textContent = pageData && typeof pageData.rightText === 'string' ? pageData.rightText : '';
+                box1.style.display = 'block';
+                box2.style.display = 'block';
+            } else {
+                box1.style.display = 'none';
+                box2.style.display = 'none';
+                box1.textContent = '';
+                box2.textContent = '';
+            }
+        }
+
+        if (ui.tutorialBookPrevButton) {
+            ui.tutorialBookPrevButton.disabled = pageIndex <= 0;
+            ui.tutorialBookPrevButton.style.opacity = pageIndex <= 0 ? '0.45' : '1';
+            ui.tutorialBookPrevButton.style.cursor = pageIndex <= 0 ? 'not-allowed' : 'pointer';
+        }
+        if (ui.tutorialBookNextButton) {
+            let atEnd = pageIndex >= TUTORIAL_BOOK_PAGES.length - 1;
+            ui.tutorialBookNextButton.disabled = atEnd;
+            ui.tutorialBookNextButton.style.opacity = atEnd ? '0.45' : '1';
+            ui.tutorialBookNextButton.style.cursor = atEnd ? 'not-allowed' : 'pointer';
+        }
+
+        let buttonScale = scale;
+        let isCoverPage = pageIndex <= 0;
+        let prevX = isCoverPage ? TUTORIAL_BOOK_COVER_PREV_BUTTON_X : TUTORIAL_BOOK_NUMBERED_PREV_BUTTON_X;
+        let nextX = isCoverPage ? TUTORIAL_BOOK_COVER_NEXT_BUTTON_X : TUTORIAL_BOOK_NUMBERED_NEXT_BUTTON_X;
+        let buttonsY = isCoverPage ? TUTORIAL_BOOK_COVER_BUTTON_Y : TUTORIAL_BOOK_NUMBERED_BUTTON_Y;
+
+        if (ui.tutorialBookPrevButton) {
+            ui.tutorialBookPrevButton.style.left = `${prevX * buttonScale}px`;
+            ui.tutorialBookPrevButton.style.top = `${buttonsY * buttonScale}px`;
+            ui.tutorialBookPrevButton.style.width = `${TUTORIAL_BOOK_NAV_BUTTON_SIZE * buttonScale}px`;
+            ui.tutorialBookPrevButton.style.height = `${TUTORIAL_BOOK_NAV_BUTTON_SIZE * buttonScale}px`;
+            ui.tutorialBookPrevButton.style.fontSize = `${24 * buttonScale}px`;
+        }
+        if (ui.tutorialBookNextButton) {
+            ui.tutorialBookNextButton.style.left = `${nextX * buttonScale}px`;
+            ui.tutorialBookNextButton.style.top = `${buttonsY * buttonScale}px`;
+            ui.tutorialBookNextButton.style.width = `${TUTORIAL_BOOK_NAV_BUTTON_SIZE * buttonScale}px`;
+            ui.tutorialBookNextButton.style.height = `${TUTORIAL_BOOK_NAV_BUTTON_SIZE * buttonScale}px`;
+            ui.tutorialBookNextButton.style.fontSize = `${24 * buttonScale}px`;
+        }
+
+        if (ui.tutorialBookCloseButton) {
+            ui.tutorialBookCloseButton.style.right = `${TUTORIAL_BOOK_CLOSE_BUTTON_RIGHT * buttonScale}px`;
+            ui.tutorialBookCloseButton.style.top = `${TUTORIAL_BOOK_CLOSE_BUTTON_TOP * buttonScale}px`;
+            ui.tutorialBookCloseButton.style.width = `${TUTORIAL_BOOK_CLOSE_BUTTON_SIZE * buttonScale}px`;
+            ui.tutorialBookCloseButton.style.height = `${TUTORIAL_BOOK_CLOSE_BUTTON_SIZE * buttonScale}px`;
+            ui.tutorialBookCloseButton.style.fontSize = `${18 * buttonScale}px`;
+        }
+
+        if (ui.tutorialBookDragAreaDebug) {
+            let dragArea = getTutorialBookDragAreaForPage(pageIndex);
+            ui.tutorialBookDragAreaDebug.style.display = TUTORIAL_BOOK_SHOW_DRAG_AREA_DEBUG ? 'block' : 'none';
+            ui.tutorialBookDragAreaDebug.style.left = `${dragArea.x}px`;
+            ui.tutorialBookDragAreaDebug.style.top = `${dragArea.y}px`;
+            ui.tutorialBookDragAreaDebug.style.width = `${dragArea.w}px`;
+            ui.tutorialBookDragAreaDebug.style.height = `${dragArea.h}px`;
+        }
+    }
+
+    function openTutorialBook() {
+        ensureTutorialBookUI();
+        tutorialBookState.isOpen = true;
+        if (ui.tutorialBookRoot) {
+            ui.tutorialBookRoot.style.display = 'block';
+            ui.tutorialBookRoot.setAttribute('aria-hidden', 'false');
+        }
+        refreshTutorialBookUI();
+    }
+
+    function closeTutorialBook() {
+        tutorialBookState.isOpen = false;
+        tutorialBookState.isDragging = false;
+        if (ui.tutorialBookRoot) {
+            ui.tutorialBookRoot.style.display = 'none';
+            ui.tutorialBookRoot.setAttribute('aria-hidden', 'true');
+        }
+    }
+
     p.setup = function() {
         let sz  = canvasSize();
         let cnv = p.createCanvas(sz.w, sz.h);
@@ -2015,6 +2580,8 @@ new p5(function(p) {
             if (event.key === 'Escape') {
                 closeRadialPromptModal();
                 closeShopModal();
+                closeTutorialBook();
+                closeNewPlayerMenu();
             }
         });
         document.addEventListener('keyup', (event) => {
@@ -2026,13 +2593,10 @@ new p5(function(p) {
         refreshShopUI();
         updateSearchFeatureGateUI();
         setReferenceSearchPendingState(false);
+        ensureNewPlayerMenuUI();
+        ensureTutorialBookUI();
 
-        let shouldFreshStartReset = false;
-        if (shouldAskForFirstTimeVisitorReset()) {
-            shouldFreshStartReset = window.confirm(
-                'Is this your first time on the website?\nPress OK for Yes (reset progress) or Cancel for No.'
-            );
-            rememberFirstTimeVisitorPromptAnswer(shouldFreshStartReset);
+        let finishStartupAfterFirstTimeChoice = (shouldFreshStartReset) => {
             if (shouldFreshStartReset) {
                 clearSavedProgressStorage();
                 applyFullProgressResetState({
@@ -2041,16 +2605,29 @@ new p5(function(p) {
                     statusMessage: 'Fresh start ready. Progress and paintings were reset.',
                 });
             }
+
+            loadGridDimensions();
+            if (!shouldFreshStartReset) {
+                loadGenerationHistoryFromStorage();
+            }
+            if (!shouldFreshStartReset && creature && creature.lastVisit) {
+                let hoursAway = Math.min((Date.now() - creature.lastVisit) / 3600000, AFK_MAX_HOURS);
+                synthesizeOfflinePaintingHours(hoursAway);
+            }
+
+            // Temporary: always open tutorial book on tab load.
+            openTutorialBook();
+        };
+
+        if (shouldAskForFirstTimeVisitorReset()) {
+            openNewPlayerMenu((isFirstTime) => {
+                rememberFirstTimeVisitorPromptAnswer(isFirstTime);
+                finishStartupAfterFirstTimeChoice(!!isFirstTime);
+            });
+        } else {
+            finishStartupAfterFirstTimeChoice(false);
         }
 
-        loadGridDimensions();
-        if (!shouldFreshStartReset) {
-            loadGenerationHistoryFromStorage();
-        }
-        if (!shouldFreshStartReset && creature && creature.lastVisit) {
-            let hoursAway = Math.min((Date.now() - creature.lastVisit) / 3600000, AFK_MAX_HOURS);
-            synthesizeOfflinePaintingHours(hoursAway);
-        }
         scheduleNextCreatureQuestion();
         ensureFoodSprites();
         ensureStudioDecorSprites();
