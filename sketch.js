@@ -167,6 +167,7 @@ new p5(function(p) {
     let EXCITED_FRAMES = 40;  
     let SLEEPING_FRAMES = 800;     // how long the creature stays asleep
     let BOUNCE_SCALE   = 1.0;    // multiplier for all bounce amounts
+    let MIC_ANIMATION_SPEED_MULTIPLIER = 7.0;
     
     // --- Grid generation ---
     let GRID_COLS      = 30;
@@ -913,6 +914,20 @@ new p5(function(p) {
         return p.lerp(1, max, getMicBoostRatio(currentCreature));
     }
 
+    function getMicAnimationSpeedMultiplier(currentCreature = creature) {
+        let max = p.max(1, Number(MIC_ANIMATION_SPEED_MULTIPLIER) || 1);
+        let micBoostRatio = getMicBoostRatio(currentCreature);
+        let micBoost = micBoostRatio > 0
+            ? p.lerp(1, max, p.pow(micBoostRatio, 0.4))
+            : 1;
+        let exciteBoost = 1;
+        if (currentCreature && Number(currentCreature.exciteTimer) > 0) {
+            let exciteRatio = p.constrain(Number(currentCreature.exciteTimer) / p.max(1, Number(EXCITED_FRAMES) || 1), 0, 1);
+            exciteBoost = p.lerp(1, max, p.pow(exciteRatio, 0.55));
+        }
+        return p.max(micBoost, exciteBoost);
+    }
+
     function getStackedGridSpeedMultiplier(currentCreature = creature) {
         let drinkMult = isEnergyDrinkBoostActive(currentCreature)
             ? p.max(1, Number(ENERGY_DRINK_GRID_UPS_MULTIPLIER) || 1)
@@ -931,7 +946,7 @@ new p5(function(p) {
         let drinkMult = isEnergyDrinkBoostActive(currentCreature)
             ? p.max(1, Number(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER) || 1)
             : 1;
-        return drinkMult * getMicScaledMultiplier(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER, currentCreature);
+        return drinkMult * getMicAnimationSpeedMultiplier(currentCreature);
     }
 
     function forceWakeFromRest(reason = 'short') {
@@ -2023,7 +2038,7 @@ new p5(function(p) {
                 border: '1px solid rgba(96, 82, 58, 0.35)',
                 background: 'rgba(255, 252, 241, 0.28)',
                 color: '#2d2418',
-                fontFamily: "'Jacquard 12', serif",
+                fontFamily: "'Tiny5', monospace",
                 overflow: 'hidden',
                 whiteSpace: 'pre-wrap',
                 pointerEvents: 'none',
