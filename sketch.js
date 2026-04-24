@@ -40,31 +40,43 @@ new p5(function(p) {
             sprite: 'UI/TutorialBookPage1.png',
             leftText: '',
             rightText: 'This scientefic hypothesis was written by Dr. Duxelles, in order to analyse the possibility of teaching a mushroom to paint. \n Of course, in the scientific community, we all know this is impossible as mushrooms lack the limbs, eyes, and brain necessary to paint, but this paper aims to solve how a hypothetical mushroom with the ability to paint would learn to do so.',
+            leftBox: { y: 130, height: 206, fontSize: 13 },
+            rightBox: { y: 110, height: 240, fontSize: 16 },
         },
         {
             sprite: 'UI/TutorialBookPage2.png',
             leftText: "Firstly in order to paint, the mushroom would need some basic equipment of a studio, canvas, paintbrush, and of course a teacher. \n Although it is possible for the mutated mushroom to paint on it's own, without human knowledge it would be unable to determine what is good and bad.",
             rightText: 'Hence the importance of a teacher, by CLICKING on the mushroom, the teacher could find a way to communicate with the mushroom and give it guidance to teach it how to paint with a style and colour that a human would find appealing.',
+            leftBox: { y: 130, height: 206, fontSize: 13 },
+            rightBox: { y: 130, height: 206, fontSize: 13 },
         },
         {
             sprite: 'UI/TutorialBookPage3.png',
             leftText: "However, if this hypothetical mushroom had a brain, it would actively seek out advice by asking questions to the teacher, represented by a large ? over it's head. When seeing this the teacher should listen to the creature worries and questions to not only give it guidance, but to help it develop it's own judgement in the future.",
             rightText: "Like every artist, the mushroom would need to rest it's overworked mind to regain it's energy. Not letting it get enough rest can result in it slipping back in to it's old style, creating art that can be unappealing to the human eye. However, substances like energy drinks could give a temporary boost to it's energy and even enhance the creature's speed.",
+            leftBox: { y: 130, height: 206, fontSize: 13 },
+            rightBox: { y: 130, height: 206, fontSize: 13 },
         },
         {
             sprite: 'UI/TutorialBookPage4.png',
             leftText: "This hypothetical creature's biology would also change greatly, as controlling brain's and limbs would require far more ENERGY than a standard muhroom could attain through absorption. As a result it would be sensible to FEED this creature human FOOD, which it would of course have the required organs to digest. However, without long limbs it's possible the creature would need to be fed by hand.",
             rightText: "Now this all might seem like a lot of work just to teach a mushroom to paint, but you need to consider the potential for SCIENCE. imagine being able to teach a mushroom human creativity, by researching the creature we could understand how this phenomenon occurs, and solve art block for everyone! Although it may seem impossible, even the slightest chance someone could successfully do this their would be MILLIONS of DOLLARS in offer for just the research alone.",
+            leftBox: { y: 130, height: 206, fontSize: 13 },
+            rightBox: { y: 130, height: 206, fontSize: 13 },
         },
         {
             sprite: 'UI/TutorialBookPage5.png',
-            leftText: "Of course, even if the potential cash return for such a scientific discovery, it wouldn't hurt to make a bit of extra cash by selling the practice paintings. However, when selling paintings you never know what kind of buyer you might get, with everyone having different tastes and preferences. So I would suggest making a variety of paintings to match different tastes, in order to optimise their earnings.",
-            rightText: "This extra cash can then be used to further improve the mushroom's teaching, buying it UPGRADES to improve it's skill, and buying DECOR to increase it's happiness.",
+            leftText: "\nOf course, even if the potential cash return for such a scientific discovery, it wouldn't hurt to make a bit of extra cash by selling the practice paintings. However, when selling paintings you never know what kind of buyer you might get, with everyone having different tastes and preferences. So I would suggest making a variety of paintings to match different tastes, in order to optimise their earnings.",
+            rightText: "\n This extra cash can then be used to further improve the mushroom's teaching, buying it UPGRADES to improve it's skill, and buying DECOR to increase it's happiness.",
+            leftBox: { y: 130, height: 206, fontSize: 13 },
+            rightBox: { y: 130, height: 206, fontSize: 13 },
         },
         {
             sprite: "UI/TutorialBookBlank.png",
             leftText:"I didn't really know how to explain the rest of these mechanics in the context of a scientific paper, so this page is just written by Tomer: \n Some of the upgrades you can buy are the paintbrush, the computer, and the pallette upgrades. The Paintbrush can be selected in the canvas tab (found by clicking on the canvas to preview the generation), where you can chose a colour from the colour pallette to paint over the mushroom's paintings to fix mistakes or even guide the painting when done during generation.",
             rightText:"The Computer can be clicked on to search for more reference images than the one's prebuilt into the code. The Pallette upgrades will increase the amount of different colours the creature can use during generation, however if you don't like having to many colours you can always freeze some pallettes by clicking them, which temporarily stores the colour and stops using it in the generation.",
+            leftBox: { y: 130, height: 206, fontSize: 13 },
+            rightBox: { y: 130, height: 206, fontSize: 13 },
         }
     ];
     const SHOP_MUSIC_VOLUME = 0.46;
@@ -151,6 +163,7 @@ new p5(function(p) {
     let AFK_MAX_HOURS  = 168;    // cap time-away at 7 days
     let CLICK_FEED     = 20;     // how much a click increases need
     let MIC_THRESHOLD  = 0.15;   // how loud is "loud" (0–1)
+    let MIC_WAKE_TRIGGER_MS = 900;
     let EXCITED_FRAMES = 40;  
     let SLEEPING_FRAMES = 800;     // how long the creature stays asleep
     let BOUNCE_SCALE   = 1.0;    // multiplier for all bounce amounts
@@ -256,48 +269,49 @@ new p5(function(p) {
 
     // --- Tutorial book UI ---
     let TUTORIAL_BOOK_WIDTH = 760;
-    let TUTORIAL_BOOK_SCALE = 1.0;
+    let TUTORIAL_BOOK_SCALE = 1.5;
     let TUTORIAL_BOOK_MAX_WIDTH_VW = 92;
     let TUTORIAL_BOOK_START_X = 120;
     let TUTORIAL_BOOK_START_Y = 80;
     let TUTORIAL_BOOK_SHOW_DRAG_AREA_DEBUG = true;
 
     // Drag area for cover sprite (page index 0)
-    let TUTORIAL_BOOK_COVER_DRAG_OFFSET_X = 28;
-    let TUTORIAL_BOOK_COVER_DRAG_OFFSET_Y = 22;
-    let TUTORIAL_BOOK_COVER_DRAG_W = 700;
-    let TUTORIAL_BOOK_COVER_DRAG_H = 116;
+    let TUTORIAL_BOOK_COVER_DRAG_OFFSET_X = 210;
+    let TUTORIAL_BOOK_COVER_DRAG_OFFSET_Y = 0;
+    let TUTORIAL_BOOK_COVER_DRAG_W = 330;
+    let TUTORIAL_BOOK_COVER_DRAG_H = 370;
 
     // Drag area for numbered page sprites (page index 1..5)
-    let TUTORIAL_BOOK_PAGE_DRAG_OFFSET_X = 20;
-    let TUTORIAL_BOOK_PAGE_DRAG_OFFSET_Y = 16;
-    let TUTORIAL_BOOK_PAGE_DRAG_W = 720;
-    let TUTORIAL_BOOK_PAGE_DRAG_H = 112;
+    let TUTORIAL_BOOK_PAGE_DRAG_OFFSET_X = 50;
+    let TUTORIAL_BOOK_PAGE_DRAG_OFFSET_Y = 0;
+    let TUTORIAL_BOOK_PAGE_DRAG_W = 660;
+    let TUTORIAL_BOOK_PAGE_DRAG_H = 380;
 
-    let TUTORIAL_BOOK_TEXTBOX_1_X = 88;
-    let TUTORIAL_BOOK_TEXTBOX_1_Y = 154;
-    let TUTORIAL_BOOK_TEXTBOX_1_W = 256;
-    let TUTORIAL_BOOK_TEXTBOX_1_H = 288;
-    let TUTORIAL_BOOK_TEXTBOX_2_X = 414;
-    let TUTORIAL_BOOK_TEXTBOX_2_Y = 154;
-    let TUTORIAL_BOOK_TEXTBOX_2_W = 256;
-    let TUTORIAL_BOOK_TEXTBOX_2_H = 288;
+    let TUTORIAL_BOOK_TEXTBOX_1_X = 78;
+    let TUTORIAL_BOOK_TEXTBOX_1_Y = 130;
+    let TUTORIAL_BOOK_TEXTBOX_1_W = 296;
+    let TUTORIAL_BOOK_TEXTBOX_1_H = 206;
+    let TUTORIAL_BOOK_TEXTBOX_2_X = 388;
+    let TUTORIAL_BOOK_TEXTBOX_2_Y = 130;
+    let TUTORIAL_BOOK_TEXTBOX_2_W = 296;
+    let TUTORIAL_BOOK_TEXTBOX_2_H = 206;
+    let TUTORIAL_BOOK_TEXTBOX_1_FONT_SIZE = 13;
+    let TUTORIAL_BOOK_TEXTBOX_2_FONT_SIZE = 13;
     let TUTORIAL_BOOK_TEXT_OFFSET_X = 16;
     let TUTORIAL_BOOK_TEXT_OFFSET_Y = 14;
-    let TUTORIAL_BOOK_TEXT_FONT_SIZE = 16;
     let TUTORIAL_BOOK_TEXT_LINE_HEIGHT = 1.4;
 
     // Navigation button offsets for the cover page.
-    let TUTORIAL_BOOK_COVER_PREV_BUTTON_X = 16;
-    let TUTORIAL_BOOK_COVER_NEXT_BUTTON_X = 702;
-    let TUTORIAL_BOOK_COVER_BUTTON_Y = 474;
+    let TUTORIAL_BOOK_COVER_PREV_BUTTON_X = 170;
+    let TUTORIAL_BOOK_COVER_NEXT_BUTTON_X = 532;
+    let TUTORIAL_BOOK_COVER_BUTTON_Y = 330;
 
     // Navigation button offsets for all numbered pages.
     let TUTORIAL_BOOK_NUMBERED_PREV_BUTTON_X = 28;
     let TUTORIAL_BOOK_NUMBERED_NEXT_BUTTON_X = 690;
-    let TUTORIAL_BOOK_NUMBERED_BUTTON_Y = 474;
+    let TUTORIAL_BOOK_NUMBERED_BUTTON_Y = 330;
 
-    let TUTORIAL_BOOK_NAV_BUTTON_SIZE = 42;
+    let TUTORIAL_BOOK_NAV_BUTTON_SIZE = 72;
     let TUTORIAL_BOOK_CLOSE_BUTTON_RIGHT = 14;
     let TUTORIAL_BOOK_CLOSE_BUTTON_TOP = 10;
     let TUTORIAL_BOOK_CLOSE_BUTTON_SIZE = 34;
@@ -369,10 +383,10 @@ new p5(function(p) {
     const SHOP_COMPUTER_PRICE = 180;
     const SHOP_PROGRESS_RESET_PRICE = 900;
     const SHOP_FOOD_VARIANTS = [
-        { id: 'apple', label: 'Apple', hungerGain: 18, price: 19, spritePath: 'FoodSprites/Apple.png' },
-        { id: 'burger', label: 'Burger', hungerGain: 32, price: 35, spritePath: 'FoodSprites/Burger.png' },
-        { id: 'sandwich', label: 'Sandwich', hungerGain: 24, price: 26, spritePath: 'FoodSprites/Sandwhich.png' },
-        { id: 'energy-drink', label: 'Energy Drink', energyGain: 25, price: 20, spritePath: 'FoodSprites/EnergyDrink.png' },
+        { id: 'apple', label: 'Apple', hungerGain: 12, price: 5, spritePath: 'FoodSprites/Apple.png' },
+        { id: 'burger', label: 'Burger', hungerGain: 65, price: 25, spritePath: 'FoodSprites/Burger.png' },
+        { id: 'sandwich', label: 'Sandwich', hungerGain: 27, price: 10, spritePath: 'FoodSprites/Sandwhich.png' },
+        { id: 'energy-drink', label: 'Energy Drink', energyGain: 25, price: 22, spritePath: 'FoodSprites/EnergyDrink.png' },
     ];
     let FOOD_ITEM_SIZE = 122;
     let FOOD_GRAVITY = 0.45;
@@ -536,6 +550,7 @@ new p5(function(p) {
     let micAnalyser = null;
     let micActive   = false;
     let micData     = null;   // reused buffer — allocated once when mic starts
+    let micAboveThresholdSinceMs = 0;
     let gridColors  = [];
     let gridChanged = [];
     let colorScheme = [];
@@ -882,6 +897,56 @@ new p5(function(p) {
         return !!energyDrinkGridBoostActive
             && !!currentCreature
             && Number(currentCreature.energy) > ENERGY_DRINK_BOOST_TARGET_ENERGY;
+    }
+
+    function getMicBoostRatio(currentCreature = creature) {
+        if (!micActive || !currentCreature) return 0;
+        let threshold = p.constrain(Number(MIC_THRESHOLD) || 0, 0, 1);
+        let level = p.constrain(Number(currentCreature.micLevel) || 0, 0, 1);
+        if (level <= threshold) return 0;
+        let span = Math.max(0.0001, 1 - threshold);
+        return p.constrain((level - threshold) / span, 0, 1);
+    }
+
+    function getMicScaledMultiplier(maxMultiplier, currentCreature = creature) {
+        let max = p.max(1, Number(maxMultiplier) || 1);
+        return p.lerp(1, max, getMicBoostRatio(currentCreature));
+    }
+
+    function getStackedGridSpeedMultiplier(currentCreature = creature) {
+        let drinkMult = isEnergyDrinkBoostActive(currentCreature)
+            ? p.max(1, Number(ENERGY_DRINK_GRID_UPS_MULTIPLIER) || 1)
+            : 1;
+        return drinkMult * getMicScaledMultiplier(ENERGY_DRINK_GRID_UPS_MULTIPLIER, currentCreature);
+    }
+
+    function getStackedEnergyDrainMultiplier(currentCreature = creature) {
+        let drinkMult = isEnergyDrinkBoostActive(currentCreature)
+            ? p.max(1, Number(ENERGY_DRINK_ENERGY_DRAIN_MULTIPLIER) || 1)
+            : 1;
+        return drinkMult * getMicScaledMultiplier(ENERGY_DRINK_ENERGY_DRAIN_MULTIPLIER, currentCreature);
+    }
+
+    function getStackedAnimationSpeedMultiplier(currentCreature = creature) {
+        let drinkMult = isEnergyDrinkBoostActive(currentCreature)
+            ? p.max(1, Number(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER) || 1)
+            : 1;
+        return drinkMult * getMicScaledMultiplier(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER, currentCreature);
+    }
+
+    function forceWakeFromRest(reason = 'short') {
+        if (reason === 'long') {
+            restState.longRestUntil = 0;
+            wasLongRestActive = false;
+            showWakeUpDialogue('long');
+            return;
+        }
+
+        restState.shortActive = false;
+        restState.shortRestUntil = 0;
+        shortRestWakeClicks = 0;
+        wasShortRestActive = false;
+        showWakeUpDialogue('short');
     }
 
     function scheduleNextCreatureQuestion(nowMs = p.millis()) {
@@ -1958,7 +2023,7 @@ new p5(function(p) {
                 border: '1px solid rgba(96, 82, 58, 0.35)',
                 background: 'rgba(255, 252, 241, 0.28)',
                 color: '#2d2418',
-                fontFamily: "'Lora', serif",
+                fontFamily: "'Jacquard 12', serif",
                 overflow: 'hidden',
                 whiteSpace: 'pre-wrap',
                 pointerEvents: 'none',
@@ -2148,6 +2213,22 @@ new p5(function(p) {
         refreshTutorialBookUI();
     }
 
+    function getTutorialTextBoxStyle(pageData, side) {
+        let isLeft = side === 'left';
+        let baseStyle = isLeft
+            ? { y: TUTORIAL_BOOK_TEXTBOX_1_Y, height: TUTORIAL_BOOK_TEXTBOX_1_H, fontSize: TUTORIAL_BOOK_TEXTBOX_1_FONT_SIZE }
+            : { y: TUTORIAL_BOOK_TEXTBOX_2_Y, height: TUTORIAL_BOOK_TEXTBOX_2_H, fontSize: TUTORIAL_BOOK_TEXTBOX_2_FONT_SIZE };
+
+        let key = isLeft ? 'leftBox' : 'rightBox';
+        let customStyle = pageData && typeof pageData[key] === 'object' && pageData[key] ? pageData[key] : {};
+
+        let y = Number.isFinite(customStyle.y) ? customStyle.y : baseStyle.y;
+        let height = Number.isFinite(customStyle.height) ? customStyle.height : baseStyle.height;
+        let fontSize = Number.isFinite(customStyle.fontSize) ? customStyle.fontSize : baseStyle.fontSize;
+
+        return { y, height, fontSize };
+    }
+
     function refreshTutorialBookUI() {
         if (!ui.tutorialBookRoot || !ui.tutorialBookImage) return;
         let pageIndex = tutorialBookState.pageIndex;
@@ -2167,20 +2248,23 @@ new p5(function(p) {
         let isNumberedPage = pageIndex > 0;
 
         if (box1 && box2) {
+            let box1PageStyle = getTutorialTextBoxStyle(pageData, 'left');
+            let box2PageStyle = getTutorialTextBoxStyle(pageData, 'right');
+
             box1.style.left = `${TUTORIAL_BOOK_TEXTBOX_1_X * scale}px`;
-            box1.style.top = `${TUTORIAL_BOOK_TEXTBOX_1_Y * scale}px`;
+            box1.style.top = `${box1PageStyle.y * scale}px`;
             box1.style.width = `${TUTORIAL_BOOK_TEXTBOX_1_W * scale}px`;
-            box1.style.height = `${TUTORIAL_BOOK_TEXTBOX_1_H * scale}px`;
+            box1.style.height = `${box1PageStyle.height * scale}px`;
 
             box2.style.left = `${TUTORIAL_BOOK_TEXTBOX_2_X * scale}px`;
-            box2.style.top = `${TUTORIAL_BOOK_TEXTBOX_2_Y * scale}px`;
+            box2.style.top = `${box2PageStyle.y * scale}px`;
             box2.style.width = `${TUTORIAL_BOOK_TEXTBOX_2_W * scale}px`;
-            box2.style.height = `${TUTORIAL_BOOK_TEXTBOX_2_H * scale}px`;
+            box2.style.height = `${box2PageStyle.height * scale}px`;
 
             box1.style.padding = `${TUTORIAL_BOOK_TEXT_OFFSET_Y * scale}px ${TUTORIAL_BOOK_TEXT_OFFSET_X * scale}px`;
             box2.style.padding = `${TUTORIAL_BOOK_TEXT_OFFSET_Y * scale}px ${TUTORIAL_BOOK_TEXT_OFFSET_X * scale}px`;
-            box1.style.fontSize = `${TUTORIAL_BOOK_TEXT_FONT_SIZE * scale}px`;
-            box2.style.fontSize = `${TUTORIAL_BOOK_TEXT_FONT_SIZE * scale}px`;
+            box1.style.fontSize = `${box1PageStyle.fontSize * scale}px`;
+            box2.style.fontSize = `${box2PageStyle.fontSize * scale}px`;
             box1.style.lineHeight = String(TUTORIAL_BOOK_TEXT_LINE_HEIGHT);
             box2.style.lineHeight = String(TUTORIAL_BOOK_TEXT_LINE_HEIGHT);
 
@@ -2914,9 +2998,7 @@ new p5(function(p) {
                 : -(SHORT_REST_ENERGY_RECOVERY * ENERGY_INCREASE_SPEED);
         } else if (isGenerating) {
             tiredRate = (GENERATING_ENERGY_DRAIN + (c.exciteTimer > 0 ? 0.01 : 0)) * ENERGY_DECREASE_SPEED;
-            if (isEnergyDrinkBoostActive(c)) {
-                tiredRate *= p.max(1, Number(ENERGY_DRINK_ENERGY_DRAIN_MULTIPLIER) || 1);
-            }
+            tiredRate *= getStackedEnergyDrainMultiplier(c);
         }
 
         c.need = p.constrain(c.need - hungerRate, 0, 100);
@@ -2937,9 +3019,7 @@ new p5(function(p) {
 
         // Animation phases
         if (c.sleepTimer === 0) {
-            let animationSpeed = isEnergyDrinkBoostActive(c)
-                ? p.max(1, Number(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER) || 1)
-                : 1;
+            let animationSpeed = getStackedAnimationSpeedMultiplier(c);
             c.breathe += 0.018 * animationSpeed;
             c.bob     += 0.012 * animationSpeed;
         }
@@ -3559,9 +3639,7 @@ new p5(function(p) {
 
         if (paintingSpriteSheet) {
             let now = p.millis();
-            let paintingSpeed = isEnergyDrinkBoostActive(c)
-                ? p.max(1, Number(ENERGY_DRINK_ANIMATION_SPEED_MULTIPLIER) || 1)
-                : 1;
+            let paintingSpeed = getStackedAnimationSpeedMultiplier(c);
             let frameDuration = 1000 / p.max(1, PAINTING_SPRITE_FPS * paintingSpeed);
             let isGenerating = !generationPaused && !isRestingNow();
 
@@ -5950,7 +6028,9 @@ new p5(function(p) {
         if (isRestingNow()) return;
 
         let elapsedMs = now - lastGridRandomizeAt;
-        if (elapsedMs < GRID_RANDOM_INTERVAL_MS) return;
+        let speedMultiplier = getStackedGridSpeedMultiplier(creature);
+        let effectiveGridIntervalMs = GRID_RANDOM_INTERVAL_MS / p.max(1, speedMultiplier);
+        if (elapsedMs < effectiveGridIntervalMs) return;
 
         let energyRatio = p.constrain((creature ? creature.energy : 100) / 100, 0, 1);
         let tiredness = 1 - energyRatio;
@@ -5962,9 +6042,7 @@ new p5(function(p) {
 
         let hungerSpeed = p.constrain((creature ? creature.need : 50) / 100, 0.08, 1);
         let effectiveUpdatesPerSecond = GRID_UPDATES_PER_SECOND * hungerSpeed;
-        if (isEnergyDrinkBoostActive(creature)) {
-            effectiveUpdatesPerSecond *= p.max(1, ENERGY_DRINK_GRID_UPS_MULTIPLIER);
-        }
+        effectiveUpdatesPerSecond *= speedMultiplier;
 
         // Convert elapsed time into a bounded batch count so updates are not tied to frame rate.
         let updates = Math.floor((elapsedMs * effectiveUpdatesPerSecond) / 1000);
@@ -7044,10 +7122,34 @@ new p5(function(p) {
     }
 
     function updateMic(c) {
-        if (!micActive) return;
+        if (!micActive || !c) return;
         c.micLevel = getMicLevel();
+
+        let now = p.millis();
+        let loudEnough = c.micLevel > MIC_THRESHOLD;
+
+        if (loudEnough) {
+            if (micAboveThresholdSinceMs <= 0) {
+                micAboveThresholdSinceMs = now;
+            }
+        } else {
+            micAboveThresholdSinceMs = 0;
+        }
+
+        let sustainedLoudDuration = micAboveThresholdSinceMs > 0 ? (now - micAboveThresholdSinceMs) : 0;
+        if (isRestingNow() && sustainedLoudDuration >= p.max(1, Number(MIC_WAKE_TRIGGER_MS) || 1)) {
+            if (isLongRestActive()) {
+                forceWakeFromRest('long');
+            } else {
+                forceWakeFromRest('short');
+            }
+            micAboveThresholdSinceMs = 0;
+            saveState(c);
+            return;
+        }
+
         if (c.sleepTimer > 0) return;
-        if (c.micLevel > MIC_THRESHOLD) c.exciteTimer = EXCITED_FRAMES;
+        if (loudEnough) c.exciteTimer = EXCITED_FRAMES;
     }
 
 

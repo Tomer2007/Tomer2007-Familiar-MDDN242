@@ -3,6 +3,14 @@
    MDDN242 Project 2
    ============================================================ */
 
+@font-face {
+    font-family: 'Jacquard 12';
+    src: url('Fonts/Jacquard_12/Jacquard12-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     --dark: #141413;
     --azure: azure;
