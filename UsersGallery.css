@@ -69,6 +69,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .gallery-coin-pill,
@@ -89,6 +90,27 @@ body {
     font-weight: 600;
     text-decoration: none;
     padding: 8px 14px;
+}
+
+.gallery-select-btn {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--ink);
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+.gallery-select-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.gallery-select-btn-primary {
+    border-color: rgba(185, 139, 36, 0.6);
+    color: var(--gold-deep);
+    background: rgba(255, 247, 220, 0.9);
 }
 
 .wall-controls {
@@ -172,6 +194,7 @@ body {
 }
 
 .art-card {
+    position: relative;
     cursor: pointer;
     border: none;
     background: transparent;
@@ -184,6 +207,27 @@ body {
 
 .art-card:hover {
     transform: translateY(-3px);
+}
+
+.art-card.selected-for-sale .art-image {
+    outline: 4px solid rgba(185, 139, 36, 0.95);
+    outline-offset: 4px;
+}
+
+.art-card.selected-for-sale::after {
+    content: 'selected';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(185, 139, 36, 0.96);
+    color: #fff9e8;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 6px 16px rgba(76, 55, 11, 0.24);
 }
 
 .art-media {
@@ -260,7 +304,7 @@ body {
     transform: translate(-50%, -50%);
     opacity: 0;
     pointer-events: none;
-    z-index: 250;
+    z-index: 9000;
     text-align: center;
 }
 

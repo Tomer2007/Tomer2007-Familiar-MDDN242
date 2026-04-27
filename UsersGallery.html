@@ -19,6 +19,8 @@
             <div class="gallery-actions">
                 <div class="gallery-coin-pill" id="gallery-coins">Cash: 0</div>
                 <div class="gallery-year-pill" id="gallery-year">Year: 0000</div>
+                <button class="gallery-select-btn" id="gallery-select-sell-toggle" type="button" aria-pressed="false">Select Sell: Off</button>
+                <button class="gallery-select-btn gallery-select-btn-primary" id="gallery-sell-selected-btn" type="button" disabled>Sell Selected (0)</button>
                 <a class="back-btn" href="index.html">Back to Studio</a>
             </div>
         </header>
@@ -68,6 +70,8 @@
 
         // Global multiplier for gallery artwork size.
         const GALLERY_IMAGE_SIZE_MULTIPLIER = 4;
+        const DEFAULT_CANVAS_COLS = 30;
+        const DEFAULT_CANVAS_ROWS = 30;
 
         const BUYER_PROFILES = [
             {
@@ -121,6 +125,8 @@
         const favouriteWrapEl = document.getElementById('favourite-wrap');
         const favouriteCardEl = document.getElementById('favourite-card');
         const galleryListEl = document.getElementById('gallery-list');
+        const gallerySelectSellToggleEl = document.getElementById('gallery-select-sell-toggle');
+        const gallerySellSelectedBtnEl = document.getElementById('gallery-sell-selected-btn');
         const popupBackdropEl = document.getElementById('popup-backdrop');
         const popupImageEl = document.getElementById('popup-image');
         const popupValuesEl = document.getElementById('popup-values');
@@ -145,6 +151,8 @@
         let activeRenderVersion = 0;
         let saleAnnouncement = null;
         let saleAnnouncementRaf = null;
+        let selectSellModeActive = false;
+        let selectedSellSerials = new Set();
 
         let currentYear = new Date().getFullYear();
         yearEl.textContent = `Year: ${currentYear}`;
@@ -161,6 +169,13 @@
                 ownerEl.blur();
             }
         });
+
+        if (gallerySelectSellToggleEl) {
+            gallerySelectSellToggleEl.addEventListener('click', toggleGallerySelectSellMode);
+        }
+        if (gallerySellSelectedBtnEl) {
+            gallerySellSelectedBtnEl.addEventListener('click', sellSelectedGalleryItems);
+        }
 
         popupBackdropEl.addEventListener('click', (event) => {
             if (event.target === popupBackdropEl) closePopup();
@@ -206,6 +221,44 @@
         function normalizeSerial(value) {
             let n = Number(value);
             return Number.isFinite(n) ? n : null;
+        }
+
+        function pruneSelectedSellSerials() {
+            let validSerials = new Set(history.map(item => Number(item.serial)));
+            selectedSellSerials = new Set(Array.from(selectedSellSerials).filter(serial => validSerials.has(Number(serial))));
+        }
+
+        function updateGallerySelectionControls() {
+            if (gallerySelectSellToggleEl) {
+                gallerySelectSellToggleEl.textContent = selectSellModeActive ? 'Select Sell: On' : 'Select Sell: Off';
+                gallerySelectSellToggleEl.setAttribute('aria-pressed', selectSellModeActive ? 'true' : 'false');
+            }
+
+            if (gallerySellSelectedBtnEl) {
+                let selectedCount = selectedSellSerials.size;
+                gallerySellSelectedBtnEl.textContent = `Sell Selected (${selectedCount})`;
+                gallerySellSelectedBtnEl.disabled = !selectSellModeActive || selectedCount === 0;
+            }
+        }
+
+        function toggleGallerySelectSellMode() {
+            selectSellModeActive = !selectSellModeActive;
+            if (!selectSellModeActive) {
+                selectedSellSerials.clear();
+            }
+            updateGallerySelectionControls();
+            renderGallery();
+        }
+
+        function toggleGallerySellSelection(serial) {
+            let key = Number(serial);
+            if (selectedSellSerials.has(key)) {
+                selectedSellSerials.delete(key);
+            } else {
+                selectedSellSerials.add(key);
+            }
+            updateGallerySelectionControls();
+            renderGallery();
         }
 
         function initializeOwnerName() {
@@ -449,6 +502,12 @@
             return (offset + neighbor + ref) / 3;
         }
 
+        function getSnapshotCanvasArea(snapshot) {
+            let cols = Math.max(1, Math.floor(Number(snapshot.canvasCols) || DEFAULT_CANVAS_COLS));
+            let rows = Math.max(1, Math.floor(Number(snapshot.canvasRows) || DEFAULT_CANVAS_ROWS));
+            return cols * rows;
+        }
+
         function evaluateSnapshotAgainstBuyer(snapshot, buyer, useRandomBase = true) {
             let precision = clamp01(snapshot.referenceRulePrecision || 0);
             let rangeEnergy = normalisedRangeEnergy(snapshot);
@@ -478,7 +537,10 @@
                 ? buyer.baseMin + Math.random() * (buyer.baseMax - buyer.baseMin)
                 : (buyer.baseMin + buyer.baseMax) * 0.5;
 
-            let payout = Math.round(baseValue * (0.45 + combinedFit * 1.35));
+            let canvasArea = getSnapshotCanvasArea(snapshot);
+            let defaultArea = DEFAULT_CANVAS_COLS * DEFAULT_CANVAS_ROWS;
+            let areaMultiplier = Math.sqrt(Math.max(1, canvasArea / defaultArea));
+            let payout = Math.round(baseValue * (0.45 + combinedFit * 1.35) * areaMultiplier);
             return {
                 buyerId: buyer.id,
                 buyerName: buyer.name,
@@ -761,6 +823,7 @@
             saleAnnouncement = {
                 buyer: buyerName || 'Unknown buyer',
                 amount: Math.max(0, Math.round(amount || 0)),
+                subtitle: '',
                 startAt: performance.now(),
                 durationMs: 2200,
                 fadeInMs: 260,
@@ -768,7 +831,30 @@
             };
 
             saleAnnouncementTitleEl.textContent = `SOLD ${saleAnnouncement.amount} coins`;
-            saleAnnouncementSubtitleEl.textContent = `Buyer: ${saleAnnouncement.buyer}`;
+            saleAnnouncementSubtitleEl.textContent = saleAnnouncement.subtitle || `Buyer: ${saleAnnouncement.buyer}`;
+            saleAnnouncementEl.classList.add('active');
+            saleAnnouncementEl.style.opacity = '0';
+            saleAnnouncementEl.setAttribute('aria-hidden', 'false');
+            playRegisterSound();
+
+            if (!saleAnnouncementRaf) {
+                saleAnnouncementRaf = requestAnimationFrame(renderSaleAnnouncementFrame);
+            }
+        }
+
+        function showBulkSaleAnnouncement(totalEarnings, soldCount) {
+            saleAnnouncement = {
+                buyer: 'Gallery market',
+                amount: Math.max(0, Math.round(totalEarnings || 0)),
+                subtitle: `Total earnings: ${Math.max(0, Math.round(totalEarnings || 0))} coins · ${Math.max(0, Math.round(soldCount || 0))} paintings sold`,
+                startAt: performance.now(),
+                durationMs: 2600,
+                fadeInMs: 260,
+                fadeOutMs: 560,
+            };
+
+            saleAnnouncementTitleEl.textContent = `SOLD ${saleAnnouncement.amount} coins`;
+            saleAnnouncementSubtitleEl.textContent = saleAnnouncement.subtitle;
             saleAnnouncementEl.classList.add('active');
             saleAnnouncementEl.style.opacity = '0';
             saleAnnouncementEl.setAttribute('aria-hidden', 'false');
@@ -783,6 +869,10 @@
             let card = document.createElement('article');
             card.className = 'art-card';
             card.dataset.serial = String(snapshot.serial);
+
+            if (selectedSellSerials.has(Number(snapshot.serial))) {
+                card.classList.add('selected-for-sale');
+            }
 
             let layoutMeta = buildCardLayoutMeta(displaySnapshot, medianArea);
             card.classList.add(`size-${layoutMeta.sizeClass}`);
@@ -817,7 +907,13 @@
             card.appendChild(media);
             card.appendChild(meta);
 
-            card.addEventListener('click', () => openPopup(snapshot));
+            card.addEventListener('click', () => {
+                if (selectSellModeActive) {
+                    toggleGallerySellSelection(snapshot.serial);
+                } else {
+                    openPopup(snapshot);
+                }
+            });
             return card;
         }
 
@@ -846,6 +942,8 @@
         async function renderGallery() {
             let renderVersion = ++activeRenderVersion;
             coinsEl.textContent = `Cash: ${coins}`;
+            pruneSelectedSellSerials();
+            updateGallerySelectionControls();
 
             let favourite = history.find(item => Number(item.serial) === favouriteGenerationSerial) || null;
             if (favourite) {
@@ -877,6 +975,7 @@
             galleryListEl.innerHTML = '';
             galleryListEl.appendChild(grid);
             applyMasonryLayout(grid);
+            updateGallerySelectionControls();
         }
 
         function openPopup(snapshot) {
@@ -932,6 +1031,46 @@
             renderGallery();
             closePopup();
             showSaleAnnouncement(buyerName, payout);
+        }
+
+        function sellSelectedGalleryItems() {
+            let serialsToSell = Array.from(selectedSellSerials);
+            if (serialsToSell.length === 0) return;
+
+            let snapshotsToSell = history.filter(item => selectedSellSerials.has(Number(item.serial)) && !item.sold);
+            if (snapshotsToSell.length === 0) {
+                selectedSellSerials.clear();
+                updateGallerySelectionControls();
+                renderGallery();
+                return;
+            }
+
+            let totalEarnings = 0;
+            for (let snapshot of snapshotsToSell) {
+                let appraisal = appraiseSnapshotForSale(snapshot);
+                totalEarnings += appraisal.payout;
+            }
+
+            coins += totalEarnings;
+            let soldSerials = new Set(snapshotsToSell.map(item => Number(item.serial)));
+            history = history.filter(item => !soldSerials.has(Number(item.serial)));
+
+            if (favouriteGenerationSerial != null && soldSerials.has(Number(favouriteGenerationSerial))) {
+                favouriteGenerationSerial = null;
+                creatureState.favouriteGenerationSerial = null;
+            }
+
+            creatureState.galleryCoins = coins;
+            creatureState.favouriteGenerationSerial = favouriteGenerationSerial;
+            creatureState.ownedGalleryWallThemeIds = ownedWallThemeIds.slice();
+            creatureState.activeGalleryWallThemeId = activeWallThemeId;
+
+            selectedSellSerials.clear();
+            saveCreatureState();
+            saveHistory();
+            updateGallerySelectionControls();
+            renderGallery();
+            showBulkSaleAnnouncement(totalEarnings, snapshotsToSell.length);
         }
     })();
     </script>

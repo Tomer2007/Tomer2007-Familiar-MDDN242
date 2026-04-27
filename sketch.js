@@ -22,6 +22,12 @@ new p5(function(p) {
     const SEARCH_COMPUTER_DISPLAY_SPRITE_PATH = 'Environment/SearchComputerDisplay.png';
     const PAINTBRUSH_BUTTON_SPRITE_PATH = 'Environment/PaintbrushButton.png';
     const EXIT_BUTTON_SPRITE_PATH = 'Environment/ExitButton.png';
+    const SHOP_BUTTON_SPRITE_PATH = 'Environment/ShopButton.png';
+    const GALLERY_BUTTON_SPRITE_PATH = 'Environment/GalleryButton.png';
+    const STATIC_POT_SPRITE_PATH = 'Environment/BrownPot.png';
+    const STATIC_TABLE_SPRITE_PATH = 'Environment/Tabel.png';
+    const CREATURE_QUESTION_MARK_SPRITE_PATH = 'References/QuestionMark.png'; // sprite shown above creature when questioning (set to '' to use text fallback)
+    const REFERENCE_TRANSPARENT_BUCKET_RGB = [0, 0, 0];
     const SOUND_EFFECT_PATHS = {
         purchase: 'SoundEffects/Purchase.mp3',
         renovate: 'SoundEffects/Renovate.mp3',
@@ -33,6 +39,10 @@ new p5(function(p) {
     ];
     const FIRST_TIME_VISITOR_PROMPT_KEY = 'first_time_visitor_prompt_v1';
     const NEW_PLAYER_MENU_SPRITE_PATH = 'UI/NewPlayerMenu.png';
+    const GUIDE_BOOK_BUTTON_SPRITE_PATH = 'Environment/GuideBookLaying.png';
+    const AUTO_NEXT_GENERATION_IDLE_MS = 2 * 60 * 1000;
+    const DEFAULT_GRID_COLS = 30;
+    const DEFAULT_GRID_ROWS = 30;
     // Tutorial pages are configured here. Add new pages by appending an object.
     const TUTORIAL_BOOK_PAGES = [
         { sprite: 'UI/TutorialBookFront.png', leftText: '', rightText: '' },
@@ -41,55 +51,55 @@ new p5(function(p) {
             leftText: '',
             rightText: 'This scientefic hypothesis was written by Dr. Duxelles, in order to analyse the possibility of teaching a mushroom to paint. \n Of course, in the scientific community, we all know this is impossible as mushrooms lack the limbs, eyes, and brain necessary to paint, but this paper aims to solve how a hypothetical mushroom with the ability to paint would learn to do so.',
             leftBox: { y: 130, height: 206, fontSize: 13 },
-            rightBox: { y: 110, height: 240, fontSize: 16 },
+            rightBox: { y: 100, height: 245, fontSize: 15 },
         },
         {
             sprite: 'UI/TutorialBookPage2.png',
             leftText: "Firstly in order to paint, the mushroom would need some basic equipment of a studio, canvas, paintbrush, and of course a teacher. \n Although it is possible for the mutated mushroom to paint on it's own, without human knowledge it would be unable to determine what is good and bad.",
             rightText: 'Hence the importance of a teacher, by CLICKING on the mushroom, the teacher could find a way to communicate with the mushroom and give it guidance to teach it how to paint with a style and colour that a human would find appealing.',
-            leftBox: { y: 130, height: 206, fontSize: 13 },
-            rightBox: { y: 130, height: 206, fontSize: 13 },
+            leftBox: { y: 140, height: 200, fontSize: 15 },
+            rightBox: { y: 135, height: 205, fontSize: 16 },
         },
         {
             sprite: 'UI/TutorialBookPage3.png',
             leftText: "However, if this hypothetical mushroom had a brain, it would actively seek out advice by asking questions to the teacher, represented by a large ? over it's head. When seeing this the teacher should listen to the creature worries and questions to not only give it guidance, but to help it develop it's own judgement in the future.",
             rightText: "Like every artist, the mushroom would need to rest it's overworked mind to regain it's energy. Not letting it get enough rest can result in it slipping back in to it's old style, creating art that can be unappealing to the human eye. However, substances like energy drinks could give a temporary boost to it's energy and even enhance the creature's speed.",
-            leftBox: { y: 130, height: 206, fontSize: 13 },
-            rightBox: { y: 130, height: 206, fontSize: 13 },
+            leftBox: { y: 130, height: 206, fontSize: 15 },
+            rightBox: { y: 120, height: 215, fontSize: 14 },
         },
         {
             sprite: 'UI/TutorialBookPage4.png',
             leftText: "This hypothetical creature's biology would also change greatly, as controlling brain's and limbs would require far more ENERGY than a standard muhroom could attain through absorption. As a result it would be sensible to FEED this creature human FOOD, which it would of course have the required organs to digest. However, without long limbs it's possible the creature would need to be fed by hand.",
-            rightText: "Now this all might seem like a lot of work just to teach a mushroom to paint, but you need to consider the potential for SCIENCE. imagine being able to teach a mushroom human creativity, by researching the creature we could understand how this phenomenon occurs, and solve art block for everyone! Although it may seem impossible, even the slightest chance someone could successfully do this their would be MILLIONS of DOLLARS in offer for just the research alone.",
-            leftBox: { y: 130, height: 206, fontSize: 13 },
-            rightBox: { y: 130, height: 206, fontSize: 13 },
+            rightText: "Now this all might seem like a lot of work just to teach a mushroom to paint, but you need to consider the potential for SCIENCE. Imagine being able to teach a mushroom human creativity, by researching the creature we could understand how this phenomenon occurs, and solve art block for everyone! Although it may seem impossible, even the slightest chance someone could successfully do this their would be MILLIONS of DOLLARS in offer for just the research alone.",
+            leftBox: { y: 110, height: 220, fontSize: 14 },
+            rightBox: { y: 150, height: 190, fontSize: 12 },
         },
         {
             sprite: 'UI/TutorialBookPage5.png',
-            leftText: "\nOf course, even if the potential cash return for such a scientific discovery, it wouldn't hurt to make a bit of extra cash by selling the practice paintings. However, when selling paintings you never know what kind of buyer you might get, with everyone having different tastes and preferences. So I would suggest making a variety of paintings to match different tastes, in order to optimise their earnings.",
-            rightText: "\n This extra cash can then be used to further improve the mushroom's teaching, buying it UPGRADES to improve it's skill, and buying DECOR to increase it's happiness.",
-            leftBox: { y: 130, height: 206, fontSize: 13 },
-            rightBox: { y: 130, height: 206, fontSize: 13 },
+            leftText: "Of course, even if the potential cash return for such a scientific discovery, it wouldn't hurt to make a bit of extra cash by selling the practice paintings. However, when selling paintings you never know what kind of buyer you might get, with everyone having different tastes and preferences. So I would suggest making a variety of paintings to match different tastes, in order to optimise their earnings.",
+            rightText: "This extra cash can then be used to further improve the mushroom's teaching, buying it UPGRADES to improve it's skill, and buying DECOR to increase it's happiness.",
+            leftBox: { y: 145, height: 191, fontSize: 13 },
+            rightBox: { y: 150, height:186, fontSize: 16 },
         },
         {
             sprite: "UI/TutorialBookBlank.png",
             leftText:"I didn't really know how to explain the rest of these mechanics in the context of a scientific paper, so this page is just written by Tomer: \n Some of the upgrades you can buy are the paintbrush, the computer, and the pallette upgrades. The Paintbrush can be selected in the canvas tab (found by clicking on the canvas to preview the generation), where you can chose a colour from the colour pallette to paint over the mushroom's paintings to fix mistakes or even guide the painting when done during generation.",
             rightText:"The Computer can be clicked on to search for more reference images than the one's prebuilt into the code. The Pallette upgrades will increase the amount of different colours the creature can use during generation, however if you don't like having to many colours you can always freeze some pallettes by clicking them, which temporarily stores the colour and stops using it in the generation.",
-            leftBox: { y: 130, height: 206, fontSize: 13 },
-            rightBox: { y: 130, height: 206, fontSize: 13 },
+            leftBox: { y: 50, height: 286, fontSize: 15 },
+            rightBox: { y: 50, height: 286, fontSize: 15 },
         }
     ];
-    const SHOP_MUSIC_VOLUME = 0.46;
+    const SHOP_MUSIC_VOLUME = 0.26;
     const SOUND_EFFECT_VOLUMES = {
-        purchase: 0.38,
-        renovate: 0.32,
-        eating: 0.4,
-        shakeWake: 0.36,
+        purchase: 0.28,
+        renovate: 0.22,
+        eating: 0.2,
+        shakeWake: 0.26,
     };
     const AREA_BUTTON_LAYOUT = {
         spriteSize: 360,
-        searchButtonX: 20,
-        searchButtonY: 70,
+        searchButtonX: 25,
+        searchButtonY: 60,
         canvasButtonOffsetX: 0.55,
         canvasButtonOffsetY: 0.2,
         galleryButtonBottom: 420,
@@ -162,16 +172,23 @@ new p5(function(p) {
     let AFK_PER_HOUR   = 5;      // extra need added per hour since last visit
     let AFK_MAX_HOURS  = 168;    // cap time-away at 7 days
     let CLICK_FEED     = 20;     // how much a click increases need
-    let MIC_THRESHOLD  = 0.15;   // how loud is "loud" (0–1)
-    let MIC_WAKE_TRIGGER_MS = 900;
+    let MIC_THRESHOLD  = 0.3;   // how loud is "loud" (0–1)
+    let MIC_SPEEDUP_THRESHOLD = 0.25; // mic level where animation/grid speed starts boosting
+    let MIC_GENERATION_SPEEDUP_THRESHOLD = 0.20; // mic level where generation speed starts speeding up (0–1)
+    let MIC_WAKE_TRIGGER_MS = 100;
     let EXCITED_FRAMES = 40;  
     let SLEEPING_FRAMES = 800;     // how long the creature stays asleep
     let BOUNCE_SCALE   = 1.0;    // multiplier for all bounce amounts
     let MIC_ANIMATION_SPEED_MULTIPLIER = 7.0;
+    let MIC_DEBUG_BAR_ENABLED = true;
+    let MIC_DEBUG_BAR_X = 18;
+    let MIC_DEBUG_BAR_Y = 18;
+    let MIC_DEBUG_BAR_W = 220;
+    let MIC_DEBUG_BAR_H = 12;
     
     // --- Grid generation ---
-    let GRID_COLS      = 30;
-    let GRID_ROWS      = 30;
+    let GRID_COLS      = DEFAULT_GRID_COLS;
+    let GRID_ROWS      = DEFAULT_GRID_ROWS;
     let GRID_SIZE      = 16;
     let GRID_GAP       = 2;
     let GRID_BUTTON_OPEN_SIZE_MULTIPLIER = 0.8;
@@ -180,7 +197,7 @@ new p5(function(p) {
     let GRID_MAX_ROWS = 220;
     let GRID_MAX_TOTAL_CELLS = 32000;
     
-    let GRID_UPDATES_PER_SECOND = 30;
+    let GRID_UPDATES_PER_SECOND = 50;
     let GRID_MAX_UPDATES_PER_FRAME = 120;
     let GRID_PANEL_MIN_WIDTH = 100;
     let GRID_PANEL_MIN_HEIGHT = 100;
@@ -192,7 +209,7 @@ new p5(function(p) {
     const GRID_TAB_BUTTON_W = 34;
     const GRID_PANEL_PADDING = 10;
 
-    let GRID_RANDOM_INTERVAL_MS = 0.15;
+    let GRID_RANDOM_INTERVAL_MS = 0.1;
    
     // --- Style / colour evolution ---
     let COLOR_SCHEME_COUNT = 6;
@@ -219,7 +236,7 @@ new p5(function(p) {
     let SLEEPING_SPRITE_SHEET_PATH = 'Animations/FamiliarSleepingAnimation.png';
     let SLEEPING_SPRITE_COLS = 5;
     let SLEEPING_SPRITE_ROWS = 6;
-    let SLEEPING_SPRITE_DRAW_SCALE = 1.25;
+    let SLEEPING_SPRITE_DRAW_SCALE = 1.12;
     let SLEEPING_SPRITE_SEQUENCES = {
         fallingAsleep: { startFrame: 1, endFrame: 12, fps: 10 },
         sleepLoop: { startFrame: 13, endFrame: 16, fps: 7 },
@@ -243,8 +260,16 @@ new p5(function(p) {
     let GRID_TAB_OFFSET_X = 0;
     let GRID_TAB_OFFSET_Y = 0;
     let GRID_TAB_WIDTH = 120;
-    let GRID_CANVAS_Z_INDEX = 500;
-    let AREA_OPEN_BUTTONS_Z_INDEX = 1;
+    let GRID_CANVAS_Z_INDEX = 2;
+    let SEARCH_OPEN_BUTTON_Z_INDEX = 2;   // layering for the search area button
+    let CANVAS_OPEN_BUTTON_Z_INDEX = 2;   // layering for the canvas area button
+    let SHOP_MODAL_Z_INDEX = 12000;
+    let RADIAL_MENU_Z_INDEX = 12100;
+    let RADIAL_PROMPT_MODAL_Z_INDEX = 12050; // search text input modal — above buttons and canvas tab
+    let VN_BOX_Z_INDEX = 12200;
+    let BARS_Z_INDEX = 6000;                  // layering for the hunger / energy bars
+    let MIC_BAR_Z_INDEX = 62;              // layering for the mic volume bar
+    let MIC_BAR_VISIBLE = true;            // set false to hide the UI mic volume bar
 
     let ENERGY_DRINK_GRID_UPS_MULTIPLIER = 5.2;
     let ENERGY_DRINK_ENERGY_DRAIN_MULTIPLIER = 5.2;
@@ -254,19 +279,21 @@ new p5(function(p) {
     let CREATURE_QUESTION_MIN_INTERVAL_MS = 45000;
     let CREATURE_QUESTION_MAX_INTERVAL_MS = 95000;
     let CREATURE_QUESTION_MARK_OFFSET_Y = -190;
+    let CREATURE_QUESTION_DIALOGUE_TIMEOUT_MS = 5000;
 
     // --- New player sprite menu ---
     let NEW_PLAYER_MENU_WIDTH = 680;
     let NEW_PLAYER_MENU_MAX_WIDTH_VW = 82;
     let NEW_PLAYER_MENU_ASPECT = 1.64;
-    let NEW_PLAYER_MENU_YES_X = 0.28;
-    let NEW_PLAYER_MENU_YES_Y = 0.79;
-    let NEW_PLAYER_MENU_YES_W = 0.22;
-    let NEW_PLAYER_MENU_YES_H = 0.14;
-    let NEW_PLAYER_MENU_NO_X = 0.52;
-    let NEW_PLAYER_MENU_NO_Y = 0.79;
-    let NEW_PLAYER_MENU_NO_W = 0.22;
-    let NEW_PLAYER_MENU_NO_H = 0.14;
+    let NEW_PLAYER_MENU_YES_X = 0.39;   // centre X as fraction of panel width
+    let NEW_PLAYER_MENU_YES_Y = 0.73;   // centre Y as fraction of panel height
+    let NEW_PLAYER_MENU_YES_W = 0.21;   // button width as fraction of panel width
+    let NEW_PLAYER_MENU_YES_H = 0.14;   // button height as fraction of panel height
+    let NEW_PLAYER_MENU_NO_X  = 0.64;
+    let NEW_PLAYER_MENU_NO_Y  = 0.73;
+    let NEW_PLAYER_MENU_NO_W  = 0.18;
+    let NEW_PLAYER_MENU_NO_H  = 0.14;
+    let NEW_PLAYER_MENU_SHOW_HITBOX_DEBUG = false;  // show coloured outlines on buttons to aid alignment
 
     // --- Tutorial book UI ---
     let TUTORIAL_BOOK_WIDTH = 760;
@@ -274,7 +301,8 @@ new p5(function(p) {
     let TUTORIAL_BOOK_MAX_WIDTH_VW = 92;
     let TUTORIAL_BOOK_START_X = 120;
     let TUTORIAL_BOOK_START_Y = 80;
-    let TUTORIAL_BOOK_SHOW_DRAG_AREA_DEBUG = true;
+    let TUTORIAL_BOOK_SHOW_DRAG_AREA_DEBUG = false;
+    let TUTORIAL_BOOK_Z_INDEX = 960;
 
     // Drag area for cover sprite (page index 0)
     let TUTORIAL_BOOK_COVER_DRAG_OFFSET_X = 210;
@@ -318,21 +346,50 @@ new p5(function(p) {
     let TUTORIAL_BOOK_CLOSE_BUTTON_SIZE = 34;
 
     let GRID_CANVAS_TAB_BUTTON_SIZE = GRID_TAB_HEIGHT * 3;
-    let GRID_CLOSE_BUTTON_OFFSET_X = 5 * (GRID_TAB_WIDTH + GRID_TAB_GAP);
-    let GRID_CLOSE_BUTTON_OFFSET_Y = -2.6 * (GRID_TAB_WIDTH + GRID_TAB_GAP);
     let GRID_PAINT_BUTTON_OFFSET_X = 0;
     let GRID_PAINT_BUTTON_OFFSET_Y = 0;
+    let GRID_CLOSE_BUTTON_OFFSET_X = GRID_GAP;
+    let GRID_CLOSE_BUTTON_OFFSET_Y = -(GRID_CANVAS_TAB_BUTTON_SIZE + GRID_GAP);
+
+    // --- Canvas sprite buttons (shop / gallery) ---
+    let SHOP_BUTTON_CENTER_X = 0.85;
+    let SHOP_BUTTON_CENTER_Y = 0.72;
+    let SHOP_BUTTON_SIZE = 286;
+    let GALLERY_BUTTON_CENTER_X = 0.85;
+    let GALLERY_BUTTON_CENTER_Y = 0.32;
+    let GALLERY_BUTTON_SIZE = 286;
+
+    // --- Static pot behind creature ---
+    let STATIC_POT_OFFSET_X = 0;
+    let STATIC_POT_OFFSET_Y = -5;
+    let STATIC_POT_WIDTH = 408;
+    let STATIC_POT_HEIGHT = 408;
+
+    // --- Static table object ---
+    let STATIC_TABLE_CENTER_X = 0.27; // normalized screen position (0..1)
+    let STATIC_TABLE_CENTER_Y = 0.8; // normalized screen position (0..1)
+    let STATIC_TABLE_WIDTH = 466;
+    let STATIC_TABLE_HEIGHT = 466;
+    let STATIC_TABLE_Z_INDEX = 1;
+    const CREATURE_RENDER_Z_INDEX = 200;
+
+    // --- Guide book canvas button ---
+    let GUIDE_BOOK_BUTTON_CENTER_X = 0.7; // normalized screen position (0..1)
+    let GUIDE_BOOK_BUTTON_CENTER_Y = 0.76; // normalized screen position (0..1)
+    let GUIDE_BOOK_BUTTON_SIZE = 150;
+    let GUIDE_BOOK_BUTTON_HOVER_OUTLINE_COLOUR = [255, 255, 255, 230];
+    let GUIDE_BOOK_BUTTON_Z_INDEX = 290;   // layering for the guide book sprite button
 
     
     let GRID_AREAS_VISIBLE = true;
     let STUDIO_WALL_FLOOR_SPLIT_Y = 0.62;
     let STUDIO_FLOOR_DARKEN = 0.82;
     
-    let STUDIO_FAVORITE_FRAME_X = 0.82;
-    let STUDIO_FAVORITE_FRAME_Y = 0.2;
+    let STUDIO_FAVORITE_FRAME_X = 0.54;
+    let STUDIO_FAVORITE_FRAME_Y = 0.15;
     let STUDIO_FAVORITE_FRAME_W = 120;
     let STUDIO_FAVORITE_FRAME_H = 120;
-    let STUDIO_FAVORITE_FRAME_SIZE_SCALE = 1.0;
+    let STUDIO_FAVORITE_FRAME_SIZE_SCALE = 2.0;
 
     // --- World hotspot buttons ---
     let WORLD_AREA_1_X = 80;
@@ -410,12 +467,21 @@ new p5(function(p) {
         { id: 'moss', label: 'Moss Studio', colour: [224, 233, 214], price: 45 },
     ];
     const STUDIO_DECOR_THEMES = [
-        { id: 'frame-favorite', label: 'Framed favorite painting', price: 200, spritePath: null, worldX: 0.82, worldY: 0.2, spriteW: 120, spriteH: 120 },
-        { id: 'plant-vase', label: 'Plant Vase', price: 35, spritePath: 'Environment/PlantVase.png', worldX: 0.72, worldY: 0.42, spriteW: 130, spriteH: 130 },
-        { id: 'golden-statue', label: 'Golden Statue', price: 350, spritePath: 'Environment/GoldenStatue.png', worldX: 0.62, worldY: 0.42, spriteW: 150, spriteH: 150 },
-        { id: 'pet-mush', label: 'Pet Mush', price: 100, spritePath: 'Environment/PetMush.png', worldX: 0.8, worldY: 0.5, spriteW: 128, spriteH: 128 },
-        { id: 'lamp', label: 'Lamp', price: 50, spritePath: 'Environment/Lamp.png', worldX: 0.8, worldY: 0.5, spriteW: 128, spriteH: 128 },
-        { id: 'expensive_painting', label: 'Expensive Painting', price: 600, spritePath: 'Environment/ExpensivePainting.png', worldX: 0.8, worldY: 0.5, spriteW: 128, spriteH: 128 },
+        { id: 'frame-favorite', label: 'Framed favorite painting', price: 200, spritePath: null, worldX: 0.8, worldY: 0.2, spriteW: 160, spriteH: 160, zIndex: 100 },
+        { id: 'plant-vase', label: 'Plant Vase', price: 35, spritePath: 'Environment/PlantVase.png', worldX: 0.30, worldY: 0.43, spriteW: 160, spriteH: 160, zIndex: 39 },
+        { id: 'golden-statue', label: 'Golden Statue', price: 350, spritePath: 'Environment/GoldenStatue.png', worldX: 0.53, worldY: 0.7, spriteW: 190, spriteH: 190, zIndex: 20 },
+        { id: 'pet-mush', label: 'Pet Mush', price: 100, spritePath: 'Environment/PetMush.png', worldX: 0.38, worldY: 0.52, spriteW: 160, spriteH: 160, zIndex: 30 },
+        { id: 'lamp', label: 'Lamp', price: 50, spritePath: 'Environment/Lamp.png', worldX: 0.28, worldY: 0.56, spriteW: 150, spriteH: 150, zIndex: 40 },
+        { id: 'expensive_painting', label: 'Expensive Painting', price: 600, spritePath: 'Environment/ExpensivePainting.png', worldX: 0.37, worldY: 0.2, spriteW: 190, spriteH: 190, zIndex: 50 },
+    ];
+    const POT_STYLE_THEMES = [
+        { id: 'brown',     label: 'Brown Pot',           spritePath: STATIC_POT_SPRITE_PATH,           price: 0  },
+        { id: 'clay',      label: 'Clay Pot',            spritePath: 'Environment/ClayPot.png',        price: 20 },
+        { id: 'cement',    label: 'Cement Pot',          spritePath: 'Environment/CementPot.png',      price: 20 },
+        { id: 'green',     label: 'Green Pot',           spritePath: 'Environment/GreenPot.png',       price: 30 },
+        { id: 'blue',      label: 'Blue Pot',            spritePath: 'Environment/BluePot.png',        price: 30 },
+        { id: 'warm-grad', label: 'Warm Gradient Pot',   spritePath: 'Environment/WarmGradPot.png',    price: 50 },
+        { id: 'cool-grad', label: 'Cool Gradient Pot',   spritePath: 'Environment/CoolGradPot.png',    price: 50 },
     ];
     const BASE_COLOR_SCHEME_COUNT = 6;
     const PAINT_BLACK = [20, 20, 20];
@@ -498,7 +564,7 @@ new p5(function(p) {
         //            bounce      shake     opacity     body colour target
         happy:      { bounceAmt: 0.04, shakeAmt: 0.0, alphaTarget: 255, bodyTarget: [150, 200, 0] },
         neutral:    { bounceAmt: 0.02, shakeAmt: 0.0, alphaTarget: 180, bodyTarget: [0, 0, 0] },
-        excited:    { bounceAmt: 0.10, shakeAmt: 0.0, alphaTarget: 255, bodyTarget: [200, 100, 0] },
+        excited:    { bounceAmt: 0.03, shakeAmt: 0.0, alphaTarget: 255, bodyTarget: [200, 100, 0] },
         sleepy:     { bounceAmt: 0.005, shakeAmt: 0.0, alphaTarget: 255, bodyTarget: [150, 0, 150] },
     };
 
@@ -577,6 +643,7 @@ new p5(function(p) {
     let galleryCoins = 0;
     let saleAnnouncement = null;
     let bulkSaleCredits = null;
+    let canvasResetToDefaultAfterGeneration = false;
     let referenceSearchPending = false;
     let queuedReferenceForNextGeneration = null;
     let queuedExpressionReferenceForNextGeneration = null;
@@ -647,6 +714,10 @@ new p5(function(p) {
     let activeStudioWallThemeId = 'cloud';
     let studioWallColour = [242, 238, 229];
     let ownedStudioDecorThemeIds = [];
+    let activePotStyleThemeId = 'brown';
+    let ownedPotStyleThemeIds = ['brown'];   // pot styles owned permanently
+    let ownedCanvasPresetIds = ['default'];
+    let ownedCustomCanvasDraft = null;
     let studioFavoritePaintingImage = null;
     let studioFavoritePaintingSerial = null;
     let studioFavoritePaintingPendingSerial = null;
@@ -672,13 +743,26 @@ new p5(function(p) {
         prompt: '',
         nextAtMs: 0,
     };
+    let creatureQuestionDialogueHideTimer = null;
     let soundEffectTemplates = {};
     let soundEffectLastPlayAt = {};
     let shopMusicAudio = null;
     let ownedShopMusicTrackIds = [];
     let activeShopMusicTrackId = null;
+    let guideBookButtonSprite = null;
+    let guideBookButtonOutlineSprite = null;
+    let shopButtonSprite = null;
+    let shopButtonOutlineSprite = null;
+    let galleryButtonSprite = null;
+    let galleryButtonOutlineSprite = null;
+    let lastUserInputAtMs = Date.now();
+    let generationEndedAtMs = 0;
+    let generationEndedAwaitingIdleAutoNext = false;
     let paintbrushButtonSprite = null;
     let exitButtonSprite = null;
+    let staticPotSprite = null;
+    let questionMarkSprite = null;
+    let staticTableSprite = null;
     let pendingNewPlayerMenuChoice = null;
     let tutorialBookState = {
         isOpen: false,
@@ -688,7 +772,192 @@ new p5(function(p) {
         dragOffsetY: 0,
         x: TUTORIAL_BOOK_START_X,
         y: TUTORIAL_BOOK_START_Y,
+        canOpen: true,  // always shown — available to all users
     };
+
+    function recordUserInputTimestamp(nowMs = Date.now()) {
+        lastUserInputAtMs = nowMs;
+    }
+
+    function markGenerationEndedForIdleAutoNext(nowMs = Date.now()) {
+        generationEndedAwaitingIdleAutoNext = true;
+        generationEndedAtMs = nowMs;
+    }
+
+    function clearGenerationEndedIdleAutoNext() {
+        generationEndedAwaitingIdleAutoNext = false;
+        generationEndedAtMs = 0;
+    }
+
+    function maybeAutoStartNextGenerationAfterIdle(nowMs = Date.now()) {
+        if (!generationEndedAwaitingIdleAutoNext) return;
+        if (!generationPaused || isRestingNow(nowMs)) return;
+
+        let idleSince = Math.max(lastUserInputAtMs, generationEndedAtMs);
+        if ((nowMs - idleSince) < AUTO_NEXT_GENERATION_IDLE_MS) return;
+
+        clearGenerationEndedIdleAutoNext();
+        resetGeneration();
+    }
+
+    function refreshGuideBookOpenButtonUI() {
+        // The guidebook button is now rendered on the canvas, behind food/grid layers.
+        if (!ui.guideBookOpenButton) return;
+        ui.guideBookOpenButton.style.display = 'none';
+    }
+
+    function getGuideBookButtonRect() {
+        let size = Math.max(24, Number(GUIDE_BOOK_BUTTON_SIZE) || 24);
+        let centerX = p.width * (Number(GUIDE_BOOK_BUTTON_CENTER_X) || 0);
+        let centerY = p.height * (Number(GUIDE_BOOK_BUTTON_CENTER_Y) || 0);
+        let x = centerX - size * 0.5;
+        let y = centerY - size * 0.5;
+        return {
+            x,
+            y,
+            w: size,
+            h: size,
+        };
+    }
+
+    function isPointInGuideBookButton(mx, my) {
+        let rect = getGuideBookButtonRect();
+        return mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
+    }
+
+    function drawGuideBookOpenButton() {
+        let rect = getGuideBookButtonRect();
+        let hovering = isPointInGuideBookButton(p.mouseX, p.mouseY);
+
+        p.push();
+        p.imageMode(p.CORNER);
+        p.drawingContext.imageSmoothingEnabled = false;
+
+        if (guideBookButtonSprite) {
+            if (hovering && guideBookButtonOutlineSprite) {
+                p.image(guideBookButtonOutlineSprite, rect.x, rect.y, rect.w, rect.h);
+            }
+            p.image(guideBookButtonSprite, rect.x, rect.y, rect.w, rect.h);
+        } else {
+            p.noStroke();
+            p.fill(240, 230, 190, 230);
+            p.rect(rect.x, rect.y, rect.w, rect.h, 8);
+            if (hovering) {
+                p.noFill();
+                p.stroke(255, 255, 255, 230);
+                p.strokeWeight(2);
+                p.rect(rect.x - 1, rect.y - 1, rect.w + 2, rect.h + 2, 9);
+            }
+            p.noStroke();
+        }
+
+        p.pop();
+    }
+
+    function getShopOpenButtonRect() {
+        let size = Math.max(24, Number(SHOP_BUTTON_SIZE) || 24);
+        let centerX = p.width * (Number(SHOP_BUTTON_CENTER_X) || 0);
+        let centerY = p.height * (Number(SHOP_BUTTON_CENTER_Y) || 0);
+        return {
+            x: centerX - size * 0.5,
+            y: centerY - size * 0.5,
+            w: size,
+            h: size,
+        };
+    }
+
+    function getGalleryOpenButtonRect() {
+        let size = Math.max(24, Number(GALLERY_BUTTON_SIZE) || 24);
+        let centerX = p.width * (Number(GALLERY_BUTTON_CENTER_X) || 0);
+        let centerY = p.height * (Number(GALLERY_BUTTON_CENTER_Y) || 0);
+        return {
+            x: centerX - size * 0.5,
+            y: centerY - size * 0.5,
+            w: size,
+            h: size,
+        };
+    }
+
+    function isPointInShopOpenButton(mx, my) {
+        let rect = getShopOpenButtonRect();
+        return mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
+    }
+
+    function isPointInGalleryOpenButton(mx, my) {
+        let rect = getGalleryOpenButtonRect();
+        return mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
+    }
+
+    function drawShopOpenButton() {
+        let rect = getShopOpenButtonRect();
+        let hovering = isPointInShopOpenButton(p.mouseX, p.mouseY);
+
+        p.push();
+        p.imageMode(p.CORNER);
+        p.drawingContext.imageSmoothingEnabled = false;
+
+        if (shopButtonSprite) {
+            if (hovering && shopButtonOutlineSprite) {
+                p.image(shopButtonOutlineSprite, rect.x, rect.y, rect.w, rect.h);
+            }
+            p.image(shopButtonSprite, rect.x, rect.y, rect.w, rect.h);
+        } else {
+            p.noStroke();
+            p.fill(240, 230, 190, 230);
+            p.rect(rect.x, rect.y, rect.w, rect.h, 8);
+            if (hovering) {
+                p.noFill();
+                p.stroke(255, 255, 255, 230);
+                p.strokeWeight(2);
+                p.rect(rect.x - 1, rect.y - 1, rect.w + 2, rect.h + 2, 9);
+            }
+            p.noStroke();
+        }
+
+        p.pop();
+    }
+
+    function drawGalleryOpenButton() {
+        let rect = getGalleryOpenButtonRect();
+        let hovering = isPointInGalleryOpenButton(p.mouseX, p.mouseY);
+
+        p.push();
+        p.imageMode(p.CORNER);
+        p.drawingContext.imageSmoothingEnabled = false;
+
+        if (galleryButtonSprite) {
+            if (hovering && galleryButtonOutlineSprite) {
+                p.image(galleryButtonOutlineSprite, rect.x, rect.y, rect.w, rect.h);
+            }
+            p.image(galleryButtonSprite, rect.x, rect.y, rect.w, rect.h);
+        } else {
+            p.noStroke();
+            p.fill(240, 230, 190, 230);
+            p.rect(rect.x, rect.y, rect.w, rect.h, 8);
+            if (hovering) {
+                p.noFill();
+                p.stroke(255, 255, 255, 230);
+                p.strokeWeight(2);
+                p.rect(rect.x - 1, rect.y - 1, rect.w + 2, rect.h + 2, 9);
+            }
+            p.noStroke();
+        }
+
+        p.pop();
+    }
+
+    function getPotStyleThemeById(themeId) {
+        return POT_STYLE_THEMES.find(theme => theme.id === themeId) || POT_STYLE_THEMES[0];
+    }
+
+    function applyActivePotStyleTheme() {
+        let theme = getPotStyleThemeById(activePotStyleThemeId);
+        p.loadImage(
+            theme.spritePath,
+            (img) => { staticPotSprite = img; },
+            () => {}
+        );
+    }
 
         function getGalleryWallThemeById(themeId) {
             return GALLERY_WALL_THEMES.find(theme => theme.id === themeId) || GALLERY_WALL_THEMES[0];
@@ -746,6 +1015,32 @@ new p5(function(p) {
             ensureStudioWallState();
             let theme = getStudioWallThemeById(activeStudioWallThemeId);
             studioWallColour = [...theme.colour];
+        }
+
+        function applyTutorialBookLayering() {
+            if (!ui.tutorialBookRoot) return;
+
+            let baseZ = Math.floor(Number(TUTORIAL_BOOK_Z_INDEX) || 960);
+            ui.tutorialBookRoot.style.zIndex = String(baseZ);
+
+            if (ui.tutorialBookImage) {
+                ui.tutorialBookImage.style.position = 'relative';
+                ui.tutorialBookImage.style.zIndex = '0';
+            }
+
+            for (let textBox of [ui.tutorialBookTextBox1, ui.tutorialBookTextBox2]) {
+                if (!textBox) continue;
+                textBox.style.zIndex = '1';
+            }
+
+            for (let button of [ui.tutorialBookPrevButton, ui.tutorialBookNextButton, ui.tutorialBookCloseButton]) {
+                if (!button) continue;
+                button.style.zIndex = '2';
+            }
+
+            if (ui.tutorialBookDragAreaDebug) {
+                ui.tutorialBookDragAreaDebug.style.zIndex = '3';
+            }
         }
 
         function getShopMusicTrackById(trackId) {
@@ -890,9 +1185,17 @@ new p5(function(p) {
         rootStyle.setProperty('--canvas-hitbox-bottom', `${AREA_BUTTON_LAYOUT.canvasHitboxBottom}%`);
         rootStyle.setProperty('--canvas-hitbox-left', `${AREA_BUTTON_LAYOUT.canvasHitboxLeft}%`);
         rootStyle.setProperty('--grid-canvas-z-index', `${Math.floor(Number(GRID_CANVAS_Z_INDEX) || 0)}`);
-        rootStyle.setProperty('--open-area-buttons-z-index', `${Math.floor(Number(AREA_OPEN_BUTTONS_Z_INDEX) || 2)}`);
-        rootStyle.setProperty('--canvas-tab-button-z-index', `${Math.floor(Number(GRID_CANVAS_Z_INDEX) || 0)}`);
-    }
+        rootStyle.setProperty('--search-open-button-z-index', `${Math.floor(Number(SEARCH_OPEN_BUTTON_Z_INDEX) || 2)}`);
+        rootStyle.setProperty('--canvas-open-button-z-index', `${Math.floor(Number(CANVAS_OPEN_BUTTON_Z_INDEX) || 2)}`);
+        rootStyle.setProperty('--guide-book-button-z-index', `${Math.floor(Number(GUIDE_BOOK_BUTTON_Z_INDEX) || 2)}`);
+        rootStyle.setProperty('--canvas-tab-button-z-index', `${Math.floor(Number(CANVAS_OPEN_BUTTON_Z_INDEX) || 2)}`);
+        rootStyle.setProperty('--tutorial-book-z-index', `${Math.floor(Number(TUTORIAL_BOOK_Z_INDEX) || 960)}`);
+        rootStyle.setProperty('--shop-modal-z-index', `${Math.floor(Number(SHOP_MODAL_Z_INDEX) || 0)}`);
+        rootStyle.setProperty('--radial-menu-z-index', `${Math.floor(Number(RADIAL_MENU_Z_INDEX) || 0)}`);
+        rootStyle.setProperty('--radial-prompt-modal-z-index', `${Math.floor(Number(RADIAL_PROMPT_MODAL_Z_INDEX) || 0)}`);
+        rootStyle.setProperty('--vn-box-z-index', `${Math.floor(Number(VN_BOX_Z_INDEX) || 0)}`);
+        rootStyle.setProperty('--bars-z-index', `${Math.floor(Number(BARS_Z_INDEX) || 62)}`);
+        rootStyle.setProperty('--mic-bar-z-index', `${Math.floor(Number(MIC_BAR_Z_INDEX) || 62)}`);    }
 
     function isEnergyDrinkBoostActive(currentCreature = creature) {
         return !!energyDrinkGridBoostActive
@@ -902,7 +1205,17 @@ new p5(function(p) {
 
     function getMicBoostRatio(currentCreature = creature) {
         if (!micActive || !currentCreature) return 0;
-        let threshold = p.constrain(Number(MIC_THRESHOLD) || 0, 0, 1);
+        let threshold = p.constrain(Number(MIC_SPEEDUP_THRESHOLD) || 0, 0, 1);
+        let level = p.constrain(Number(currentCreature.micLevel) || 0, 0, 1);
+        if (level <= threshold) return 0;
+        let span = Math.max(0.0001, 1 - threshold);
+        return p.constrain((level - threshold) / span, 0, 1);
+    }
+
+    // Separate boost ratio for generation (grid pixel) speed — uses MIC_GENERATION_SPEEDUP_THRESHOLD
+    function getMicGenerationBoostRatio(currentCreature = creature) {
+        if (!micActive || !currentCreature) return 0;
+        let threshold = p.constrain(Number(MIC_GENERATION_SPEEDUP_THRESHOLD) || 0, 0, 1);
         let level = p.constrain(Number(currentCreature.micLevel) || 0, 0, 1);
         if (level <= threshold) return 0;
         let span = Math.max(0.0001, 1 - threshold);
@@ -912,6 +1225,11 @@ new p5(function(p) {
     function getMicScaledMultiplier(maxMultiplier, currentCreature = creature) {
         let max = p.max(1, Number(maxMultiplier) || 1);
         return p.lerp(1, max, getMicBoostRatio(currentCreature));
+    }
+
+    function getMicGenerationScaledMultiplier(maxMultiplier, currentCreature = creature) {
+        let max = p.max(1, Number(maxMultiplier) || 1);
+        return p.lerp(1, max, getMicGenerationBoostRatio(currentCreature));
     }
 
     function getMicAnimationSpeedMultiplier(currentCreature = creature) {
@@ -932,7 +1250,8 @@ new p5(function(p) {
         let drinkMult = isEnergyDrinkBoostActive(currentCreature)
             ? p.max(1, Number(ENERGY_DRINK_GRID_UPS_MULTIPLIER) || 1)
             : 1;
-        return drinkMult * getMicScaledMultiplier(ENERGY_DRINK_GRID_UPS_MULTIPLIER, currentCreature);
+        // Generation speed only kicks in above MIC_GENERATION_SPEEDUP_THRESHOLD
+        return drinkMult * getMicGenerationScaledMultiplier(ENERGY_DRINK_GRID_UPS_MULTIPLIER, currentCreature);
     }
 
     function getStackedEnergyDrainMultiplier(currentCreature = creature) {
@@ -1016,17 +1335,50 @@ new p5(function(p) {
             ui.radialMenu.classList.add('radial-active');
         }
         if (ui.radialMenu) updateRadialMenuPosition(creature);
+
+        clearCreatureQuestionDialogueAutoHide();
+        creatureQuestionDialogueHideTimer = window.setTimeout(() => {
+            hideNpcDialogueBox();
+            creatureQuestionDialogueHideTimer = null;
+        }, Math.max(500, Number(CREATURE_QUESTION_DIALOGUE_TIMEOUT_MS) || 5000));
+    }
+
+    function clearCreatureQuestionDialogueAutoHide() {
+        if (creatureQuestionDialogueHideTimer == null) return;
+        clearTimeout(creatureQuestionDialogueHideTimer);
+        creatureQuestionDialogueHideTimer = null;
+    }
+
+    function hideNpcDialogueBox() {
+        if (typeof window._hideNpcDialogue === 'function') {
+            window._hideNpcDialogue();
+            return;
+        }
+
+        let vnBox = document.getElementById('vn-box');
+        if (!vnBox) return;
+        vnBox.style.display = 'none';
+        vnBox.innerHTML = '';
     }
 
     function drawCreatureQuestionIndicator(c) {
         if (!creatureQuestionState.active || !c) return;
         p.push();
-        p.textAlign(p.CENTER, p.CENTER);
-        p.textSize(44);
-        p.fill(255, 243, 120, 240);
-        p.stroke(40, 40, 40, 180);
-        p.strokeWeight(2.5);
-        p.text('!', c.x, c.y + CREATURE_QUESTION_MARK_OFFSET_Y);
+        if (questionMarkSprite && CREATURE_QUESTION_MARK_SPRITE_PATH) {
+            // Draw sprite centred above the creature
+            let spriteSize = Math.max(24, Number(CREATURE_SIZE) * 0.35);
+            p.imageMode(p.CENTER);
+            p.drawingContext.imageSmoothingEnabled = false;
+            p.image(questionMarkSprite, c.x, c.y + CREATURE_QUESTION_MARK_OFFSET_Y, spriteSize, spriteSize);
+        } else {
+            // Text fallback
+            p.textAlign(p.CENTER, p.CENTER);
+            p.textSize(44);
+            p.fill(255, 243, 120, 240);
+            p.stroke(40, 40, 40, 180);
+            p.strokeWeight(2.5);
+            p.text('!', c.x, c.y + CREATURE_QUESTION_MARK_OFFSET_Y);
+        }
         p.pop();
     }
 
@@ -1120,17 +1472,35 @@ new p5(function(p) {
         let paintingsToCreate = Math.max(0, Math.floor(Number(hoursAway) || 0));
         if (paintingsToCreate <= 0 || !ui.generationStripList) return 0;
 
-        let baseStyle = getOfflineLikedStyleSnapshot();
-        let baseScheme = getOfflineLikedColourScheme();
+        let offlineSeed = getOfflineReferenceLikeSnapshot(3);
+        let recentSnapshots = getRecentGenerationSnapshots(3);
 
         let styleBackup = captureCurrentStyleSnapshot();
         let schemeBackup = Array.isArray(colorScheme) ? colorScheme.map(col => [...col]) : [];
         let pausedBackup = generationPaused;
+        let referencePathBackup = currentReferenceSpritePath;
+        let referenceSpriteBackup = referenceSprite;
+        let referenceAssociationsBackup = referenceAssociations;
+        let referenceColourMapBackup = referenceColourMap;
+        let referenceRuleReadyBackup = referenceRuleReady;
 
         for (let i = 0; i < paintingsToCreate; i++) {
-            applyStyleSnapshot(baseStyle);
-            colorScheme = baseScheme.map(col => [...col]);
+            let sourceSnapshot = recentSnapshots.length > 0 ? recentSnapshots[i % recentSnapshots.length] : null;
+            let sourceStyle = sourceSnapshot ? snapshotToStyleSnapshot(sourceSnapshot) : offlineSeed.style;
+            let sourceScheme = sourceSnapshot && Array.isArray(sourceSnapshot.colorScheme) && sourceSnapshot.colorScheme.length > 0
+                ? normalizeColourSchemeLength(sourceSnapshot.colorScheme, COLOR_SCHEME_COUNT, offlineSeed.colorScheme)
+                : offlineSeed.colorScheme;
+
+            applyStyleSnapshot(blendStyleSnapshots(offlineSeed.style, sourceStyle, 0.22));
+            colorScheme = normalizeColourSchemeLength(
+                blendSchemeToward(offlineSeed.colorScheme, sourceScheme, 0.32),
+                COLOR_SCHEME_COUNT,
+                offlineSeed.colorScheme
+            );
             initColorGrid();
+            currentReferenceSpritePath = sourceSnapshot && typeof sourceSnapshot.referencePath === 'string' && sourceSnapshot.referencePath.trim()
+                ? sourceSnapshot.referencePath
+                : offlineSeed.referencePath;
 
             for (let r = 0; r < GRID_ROWS; r++) {
                 for (let c = 0; c < GRID_COLS; c++) {
@@ -1149,6 +1519,11 @@ new p5(function(p) {
         colorScheme = schemeBackup.length ? schemeBackup.map(col => [...col]) : colorScheme;
         initColorGrid();
         generationPaused = pausedBackup;
+        currentReferenceSpritePath = referencePathBackup;
+        referenceSprite = referenceSpriteBackup;
+        referenceAssociations = referenceAssociationsBackup;
+        referenceColourMap = referenceColourMapBackup;
+        referenceRuleReady = referenceRuleReadyBackup;
         refreshShopUI();
         rebuildGenerationStripFromHistory();
         updateGenerationStripControls();
@@ -1934,10 +2309,11 @@ new p5(function(p) {
             width: `${NEW_PLAYER_MENU_YES_W * 100}%`,
             height: `${NEW_PLAYER_MENU_YES_H * 100}%`,
             transform: 'translate(-50%, -50%)',
-            background: 'transparent',
-            border: 'none',
+            background: NEW_PLAYER_MENU_SHOW_HITBOX_DEBUG ? 'rgba(60, 220, 120, 0.22)' : 'transparent',
+            border: NEW_PLAYER_MENU_SHOW_HITBOX_DEBUG ? '2px dashed rgba(30, 180, 80, 0.9)' : 'none',
             cursor: 'pointer',
             pointerEvents: 'auto',
+            boxSizing: 'border-box',
         });
 
         let noButton = document.createElement('button');
@@ -1950,10 +2326,11 @@ new p5(function(p) {
             width: `${NEW_PLAYER_MENU_NO_W * 100}%`,
             height: `${NEW_PLAYER_MENU_NO_H * 100}%`,
             transform: 'translate(-50%, -50%)',
-            background: 'transparent',
-            border: 'none',
+            background: NEW_PLAYER_MENU_SHOW_HITBOX_DEBUG ? 'rgba(220, 80, 60, 0.22)' : 'transparent',
+            border: NEW_PLAYER_MENU_SHOW_HITBOX_DEBUG ? '2px dashed rgba(200, 50, 30, 0.9)' : 'none',
             cursor: 'pointer',
             pointerEvents: 'auto',
+            boxSizing: 'border-box',
         });
 
         yesButton.addEventListener('click', () => {
@@ -2011,7 +2388,7 @@ new p5(function(p) {
             width: `${TUTORIAL_BOOK_WIDTH * TUTORIAL_BOOK_SCALE}px`,
             maxWidth: `${TUTORIAL_BOOK_MAX_WIDTH_VW}vw`,
             display: 'none',
-            zIndex: '960',
+            zIndex: String(Math.floor(Number(TUTORIAL_BOOK_Z_INDEX) || 960)),
             userSelect: 'none',
             touchAction: 'none',
             filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.42))',
@@ -2022,6 +2399,7 @@ new p5(function(p) {
         bookImage.alt = 'Tutorial Book';
         bookImage.draggable = false;
         Object.assign(bookImage.style, {
+            position: 'relative',
             width: '100%',
             height: 'auto',
             display: 'block',
@@ -2035,14 +2413,15 @@ new p5(function(p) {
         for (let box of [textBox1, textBox2]) {
             Object.assign(box.style, {
                 position: 'absolute',
-                border: '1px solid rgba(96, 82, 58, 0.35)',
-                background: 'rgba(255, 252, 241, 0.28)',
+                border: 'none',
+                background: 'transparent',
                 color: '#2d2418',
                 fontFamily: "'Tiny5', monospace",
                 overflow: 'hidden',
                 whiteSpace: 'pre-wrap',
                 pointerEvents: 'none',
                 boxSizing: 'border-box',
+                zIndex: '1',
             });
         }
 
@@ -2053,6 +2432,7 @@ new p5(function(p) {
             boxSizing: 'border-box',
             pointerEvents: 'none',
             display: TUTORIAL_BOOK_SHOW_DRAG_AREA_DEBUG ? 'block' : 'none',
+            zIndex: '3',
         });
 
         let prevButton = document.createElement('button');
@@ -2072,6 +2452,7 @@ new p5(function(p) {
             lineHeight: '1',
             cursor: 'pointer',
             pointerEvents: 'auto',
+            zIndex: '2',
         });
 
         let nextButton = document.createElement('button');
@@ -2089,6 +2470,7 @@ new p5(function(p) {
             lineHeight: '1',
             cursor: 'pointer',
             pointerEvents: 'auto',
+            zIndex: '2',
         });
 
         let closeButton = document.createElement('button');
@@ -2110,6 +2492,7 @@ new p5(function(p) {
             cursor: 'pointer',
             pointerEvents: 'auto',
             lineHeight: '1',
+            zIndex: '2',
         });
 
         prevButton.addEventListener('click', (event) => {
@@ -2148,6 +2531,7 @@ new p5(function(p) {
         ui.tutorialBookPrevButton = prevButton;
         ui.tutorialBookNextButton = nextButton;
         ui.tutorialBookCloseButton = closeButton;
+        applyTutorialBookLayering();
     }
 
     function getTutorialBookLayoutScale() {
@@ -2255,6 +2639,7 @@ new p5(function(p) {
         ui.tutorialBookRoot.style.left = `${tutorialBookState.x}px`;
         ui.tutorialBookRoot.style.top = `${tutorialBookState.y}px`;
         ui.tutorialBookRoot.style.cursor = 'grab';
+        applyTutorialBookLayering();
 
         let scale = getTutorialBookLayoutScale();
 
@@ -2348,6 +2733,7 @@ new p5(function(p) {
     }
 
     function openTutorialBook() {
+        if (!tutorialBookState.canOpen) return;
         ensureTutorialBookUI();
         tutorialBookState.isOpen = true;
         if (ui.tutorialBookRoot) {
@@ -2401,6 +2787,47 @@ new p5(function(p) {
             (img) => { exitButtonSprite = img; },
             () => {}
         );
+        p.loadImage(
+            SHOP_BUTTON_SPRITE_PATH,
+            (img) => {
+                shopButtonSprite = img;
+                shopButtonOutlineSprite = buildSpriteOutlineBuffer(img, [255, 255, 255, 230]);
+            },
+            () => {}
+        );
+        p.loadImage(
+            GALLERY_BUTTON_SPRITE_PATH,
+            (img) => {
+                galleryButtonSprite = img;
+                galleryButtonOutlineSprite = buildSpriteOutlineBuffer(img, [255, 255, 255, 230]);
+            },
+            () => {}
+        );
+        p.loadImage(
+            STATIC_TABLE_SPRITE_PATH,
+            (img) => { staticTableSprite = img; },
+            () => {}
+        );
+        if (CREATURE_QUESTION_MARK_SPRITE_PATH) {
+            p.loadImage(
+                CREATURE_QUESTION_MARK_SPRITE_PATH,
+                (img) => { questionMarkSprite = img; },
+                () => { questionMarkSprite = null; } // fall back to text '!' on load failure
+            );
+        }
+        applyActivePotStyleTheme();
+        p.loadImage(
+            GUIDE_BOOK_BUTTON_SPRITE_PATH,
+            (img) => {
+                guideBookButtonSprite = img;
+                guideBookButtonOutlineSprite = buildSpriteOutlineBuffer(
+                    img,
+                    GUIDE_BOOK_BUTTON_HOVER_OUTLINE_COLOUR
+                );
+                if (ui.guideBookOpenSprite) ui.guideBookOpenSprite.src = GUIDE_BOOK_BUTTON_SPRITE_PATH;
+            },
+            () => {}
+        );
         initColorGrid();
         generateColorScheme();
         let easyStyleWasCreated = ensureEasyStyleProfile();
@@ -2424,6 +2851,13 @@ new p5(function(p) {
 
         ui.energyVal = document.getElementById('ui-energy-val');
         ui.energyBar = document.getElementById('ui-energy-bar');
+
+        ui.micBar = document.getElementById('ui-mic-bar');
+        ui.micBarThresholdWake  = document.getElementById('ui-mic-bar-threshold-wake');
+        ui.micBarThresholdSpeed = document.getElementById('ui-mic-bar-threshold-speed');
+        ui.micBarThresholdGen   = document.getElementById('ui-mic-bar-threshold-gen');
+        ui.micBarCard = ui.micBar ? ui.micBar.closest('.scene-meter-card') : null;
+        if (ui.micBarCard) ui.micBarCard.style.display = MIC_BAR_VISIBLE ? '' : 'none';
 
         ui.visits  = document.getElementById('ui-visits');
         ui.excited = document.getElementById('ui-excited');
@@ -2469,8 +2903,11 @@ new p5(function(p) {
         ui.galleryOpenButton = document.getElementById('ui-gallery-open-btn');
         ui.reopenGridButton = document.getElementById('ui-reopen-grid-btn');
         ui.reopenGridSprite = document.getElementById('ui-reopen-grid-sprite');
+        ui.guideBookOpenButton = document.getElementById('ui-guidebook-open-btn');
+        ui.guideBookOpenSprite = document.getElementById('ui-guidebook-open-sprite');
         if (ui.searchOpenSprite) ui.searchOpenSprite.src = SEARCH_COMPUTER_IDLE_SPRITE_PATH;
         if (ui.reopenGridSprite) ui.reopenGridSprite.src = CANVAS_SPRITE_PATH;
+        if (ui.guideBookOpenSprite) ui.guideBookOpenSprite.src = GUIDE_BOOK_BUTTON_SPRITE_PATH;
         ui.shopModal = document.getElementById('ui-shop-modal');
         ui.shopCloseButton = document.getElementById('ui-shop-close-btn');
         ui.shopBuyFoodAppleButton = document.getElementById('ui-shop-buy-food-apple');
@@ -2497,6 +2934,12 @@ new p5(function(p) {
         ui.shopStudioDecorPetMushButton = document.getElementById('ui-shop-studio-decor-pet-mush');
         ui.shopStudioDecorLampButton = document.getElementById('ui-shop-studio-decor-lamp');
         ui.shopStudioDecorExpensivePaintingButton = document.getElementById('ui-shop-studio-decor-expensive-painting');
+        ui.shopPotClayButton = document.getElementById('ui-shop-pot-clay');
+        ui.shopPotCementButton = document.getElementById('ui-shop-pot-cement');
+        ui.shopPotGreenButton = document.getElementById('ui-shop-pot-green');
+        ui.shopPotBlueButton = document.getElementById('ui-shop-pot-blue');
+        ui.shopPotWarmGradButton = document.getElementById('ui-shop-pot-warm-grad');
+        ui.shopPotCoolGradButton = document.getElementById('ui-shop-pot-cool-grad');
 
         ui.shopWallSageButton = document.getElementById('ui-shop-wall-sage');
         ui.shopWallLinenButton = document.getElementById('ui-shop-wall-linen');
@@ -2543,7 +2986,7 @@ new p5(function(p) {
             });
         }
         if (ui.shopOpenButton) {
-            ui.shopOpenButton.addEventListener('click', openShopModal);
+            ui.shopOpenButton.style.display = 'none';
         }
         if (ui.searchOpenButton) {
             ui.searchOpenButton.addEventListener('click', (event) => {
@@ -2553,9 +2996,7 @@ new p5(function(p) {
             });
         }
         if (ui.galleryOpenButton) {
-            ui.galleryOpenButton.addEventListener('click', () => {
-                window.location.href = 'UsersGallery.html';
-            });
+            ui.galleryOpenButton.style.display = 'none';
         }
         if (ui.reopenGridButton) {
             ui.reopenGridButton.addEventListener('click', (event) => {
@@ -2563,6 +3004,9 @@ new p5(function(p) {
                 event.stopPropagation();
                 toggleGridView();
             });
+        }
+        if (ui.guideBookOpenButton) {
+            ui.guideBookOpenButton.style.display = 'none';
         }
         if (ui.shopCloseButton) {
             ui.shopCloseButton.addEventListener('click', closeShopModal);
@@ -2639,6 +3083,24 @@ new p5(function(p) {
         if (ui.shopStudioDecorExpensivePaintingButton) {
             ui.shopStudioDecorExpensivePaintingButton.addEventListener('click', () => buyOrSelectStudioDecor('expensive_painting'));
         }
+        if (ui.shopPotClayButton) {
+            ui.shopPotClayButton.addEventListener('click', () => selectPotStyleTheme('clay'));
+        }
+        if (ui.shopPotCementButton) {
+            ui.shopPotCementButton.addEventListener('click', () => selectPotStyleTheme('cement'));
+        }
+        if (ui.shopPotGreenButton) {
+            ui.shopPotGreenButton.addEventListener('click', () => selectPotStyleTheme('green'));
+        }
+        if (ui.shopPotBlueButton) {
+            ui.shopPotBlueButton.addEventListener('click', () => selectPotStyleTheme('blue'));
+        }
+        if (ui.shopPotWarmGradButton) {
+            ui.shopPotWarmGradButton.addEventListener('click', () => selectPotStyleTheme('warm-grad'));
+        }
+        if (ui.shopPotCoolGradButton) {
+            ui.shopPotCoolGradButton.addEventListener('click', () => selectPotStyleTheme('cool-grad'));
+        }
 
         if (ui.shopWallSageButton) {
             ui.shopWallSageButton.addEventListener('click', () => buyOrSelectGalleryWall('sage'));
@@ -2663,6 +3125,9 @@ new p5(function(p) {
         if (sidebar) sidebar.remove();
 
         document.addEventListener('click', onDocumentClickForPopup);
+        document.addEventListener('pointerdown', () => recordUserInputTimestamp(), true);
+        document.addEventListener('keydown', () => recordUserInputTimestamp(), true);
+        document.addEventListener('wheel', () => recordUserInputTimestamp(), { capture: true, passive: true });
         document.addEventListener('keydown', (event) => {
             let target = event.target;
             let isTextInputTarget = target && (
@@ -2694,6 +3159,7 @@ new p5(function(p) {
         setReferenceSearchPendingState(false);
         ensureNewPlayerMenuUI();
         ensureTutorialBookUI();
+        refreshGuideBookOpenButtonUI();
 
         let finishStartupAfterFirstTimeChoice = (shouldFreshStartReset) => {
             if (shouldFreshStartReset) {
@@ -2714,16 +3180,26 @@ new p5(function(p) {
                 synthesizeOfflinePaintingHours(hoursAway);
             }
 
-            // Temporary: always open tutorial book on tab load.
-            openTutorialBook();
         };
 
         if (shouldAskForFirstTimeVisitorReset()) {
             openNewPlayerMenu((isFirstTime) => {
                 rememberFirstTimeVisitorPromptAnswer(isFirstTime);
-                finishStartupAfterFirstTimeChoice(!!isFirstTime);
+                let shouldResetProgress = !isFirstTime;
+                tutorialBookState.canOpen = shouldResetProgress;
+                refreshGuideBookOpenButtonUI();
+                if (shouldResetProgress) {
+                    openTutorialBook();
+                } else {
+                    closeTutorialBook();
+                }
+                finishStartupAfterFirstTimeChoice(shouldResetProgress);
             });
         } else {
+            // Returning user — book button stays available (canOpen stays true),
+            // but the book itself is kept closed until the user chooses to open it.
+            closeTutorialBook();
+            refreshGuideBookOpenButtonUI();
             finishStartupAfterFirstTimeChoice(false);
         }
 
@@ -2746,6 +3222,24 @@ new p5(function(p) {
     //  DRAW LOOP
     // ============================================================
 
+    function getGridLayerZIndex() {
+        return Math.floor(Number(GRID_CANVAS_Z_INDEX) || 0);
+    }
+
+    function getAreaButtonsLayerZIndex() {
+        // Use the higher of the two individual button z-indices for draw-order comparison
+        return Math.max(
+            Math.floor(Number(SEARCH_OPEN_BUTTON_Z_INDEX) || 0),
+            Math.floor(Number(CANVAS_OPEN_BUTTON_Z_INDEX) || 0)
+        );
+    }
+
+    function drawAreaOpenButtons() {
+        drawGuideBookOpenButton();
+        drawShopOpenButton();
+        drawGalleryOpenButton();
+    }
+
     p.draw = function() {
         applyActiveGalleryWallTheme();
         applyActiveStudioWallTheme();
@@ -2756,15 +3250,32 @@ new p5(function(p) {
         updateCreature(creature);
         maybeStartCreatureQuestion(creature);
         updateFoodDragHoverState();
+        if (STATIC_TABLE_Z_INDEX < CREATURE_RENDER_Z_INDEX) {
+            drawStaticTableObject();
+            drawStudioDecorByZRange(STATIC_TABLE_Z_INDEX, Number.POSITIVE_INFINITY);
+        }
+        drawStaticPotBehindCreature(creature);
         drawCreature(creature);
+        if (STATIC_TABLE_Z_INDEX >= CREATURE_RENDER_Z_INDEX) {
+            drawStaticTableObject();
+            drawStudioDecorByZRange(STATIC_TABLE_Z_INDEX, Number.POSITIVE_INFINITY);
+        }
         drawCreatureQuestionIndicator(creature);
+        if (getAreaButtonsLayerZIndex() > getGridLayerZIndex()) {
+            drawColorGrid();
+            drawAreaOpenButtons();
+        } else {
+            drawAreaOpenButtons();
+            drawColorGrid();
+        }
         drawFoodItems();
         drawWorldAreaButtons(creature);
         drawLongRestMeter(creature);
+        drawMicDebugBar(creature);
         randomizeGridSquareOverTime();
-        drawColorGrid();
         drawSaleAnnouncementOverlay();
         updateNpcActionButtonsPosition(creature);
+        maybeAutoStartNextGenerationAfterIdle(Date.now());
 
         if (ui.radialMenu && ui.radialMenu.classList.contains('radial-active')) {
             updateRadialMenuPosition(creature);
@@ -3027,7 +3538,7 @@ new p5(function(p) {
         c.state = getState(c);
         let s = STATES[c.state];
         c.bounceAmt = p.lerp(c.bounceAmt, s.bounceAmt * BOUNCE_SCALE, 0.08);
-        c.bodyAlpha = p.lerp(c.bodyAlpha, s.alphaTarget, 0.05);
+        c.bodyAlpha = 255;
         bodyColour[0] = p.lerp(bodyColour[0], s.bodyTarget[0], 0.05);
         bodyColour[1] = p.lerp(bodyColour[1], s.bodyTarget[1], 0.05);
         bodyColour[2] = p.lerp(bodyColour[2], s.bodyTarget[2], 0.05);
@@ -3118,6 +3629,69 @@ new p5(function(p) {
         p.textAlign(p.CENTER, p.BOTTOM);
         p.textSize(11);
         p.text(timerText, c.x, barY - 4);
+        p.pop();
+    }
+
+    function drawMicDebugBar(c) {
+        if (!MIC_DEBUG_BAR_ENABLED) return;
+
+        let level = p.constrain(Number(c && c.micLevel) || 0, 0, 1);
+        let wakeThreshold = p.constrain(Number(MIC_THRESHOLD) || 0, 0, 1);
+        let speedThreshold = p.constrain(Number(MIC_SPEEDUP_THRESHOLD) || 0, 0, 1);
+        let genThreshold = p.constrain(Number(MIC_GENERATION_SPEEDUP_THRESHOLD) || 0, 0, 1);
+
+        let x = Number(MIC_DEBUG_BAR_X) || 0;
+        let y = Number(MIC_DEBUG_BAR_Y) || 0;
+        let w = Math.max(80, Number(MIC_DEBUG_BAR_W) || 80);
+        let h = Math.max(6, Number(MIC_DEBUG_BAR_H) || 6);
+        let fillW = w * level;
+
+        p.push();
+        p.noStroke();
+        p.fill(10, 10, 10, 120);
+        p.rect(x, y, w, h, 4);
+
+        if (micActive) {
+            p.fill(level >= wakeThreshold ? [255, 170, 70] : [104, 215, 178]);
+        } else {
+            p.fill(130, 130, 130, 170);
+        }
+        p.rect(x, y, fillW, h, 4);
+
+        let speedX = x + w * speedThreshold;
+        let wakeX  = x + w * wakeThreshold;
+        let genX   = x + w * genThreshold;
+
+        // Animation speed threshold (teal)
+        p.stroke(90, 230, 210, 230);
+        p.strokeWeight(2);
+        p.line(speedX, y - 2, speedX, y + h + 2);
+
+        // Wake threshold (amber)
+        p.stroke(255, 210, 110, 240);
+        p.strokeWeight(2);
+        p.line(wakeX, y - 2, wakeX, y + h + 2);
+
+        // Generation speed threshold (violet)
+        p.stroke(200, 130, 255, 230);
+        p.strokeWeight(2);
+        p.line(genX, y - 2, genX, y + h + 2);
+
+        p.noStroke();
+        p.fill(255, 245);
+        p.textAlign(p.LEFT, p.TOP);
+        p.textSize(10);
+        let levelText = micActive ? level.toFixed(2) : '--';
+        p.text(`Mic ${levelText}`, x, y + h + 5);
+
+        p.fill(90, 230, 210, 240);
+        p.text('speed', speedX + 3, y + h + 5);
+
+        p.fill(255, 210, 110, 245);
+        p.text('wake', wakeX + 3, y + h + 15);
+
+        p.fill(200, 130, 255, 230);
+        p.text('gen', genX + 3, y + h + 25);
         p.pop();
     }
 
@@ -3529,46 +4103,60 @@ new p5(function(p) {
         ensureStudioDecorSprites();
         syncStudioFavoritePaintingImage();
 
+        drawStudioDecorByZRange(Number.NEGATIVE_INFINITY, STATIC_TABLE_Z_INDEX);
+    }
+
+    function getSortedOwnedStudioDecorThemes() {
+        let decorOrderMap = new Map(STUDIO_DECOR_THEMES.map((theme, index) => [theme.id, index]));
+        return STUDIO_DECOR_THEMES
+            .filter(theme => ownedStudioDecorThemeIds.includes(theme.id))
+            .sort((a, b) => {
+                let az = Number(a.zIndex) || 0;
+                let bz = Number(b.zIndex) || 0;
+                if (az !== bz) return az - bz;
+                return (decorOrderMap.get(a.id) || 0) - (decorOrderMap.get(b.id) || 0);
+            });
+    }
+
+    function drawStudioDecorByZRange(minZInclusive, maxZExclusive) {
+        let ownedDecorThemes = getSortedOwnedStudioDecorThemes();
+
         p.push();
         p.noStroke();
 
-        for (let i = 0; i < STUDIO_DECOR_THEMES.length; i++) {
-            let theme = STUDIO_DECOR_THEMES[i];
-            if (!ownedStudioDecorThemeIds.includes(theme.id)) continue;
-            if (theme.id !== 'frame-favorite') continue;
-
+        for (let i = 0; i < ownedDecorThemes.length; i++) {
+            let theme = ownedDecorThemes[i];
+            let z = Number(theme.zIndex) || 0;
+            if (z < minZInclusive || z >= maxZExclusive) continue;
             let rect = getStudioDecorRenderRect(theme);
-            p.fill(255, 255, 255, 152);
-            p.rect(rect.x - 8, rect.y - 8, rect.w + 16, rect.h + 16, 0);
-            p.fill(30, 30, 30, 120);
-            p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
-            if (studioFavoritePaintingImage) {
-                p.tint(255, 145);
-                p.imageMode(p.CORNER);
-                p.image(studioFavoritePaintingImage, rect.x, rect.y, rect.w, rect.h);
-                p.noTint();
-            } else {
-                p.fill(...studioWallColour, 180);
-                p.rect(rect.x, rect.y, rect.w, rect.h, 0);
-                p.fill(20, 20, 20, 120);
-                p.textAlign(p.CENTER, p.CENTER);
-                p.textSize(11);
-                p.text('Favourite', rect.x + rect.w / 2, rect.y + rect.h / 2 - 6);
-                p.text('painting', rect.x + rect.w / 2, rect.y + rect.h / 2 + 8);
+
+            if (theme.id === 'frame-favorite') {
+                p.fill(255, 255, 255, 152);
+                p.rect(rect.x - 8, rect.y - 8, rect.w + 16, rect.h + 16, 0);
+                p.fill(30, 30, 30, 120);
+                p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
+                if (studioFavoritePaintingImage) {
+                    p.tint(255, 145);
+                    p.imageMode(p.CORNER);
+                    p.image(studioFavoritePaintingImage, rect.x, rect.y, rect.w, rect.h);
+                    p.noTint();
+                } else {
+                    p.fill(...studioWallColour, 180);
+                    p.rect(rect.x, rect.y, rect.w, rect.h, 0);
+                    p.fill(20, 20, 20, 120);
+                    p.textAlign(p.CENTER, p.CENTER);
+                    p.textSize(11);
+                    p.text('Favourite', rect.x + rect.w / 2, rect.y + rect.h / 2 - 6);
+                    p.text('painting', rect.x + rect.w / 2, rect.y + rect.h / 2 + 8);
+                }
+                p.noFill();
+                p.stroke(130, 98, 52, 220);
+                p.strokeWeight(8);
+                p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
+                p.noStroke();
+                continue;
             }
-            p.noFill();
-            p.stroke(130, 98, 52, 220);
-            p.strokeWeight(8);
-            p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
-            p.noStroke();
-        }
 
-        for (let i = 0; i < STUDIO_DECOR_THEMES.length; i++) {
-            let theme = STUDIO_DECOR_THEMES[i];
-            if (!ownedStudioDecorThemeIds.includes(theme.id)) continue;
-            if (theme.id === 'frame-favorite') continue;
-
-            let rect = getStudioDecorRenderRect(theme);
             let sprite = studioDecorSprites.get(theme.id);
             if (sprite) {
                 p.imageMode(p.CORNER);
@@ -3632,6 +4220,34 @@ new p5(function(p) {
                 p.line(x, y, x, p.min(splitY, y + brickH));
             }
         }
+        p.pop();
+    }
+
+    function drawStaticPotBehindCreature(c) {
+        if (!c || !staticPotSprite) return;
+
+        let x = c.x + STATIC_POT_OFFSET_X;
+        let y = c.y + STATIC_POT_OFFSET_Y;
+        let w = Math.max(16, Number(STATIC_POT_WIDTH) || 16);
+        let h = Math.max(16, Number(STATIC_POT_HEIGHT) || 16);
+
+        p.push();
+        p.imageMode(p.CENTER);
+        p.image(staticPotSprite, x, y, w, h);
+        p.pop();
+    }
+
+    function drawStaticTableObject() {
+        if (!staticTableSprite) return;
+
+        let centerX = p.width * (Number(STATIC_TABLE_CENTER_X) || 0);
+        let centerY = p.height * (Number(STATIC_TABLE_CENTER_Y) || 0);
+        let w = Math.max(16, Number(STATIC_TABLE_WIDTH) || 16);
+        let h = Math.max(16, Number(STATIC_TABLE_HEIGHT) || 16);
+
+        p.push();
+        p.imageMode(p.CENTER);
+        p.image(staticTableSprite, centerX, centerY, w, h);
         p.pop();
     }
 
@@ -3832,6 +4448,156 @@ new p5(function(p) {
         }
 
         return out;
+    }
+
+    function normalizeColourSchemeLength(scheme, desiredCount, fallbackScheme = []) {
+        let targetCount = Math.max(1, Math.floor(Number(desiredCount) || 1));
+        let source = Array.isArray(scheme) && scheme.length > 0 ? scheme : fallbackScheme;
+        let normalized = [];
+        let seen = new Set();
+
+        if (Array.isArray(source)) {
+            for (let i = 0; i < source.length && normalized.length < targetCount; i++) {
+                let col = source[i];
+                if (!Array.isArray(col) || col.length !== 3) continue;
+                let safe = [clampByte(col[0]), clampByte(col[1]), clampByte(col[2])];
+                let key = safe.join(',');
+                if (seen.has(key)) continue;
+                seen.add(key);
+                normalized.push(safe);
+            }
+        }
+
+        while (normalized.length < targetCount) {
+            let candidate = [
+                p.floor(p.random(256)),
+                p.floor(p.random(256)),
+                p.floor(p.random(256)),
+            ];
+            let key = candidate.join(',');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            normalized.push(candidate);
+        }
+
+        return normalized;
+    }
+
+    function syncPaletteStateToCount() {
+        paletteUpgradeCount = Math.max(0, Math.floor(Number(paletteUpgradeCount) || 0));
+        COLOR_SCHEME_COUNT = Math.min(SHOP_PALETTE_MAX_SLOTS, BASE_COLOR_SCHEME_COUNT + paletteUpgradeCount);
+
+        colorScheme = normalizeColourSchemeLength(colorScheme, COLOR_SCHEME_COUNT);
+
+        if (colourPreference && Array.isArray(colourPreference.targetScheme) && colourPreference.targetScheme.length > 0) {
+            colourPreference.targetScheme = normalizeColourSchemeLength(colourPreference.targetScheme, COLOR_SCHEME_COUNT, colorScheme);
+        }
+
+        if (easyStyleProfile && Array.isArray(easyStyleProfile.colorScheme) && easyStyleProfile.colorScheme.length > 0) {
+            easyStyleProfile.colorScheme = normalizeColourSchemeLength(easyStyleProfile.colorScheme, COLOR_SCHEME_COUNT, colorScheme);
+        }
+
+        if (Array.isArray(fullEnergyColorScheme) && fullEnergyColorScheme.length > 0) {
+            fullEnergyColorScheme = normalizeColourSchemeLength(fullEnergyColorScheme, COLOR_SCHEME_COUNT, colorScheme);
+        }
+
+        ensureSchemeLockArraysLength();
+        applyFrozenSchemeConstraints();
+    }
+
+    function snapshotToStyleSnapshot(snapshot) {
+        if (!snapshot) return captureCurrentStyleSnapshot();
+        return {
+            referenceRulePrecision: Number(snapshot.referenceRulePrecision) || REFERENCE_RULE_PRECISION,
+            colorSchemeOffsetRange: Number(snapshot.colorSchemeOffsetRange) || COLOR_SCHEME_OFFSET_RANGE,
+            neighborSimilarRange: Number(snapshot.neighborSimilarRange) || NEIGHBOR_SIMILAR_RANGE,
+            referenceMatchRgbRange: Number(snapshot.referenceMatchRgbRange) || REFERENCE_MATCH_RGB_RANGE,
+            adjacentSchemeOverrideChance: Number.isFinite(Number(snapshot.adjacentSchemeOverrideChance))
+                ? Number(snapshot.adjacentSchemeOverrideChance)
+                : ADJACENT_SCHEME_OVERRIDE_CHANCE,
+            globalRandomColorChance: Number.isFinite(Number(snapshot.globalRandomColorChance))
+                ? Number(snapshot.globalRandomColorChance)
+                : GLOBAL_RANDOM_COLOR_CHANCE,
+            enableGlobalRandomColorRule: typeof snapshot.enableGlobalRandomColorRule === 'boolean'
+                ? snapshot.enableGlobalRandomColorRule
+                : ENABLE_GLOBAL_RANDOM_COLOR_RULE,
+        };
+    }
+
+    function blendStyleSnapshots(baseSnapshot, overlaySnapshot, t = 0.35) {
+        let base = snapshotToStyleSnapshot(baseSnapshot);
+        let overlay = snapshotToStyleSnapshot(overlaySnapshot);
+        let mix = p.constrain(Number(t) || 0, 0, 1);
+
+        return {
+            referenceRulePrecision: p.lerp(base.referenceRulePrecision, overlay.referenceRulePrecision, mix),
+            colorSchemeOffsetRange: p.lerp(base.colorSchemeOffsetRange, overlay.colorSchemeOffsetRange, mix),
+            neighborSimilarRange: p.lerp(base.neighborSimilarRange, overlay.neighborSimilarRange, mix),
+            referenceMatchRgbRange: p.lerp(base.referenceMatchRgbRange, overlay.referenceMatchRgbRange, mix),
+            adjacentSchemeOverrideChance: p.lerp(base.adjacentSchemeOverrideChance, overlay.adjacentSchemeOverrideChance, mix),
+            globalRandomColorChance: p.lerp(base.globalRandomColorChance, overlay.globalRandomColorChance, mix),
+            enableGlobalRandomColorRule: overlay.enableGlobalRandomColorRule,
+        };
+    }
+
+    function getRecentGenerationSnapshots(limit = 3) {
+        let safeLimit = Math.max(1, Math.floor(Number(limit) || 1));
+        return generationHistory
+            .filter(snapshot => snapshot && Array.isArray(snapshot.colorScheme) && snapshot.colorScheme.length > 0)
+            .slice(-safeLimit);
+    }
+
+    function getOfflineGenerationSeed() {
+        let recentSnapshots = getRecentGenerationSnapshots(3);
+        let styleSeed = getOfflineLikedStyleSnapshot();
+        let schemeSeed = getOfflineLikedColourScheme();
+        let referencePath = currentReferenceSpritePath || '';
+
+        for (let snapshot of recentSnapshots) {
+            styleSeed = blendStyleSnapshots(styleSeed, snapshotToStyleSnapshot(snapshot), 0.28);
+            schemeSeed = normalizeColourSchemeLength(
+                blendSchemeToward(schemeSeed, normalizeColourSchemeLength(snapshot.colorScheme, COLOR_SCHEME_COUNT, schemeSeed), 0.38),
+                COLOR_SCHEME_COUNT,
+                schemeSeed
+            );
+
+            if (!referencePath && typeof snapshot.referencePath === 'string' && snapshot.referencePath.trim()) {
+                referencePath = snapshot.referencePath;
+            }
+        }
+
+        return {
+            style: styleSeed,
+            colorScheme: schemeSeed,
+            referencePath,
+        };
+    }
+
+    function getOfflineReferenceLikeSnapshot(limit = 3) {
+        let recentSnapshots = getRecentGenerationSnapshots(limit);
+        if (recentSnapshots.length === 0) {
+            return getOfflineGenerationSeed();
+        }
+
+        let seed = getOfflineGenerationSeed();
+        let recentIndex = 0;
+        let picked = recentSnapshots[recentSnapshots.length - 1];
+
+        for (let snapshot of recentSnapshots) {
+            if (typeof snapshot.referencePath === 'string' && snapshot.referencePath.trim()) {
+                picked = snapshot;
+            }
+            let weightedScheme = normalizeColourSchemeLength(snapshot.colorScheme, COLOR_SCHEME_COUNT, seed.colorScheme);
+            seed.style = blendStyleSnapshots(seed.style, snapshotToStyleSnapshot(snapshot), 0.12 + (recentIndex * 0.08));
+            seed.colorScheme = normalizeColourSchemeLength(blendSchemeToward(seed.colorScheme, weightedScheme, 0.5), COLOR_SCHEME_COUNT, weightedScheme);
+            recentIndex += 1;
+        }
+
+        if (picked && typeof picked.referencePath === 'string' && picked.referencePath.trim()) {
+            seed.referencePath = picked.referencePath;
+        }
+
+        return seed;
     }
 
     function buildRandomEasyStyleSnapshot() {
@@ -4236,6 +5002,12 @@ new p5(function(p) {
         return (offset + neighbor + ref) / 3;
     }
 
+    function getSnapshotCanvasArea(snapshot) {
+        let cols = Math.max(1, Math.floor(Number(snapshot && snapshot.canvasCols) || DEFAULT_GRID_COLS));
+        let rows = Math.max(1, Math.floor(Number(snapshot && snapshot.canvasRows) || DEFAULT_GRID_ROWS));
+        return cols * rows;
+    }
+
     function evaluateSnapshotAgainstBuyer(snapshot, buyer, useRandomBase = true) {
         let precision = clamp01(snapshot.referenceRulePrecision || 0);
         let rangeEnergy = normalisedRangeEnergy(snapshot);
@@ -4265,7 +5037,10 @@ new p5(function(p) {
             ? p.random(buyer.baseMin, buyer.baseMax)
             : (buyer.baseMin + buyer.baseMax) * 0.5;
 
-        let payout = Math.round(baseValue * (0.45 + combinedFit * 1.35));
+        let canvasArea = getSnapshotCanvasArea(snapshot);
+        let defaultArea = DEFAULT_GRID_COLS * DEFAULT_GRID_ROWS;
+        let areaMultiplier = Math.sqrt(Math.max(1, canvasArea / defaultArea));
+        let payout = Math.round(baseValue * (0.45 + combinedFit * 1.35) * areaMultiplier);
         return {
             buyerId: buyer.id,
             buyerName: buyer.name,
@@ -5224,6 +5999,8 @@ new p5(function(p) {
             serial: generationSerial,
             reason,
             imageDataUrl: img.src,
+            canvasCols: GRID_COLS,
+            canvasRows: GRID_ROWS,
             colorScheme: colorScheme.map(col => [...col]),
             referenceRulePrecision: REFERENCE_RULE_PRECISION,
             colorSchemeOffsetRange: COLOR_SCHEME_OFFSET_RANGE,
@@ -5249,10 +6026,12 @@ new p5(function(p) {
 
     function resetGeneration(options = {}) {
         let keepCurrentReference = !!options.keepCurrentReference;
+        clearGenerationEndedIdleAutoNext();
         archiveCurrentGeneration('interrupted');
         generationSerial += 1;
         archivedGenerationSerial = 0;
         initColorGrid();
+        syncPaletteStateToCount();
 
         if (pendingFeedback) {
             applyPendingFeedbackToGeneration();
@@ -5391,11 +6170,15 @@ new p5(function(p) {
         }
 
         let samples = [];
+        let hasTransparentPixels = false;
 
         // Convert resized reference to grayscale first so clustering finds unique tones.
         for (let i = 0; i < pixels.length; i += 4) {
             let a = pixels[i + 3];
-            if (a < 16) continue;
+            if (a < 16) {
+                hasTransparentPixels = true;
+                continue;
+            }
             let tone = Math.round(
                 pixels[i] * 0.2126 +
                 pixels[i + 1] * 0.7152 +
@@ -5415,10 +6198,31 @@ new p5(function(p) {
             }
         }
 
-        if (samples.length === 0) return null;
+        if (samples.length === 0) {
+            if (!hasTransparentPixels) return null;
+
+            let transparentOnlyGrid = [];
+            for (let r = 0; r < rows; r++) {
+                let row = [];
+                for (let c = 0; c < cols; c++) {
+                    row.push(0);
+                }
+                transparentOnlyGrid.push(row);
+            }
+
+            return {
+                uniqueColours: [[...REFERENCE_TRANSPARENT_BUCKET_RGB]],
+                indexGrid: transparentOnlyGrid,
+            };
+        }
 
         let k = p.constrain(Math.floor(targetColourCount || COLOR_SCHEME_COUNT), 1, samples.length);
         let uniqueColours = clusterReferenceColours(samples, k);
+        let transparentIndex = -1;
+        if (hasTransparentPixels) {
+            transparentIndex = uniqueColours.length;
+            uniqueColours.push([...REFERENCE_TRANSPARENT_BUCKET_RGB]);
+        }
         let indexGrid = [];
 
         for (let r = 0; r < rows; r++) {
@@ -5427,7 +6231,7 @@ new p5(function(p) {
                 let i = (r * cols + c) * 4;
                 let a = pixels[i + 3];
                 if (a < 16) {
-                    row.push(-1);
+                    row.push(transparentIndex >= 0 ? transparentIndex : -1);
                     continue;
                 }
 
@@ -5579,29 +6383,18 @@ new p5(function(p) {
         };
     }
 
-    function getGridTabRect() {
-        let gridRect = getGridRect();
-        return {
-            x: gridRect.x + GRID_TAB_OFFSET_X,
-            y: gridRect.y - GRID_TAB_HEIGHT - GRID_TAB_GAP + GRID_TAB_OFFSET_Y,
-            w: GRID_TAB_WIDTH,
-            h: GRID_TAB_HEIGHT,
-        };
-    }
-
     function getGridPanelBoundsRect() {
-        let tab = getGridTabRect();
         let grid = getGridRect();
-        let close = getGridTabCloseRect();
         let paint = getPaintButtonRect();
         let palette = paintModeEnabled ? getPaletteRect() : null;
         let scheme = getSchemeRect();
 
-        let minX = Math.min(tab.x, grid.x, close.x, paint.x, scheme.x);
+        // Keep the close button out of the panel bounds so it does not create blank gutter space.
+        let minX = Math.min(grid.x, paint.x, scheme.x);
         if (palette) minX = Math.min(minX, palette.x);
-        let maxX = Math.max(tab.x + tab.w, grid.x + grid.w);
-        let minY = Math.min(tab.y, close.y, paint.y);
-        let maxY = Math.max(grid.y + grid.h, close.y + close.h, paint.y + paint.h, scheme.y + scheme.h);
+        let maxX = Math.max(grid.x + grid.w, paint.x + paint.w, scheme.x + scheme.w);
+        let minY = Math.min(grid.y, paint.y, scheme.y);
+        let maxY = Math.max(grid.y + grid.h, paint.y + paint.h, scheme.y + scheme.h);
         if (palette) maxY = Math.max(maxY, palette.y + palette.h);
 
         return {
@@ -5614,13 +6407,18 @@ new p5(function(p) {
 
     function getGridTabCloseRect() {
         let rect = getGridRect();
-        let buttonGap = 6;
         let buttonSize = Math.max(10, GRID_CANVAS_TAB_BUTTON_SIZE);
-        let clusterHeight = buttonSize * 2 + buttonGap;
-        let baseY = rect.y + rect.h * 0.5 - clusterHeight * 0.5;
+        let topRightX = rect.x + rect.w;
+        let topRightY = rect.y;
+
+        // Anchor the close button from the grid's top-right corner with editable offsets.
+        let desiredX = topRightX + GRID_CLOSE_BUTTON_OFFSET_X;
+        let desiredY = topRightY + GRID_CLOSE_BUTTON_OFFSET_Y;
+        let x = p.constrain(desiredX, GRID_MARGIN, p.width - GRID_MARGIN - buttonSize);
+        let y = p.constrain(desiredY, GRID_MARGIN, p.height - GRID_MARGIN - buttonSize);
         return {
-            x: rect.x - buttonSize - GRID_TAB_GAP + GRID_CLOSE_BUTTON_OFFSET_X,
-            y: baseY + GRID_CLOSE_BUTTON_OFFSET_Y,
+            x,
+            y,
             w: buttonSize,
             h: buttonSize,
         };
@@ -5714,7 +6512,6 @@ new p5(function(p) {
         let paletteRect = getPaletteRect();
         let schemeRect = getSchemeRect();
         let rect = getGridRect();
-        let tabRect = getGridTabRect();
         let closeRect = getGridTabCloseRect();
         let panelBounds = getGridPanelBoundsRect();
 
@@ -5732,21 +6529,9 @@ new p5(function(p) {
             p.stroke(50, 110, 210, 220);
             p.strokeWeight(2);
             p.rect(panelBounds.x, panelBounds.y, panelBounds.w, panelBounds.h, 10);
-            p.stroke(40, 150, 220, 230);
-            p.rect(tabRect.x, tabRect.y, tabRect.w, tabRect.h, 6);
             p.stroke(40, 180, 120, 220);
             p.rect(rect.x, rect.y, rect.w, rect.h, 4);
             p.noStroke();
-        }
-
-        p.fill(248);
-        p.rect(closeRect.x, closeRect.y, closeRect.w, closeRect.h, 4);
-        if (exitButtonSprite) {
-            p.imageMode(p.CORNER);
-            p.image(exitButtonSprite, closeRect.x, closeRect.y, closeRect.w, closeRect.h);
-        } else {
-            p.fill(45);
-            p.text('×', closeRect.x + closeRect.w / 2, closeRect.y + closeRect.h / 2);
         }
 
         p.fill(248);
@@ -5823,6 +6608,18 @@ new p5(function(p) {
         if (REFERENCE_DEBUG_ENABLED) {
             drawReferenceDebugOverlay(rect);
         }
+
+        // Draw close button last so it always remains visible above the grid.
+        p.fill(248);
+        p.rect(closeRect.x, closeRect.y, closeRect.w, closeRect.h, 4);
+        if (exitButtonSprite) {
+            p.imageMode(p.CORNER);
+            p.image(exitButtonSprite, closeRect.x, closeRect.y, closeRect.w, closeRect.h);
+        } else {
+            p.fill(45);
+            p.text('×', closeRect.x + closeRect.w / 2, closeRect.y + closeRect.h / 2);
+        }
+
         p.pop();
 
         syncArchivedGenerationPreview();
@@ -5848,13 +6645,6 @@ new p5(function(p) {
                     p.stroke(mapped[0], mapped[1], mapped[2], 200);
                     p.strokeWeight(1);
                     p.rect(x + 1, y + 1, cellSize - 2, cellSize - 2, 2);
-
-                    if (cellSize >= 12) {
-                        let labelLum = colourLuminance(mapped);
-                        p.noStroke();
-                        p.fill(labelLum > 140 ? 15 : 245);
-                        p.text(String(associationIndex), x + cellSize * 0.5, y + cellSize * 0.52);
-                    }
                 }
             }
         }
@@ -6106,12 +6896,19 @@ new p5(function(p) {
             if (interactedRatio() >= 0.999) {
                 generationPaused = true;
                 archiveCurrentGeneration('finished');
+                markGenerationEndedForIdleAutoNext();
+                if (canvasResetToDefaultAfterGeneration) {
+                    canvasResetToDefaultAfterGeneration = false;
+                    setGridDimensions(DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS);
+                    refreshShopUI();
+                }
                 break;
             }
 
             if (interactedRatio() > dynamicPauseThreshold && p.random() < PAUSE_AFTER_THRESHOLD_CHANCE) {
                 generationPaused = true;
                 archiveCurrentGeneration('paused');
+                markGenerationEndedForIdleAutoNext();
                 break;
             }
         }
@@ -6228,6 +7025,7 @@ new p5(function(p) {
     // ============================================================
 
     function onCanvasPointerDown(event) {
+        recordUserInputTimestamp();
         if (event.button === 0 && startFoodDragAt(p.mouseX, p.mouseY)) {
             return false;
         }
@@ -6238,7 +7036,6 @@ new p5(function(p) {
         }
 
         let point = getGridSpacePoint(p.mouseX, p.mouseY);
-        let tabRect = getGridTabRect();
         let panelRect = getGridPanelBoundsRect();
         let paintRect = getPaintButtonRect();
         let paletteRect = getPaletteRect();
@@ -6265,15 +7062,6 @@ new p5(function(p) {
             let xInCell = (localX % cellStep) <= cellSize;
             let yInCell = (localY % cellStep) <= cellSize;
             onCanvasSquare = xInCell && yInCell;
-        }
-
-        if (event.button === 0 && point.x >= tabRect.x && point.x <= tabRect.x + tabRect.w &&
-            point.y >= tabRect.y && point.y <= tabRect.y + tabRect.h) {
-            // Skip drag when clicking action buttons.
-            if (!onClose) {
-                gridView.isPanning = true;
-                return false;
-            }
         }
 
         // Drag from panel/background when not clicking controls and not clicking a paintable square.
@@ -6312,7 +7100,29 @@ new p5(function(p) {
 
     function onCanvasClick() {
         if (gridView.spaceDown || gridView.isPanning) return;
-        if (handleGridClick(p.mouseX, p.mouseY)) return;
+        let handleAreaOpenButtonsClick = () => {
+            if (isPointInGuideBookButton(p.mouseX, p.mouseY)) {
+                openTutorialBook();
+                return true;
+            }
+            if (isPointInShopOpenButton(p.mouseX, p.mouseY)) {
+                openShopModal();
+                return true;
+            }
+            if (isPointInGalleryOpenButton(p.mouseX, p.mouseY)) {
+                window.location.href = 'UsersGallery.html';
+                return true;
+            }
+            return false;
+        };
+
+        if (getAreaButtonsLayerZIndex() > getGridLayerZIndex()) {
+            if (handleAreaOpenButtonsClick()) return;
+            if (handleGridClick(p.mouseX, p.mouseY)) return;
+        } else {
+            if (handleGridClick(p.mouseX, p.mouseY)) return;
+            if (handleAreaOpenButtonsClick()) return;
+        }
         if (WORLD_AREA_BUTTONS_VISIBLE) {
             if (isPointInWorldAreaButton(p.mouseX, p.mouseY, WORLD_AREA_1_X, WORLD_AREA_1_Y)) {
                 openRadialPromptModal();
@@ -6505,19 +7315,61 @@ new p5(function(p) {
             button.disabled = galleryCoins < foodType.price;
         }
 
+        let customDraft = getCustomCanvasDraft();
+        let customOwned = ownedCustomCanvasDraft
+            && ownedCustomCanvasDraft.cols === customDraft.cols
+            && ownedCustomCanvasDraft.rows === customDraft.rows;
+
         if (ui.shopBuyCanvasLongButton) {
-            ui.shopBuyCanvasLongButton.textContent = `Long canvas (52x24) · ${SHOP_CANVAS_LONG_PRICE} coins`;
+            if (GRID_COLS === 52 && GRID_ROWS === 24) {
+                ui.shopBuyCanvasLongButton.textContent = 'Long canvas (active)';
+                ui.shopBuyCanvasLongButton.disabled = true;
+            } else if (ownedCanvasPresetIds.includes('long')) {
+                ui.shopBuyCanvasLongButton.textContent = 'Use long canvas (52x24)';
+                ui.shopBuyCanvasLongButton.disabled = false;
+            } else {
+                ui.shopBuyCanvasLongButton.textContent = `Buy long canvas (52x24) · ${SHOP_CANVAS_LONG_PRICE} coins`;
+                ui.shopBuyCanvasLongButton.disabled = galleryCoins < SHOP_CANVAS_LONG_PRICE;
+            }
         }
         if (ui.shopBuyCanvasWideButton) {
-            ui.shopBuyCanvasWideButton.textContent = `Wide canvas (24x52) · ${SHOP_CANVAS_WIDE_PRICE} coins`;
+            if (GRID_COLS === 24 && GRID_ROWS === 52) {
+                ui.shopBuyCanvasWideButton.textContent = 'Wide canvas (active)';
+                ui.shopBuyCanvasWideButton.disabled = true;
+            } else if (ownedCanvasPresetIds.includes('wide')) {
+                ui.shopBuyCanvasWideButton.textContent = 'Use wide canvas (24x52)';
+                ui.shopBuyCanvasWideButton.disabled = false;
+            } else {
+                ui.shopBuyCanvasWideButton.textContent = `Buy wide canvas (24x52) · ${SHOP_CANVAS_WIDE_PRICE} coins`;
+                ui.shopBuyCanvasWideButton.disabled = galleryCoins < SHOP_CANVAS_WIDE_PRICE;
+            }
         }
         if (ui.shopBuyCanvasBigButton) {
-            ui.shopBuyCanvasBigButton.textContent = `Big canvas (44x44) · ${SHOP_CANVAS_BIG_PRICE} coins`;
+            if (GRID_COLS === 44 && GRID_ROWS === 44) {
+                ui.shopBuyCanvasBigButton.textContent = 'Big canvas (active)';
+                ui.shopBuyCanvasBigButton.disabled = true;
+            } else if (ownedCanvasPresetIds.includes('big')) {
+                ui.shopBuyCanvasBigButton.textContent = 'Use big canvas (44x44)';
+                ui.shopBuyCanvasBigButton.disabled = false;
+            } else {
+                ui.shopBuyCanvasBigButton.textContent = `Buy big canvas (44x44) · ${SHOP_CANVAS_BIG_PRICE} coins`;
+                ui.shopBuyCanvasBigButton.disabled = galleryCoins < SHOP_CANVAS_BIG_PRICE;
+            }
         }
 
         if (ui.shopBuyCanvasCustomButton) {
-            let draft = getCustomCanvasDraft();
-            ui.shopBuyCanvasCustomButton.textContent = `Buy custom (${draft.cols}x${draft.rows}) · ${draft.price}`;
+            if (customOwned) {
+                if (GRID_COLS === customDraft.cols && GRID_ROWS === customDraft.rows) {
+                    ui.shopBuyCanvasCustomButton.textContent = `Custom canvas (${customDraft.cols}x${customDraft.rows}) (active)`;
+                    ui.shopBuyCanvasCustomButton.disabled = true;
+                } else {
+                    ui.shopBuyCanvasCustomButton.textContent = `Use custom canvas (${customDraft.cols}x${customDraft.rows})`;
+                    ui.shopBuyCanvasCustomButton.disabled = false;
+                }
+            } else {
+                ui.shopBuyCanvasCustomButton.textContent = `Buy custom (${customDraft.cols}x${customDraft.rows}) · ${customDraft.price}`;
+                ui.shopBuyCanvasCustomButton.disabled = galleryCoins < customDraft.price;
+            }
         }
 
         if (ui.shopBuyPaletteButton) {
@@ -6642,10 +7494,43 @@ new p5(function(p) {
             } else if (owned) {
                 setShopButtonLabel(button, `${theme.label} (owned)`);
             } else {
-                setShopButtonLabel(button, `${theme.label} · ${theme.price} coins`)
-                button.textContent = `${theme.label} · ${theme.price} coins`;
+                setShopButtonLabel(button, `${theme.label} · ${theme.price} coins`);
             }
             button.disabled = false;
+        }
+
+        let potButtonMap = {
+            clay: ui.shopPotClayButton,
+            cement: ui.shopPotCementButton,
+            green: ui.shopPotGreenButton,
+            blue: ui.shopPotBlueButton,
+            'warm-grad': ui.shopPotWarmGradButton,
+            'cool-grad': ui.shopPotCoolGradButton,
+        };
+
+        for (let i = 0; i < POT_STYLE_THEMES.length; i++) {
+            let theme = POT_STYLE_THEMES[i];
+            if (theme.id === 'brown') continue;
+
+            let button = potButtonMap[theme.id];
+            if (!button) continue;
+            let owned  = ownedPotStyleThemeIds.includes(theme.id);
+            let active = activePotStyleThemeId === theme.id;
+            let price  = Number(theme.price) || 0;
+
+            if (owned && active) {
+                setShopButtonLabel(button, `${theme.label} (active)`);
+                button.disabled = false;
+            } else if (owned) {
+                setShopButtonLabel(button, `${theme.label} (owned)`);
+                button.disabled = false;
+            } else if (price > 0) {
+                setShopButtonLabel(button, `${theme.label} · ${price} coins`);
+                button.disabled = galleryCoins < price;
+            } else {
+                setShopButtonLabel(button, theme.label);
+                button.disabled = false;
+            }
         }
 
         updateSearchFeatureGateUI();
@@ -6755,6 +7640,46 @@ new p5(function(p) {
         saveState(creature);
     }
 
+    function selectPotStyleTheme(themeId) {
+        let theme = getPotStyleThemeById(themeId);
+        if (!theme) return;
+
+        let owned = ownedPotStyleThemeIds.includes(theme.id);
+        let wasPurchasedNow = false;
+
+        if (!owned) {
+            let price = Number(theme.price) || 0;
+            if (price > 0) {
+                if (galleryCoins < price) {
+                    setShopStatus(`Not enough coins for that pot. (${price} coins needed)`, true);
+                    refreshShopUI();
+                    return;
+                }
+                galleryCoins -= price;
+                playSoundEffect('purchase');
+                setShopStatus(`Purchased pot style: ${theme.label}`);
+                wasPurchasedNow = true;
+            } else {
+                setShopStatus(`Unlocked pot style: ${theme.label}`);
+                wasPurchasedNow = true;
+            }
+            ownedPotStyleThemeIds.push(theme.id);
+            if (wasPurchasedNow) showShopPurchaseReaction('pot-style', theme.label);
+        } else if (activePotStyleThemeId === theme.id) {
+            setShopStatus(`Pot already active: ${theme.label}`);
+            refreshShopUI();
+            return;
+        } else {
+            setShopStatus(`Selected pot style: ${theme.label}`);
+        }
+
+        activePotStyleThemeId = theme.id;
+        applyActivePotStyleTheme();
+        if (!wasPurchasedNow) playSoundEffect('renovate');
+        refreshShopUI();
+        saveState(creature);
+    }
+
     function getSoundEffectTemplate(effectId) {
         let path = SOUND_EFFECT_PATHS[effectId];
         if (!path) return null;
@@ -6839,6 +7764,26 @@ new p5(function(p) {
     }
 
     function buyCanvasPreset(name, cols, rows, price) {
+        let presetId = name;
+        let alreadyOwned = ownedCanvasPresetIds.includes(presetId);
+
+        if (alreadyOwned) {
+            if (GRID_COLS === cols && GRID_ROWS === rows) {
+                setShopStatus(`${name} canvas is already active.`);
+                refreshShopUI();
+                return;
+            }
+
+            playSoundEffect('purchase');
+            canvasResetToDefaultAfterGeneration = (cols !== DEFAULT_GRID_COLS || rows !== DEFAULT_GRID_ROWS);
+            setGridDimensions(cols, rows);
+            resetGeneration({ keepCurrentReference: true });
+            setShopStatus(`Using ${name} canvas (${cols}x${rows}).`);
+            refreshShopUI();
+            saveState(creature);
+            return;
+        }
+
         if (galleryCoins < price) {
             setShopStatus('Not enough coins for that canvas.', true);
             return;
@@ -6846,15 +7791,35 @@ new p5(function(p) {
 
         galleryCoins -= price;
         playSoundEffect('purchase');
-        setGridDimensions(cols, rows);
-        resetGeneration({ keepCurrentReference: true });
-        setShopStatus(`Purchased ${name} canvas (${cols}x${rows}).`);
+        ownedCanvasPresetIds.push(presetId);
+        setShopStatus(`Purchased ${name} canvas (${cols}x${rows}). Click it again to use it.`);
         refreshShopUI();
         saveState(creature);
     }
 
     function buyCustomCanvasSize() {
         let draft = getCustomCanvasDraft();
+        let customAlreadyOwned = ownedCustomCanvasDraft
+            && ownedCustomCanvasDraft.cols === draft.cols
+            && ownedCustomCanvasDraft.rows === draft.rows;
+
+        if (customAlreadyOwned) {
+            if (GRID_COLS === draft.cols && GRID_ROWS === draft.rows) {
+                setShopStatus(`Custom canvas (${draft.cols}x${draft.rows}) is already active.`);
+                refreshShopUI();
+                return;
+            }
+
+            playSoundEffect('purchase');
+            canvasResetToDefaultAfterGeneration = (draft.cols !== DEFAULT_GRID_COLS || draft.rows !== DEFAULT_GRID_ROWS);
+            setGridDimensions(draft.cols, draft.rows);
+            resetGeneration({ keepCurrentReference: true });
+            setShopStatus(`Using custom canvas (${draft.cols}x${draft.rows}).`);
+            refreshShopUI();
+            saveState(creature);
+            return;
+        }
+
         if (galleryCoins < draft.price) {
             setShopStatus('Not enough coins for that custom canvas.', true);
             return;
@@ -6862,9 +7827,8 @@ new p5(function(p) {
 
         galleryCoins -= draft.price;
         playSoundEffect('purchase');
-        setGridDimensions(draft.cols, draft.rows);
-        resetGeneration({ keepCurrentReference: true });
-        setShopStatus(`Purchased custom canvas (${draft.cols}x${draft.rows}).`);
+        ownedCustomCanvasDraft = { cols: draft.cols, rows: draft.rows };
+        setShopStatus(`Purchased custom canvas (${draft.cols}x${draft.rows}). Click it again to use it.`);
         refreshShopUI();
         saveState(creature);
     }
@@ -6884,23 +7848,8 @@ new p5(function(p) {
         galleryCoins -= price;
         playSoundEffect('purchase');
         paletteUpgradeCount += 1;
-        COLOR_SCHEME_COUNT = Math.min(SHOP_PALETTE_MAX_SLOTS, BASE_COLOR_SCHEME_COUNT + paletteUpgradeCount);
+        syncPaletteStateToCount();
         ensureEasyStyleProfile();
-
-        ensureSchemeLockArraysLength();
-        let seen = new Set(colorScheme.map(col => col.join(',')));
-        while (colorScheme.length < COLOR_SCHEME_COUNT) {
-            let candidate = [
-                p.floor(p.random(256)),
-                p.floor(p.random(256)),
-                p.floor(p.random(256)),
-            ];
-            let key = candidate.join(',');
-            if (seen.has(key)) continue;
-            seen.add(key);
-            colorScheme.push(candidate);
-        }
-        applyFrozenSchemeConstraints();
         buildReferenceRuleData();
 
         setShopStatus('Purchased: +1 palette colour slot');
@@ -6951,10 +7900,10 @@ new p5(function(p) {
 
     function shouldAskForFirstTimeVisitorReset() {
         try {
-            let answer = localStorage.getItem(FIRST_TIME_VISITOR_PROMPT_KEY);
-            return answer !== 'yes' && answer !== 'no';
+            // Only show the new-player menu if the key has never been set
+            return localStorage.getItem(FIRST_TIME_VISITOR_PROMPT_KEY) === null;
         } catch (e) {
-            return false;
+            return false; // if storage is unavailable, don't block the user
         }
     }
 
@@ -6994,7 +7943,6 @@ new p5(function(p) {
         }
 
         paletteUpgradeCount = 0;
-        COLOR_SCHEME_COUNT = BASE_COLOR_SCHEME_COUNT;
         hasComputerUpgrade = false;
 
         ownedGalleryWallThemeIds = ['sage'];
@@ -7006,9 +7954,14 @@ new p5(function(p) {
         applyActiveStudioWallTheme();
 
         ownedStudioDecorThemeIds = [];
+        activePotStyleThemeId = 'brown';
+        ownedPotStyleThemeIds = ['brown'];
+        applyActivePotStyleTheme();
         ownedShopMusicTrackIds = [];
         activeShopMusicTrackId = null;
         stopShopMusic();
+
+        syncPaletteStateToCount();
 
         galleryCoins = initialCoins;
         favouriteGenerationSerial = null;
@@ -7195,6 +8148,8 @@ new p5(function(p) {
                 serial: snapshot.serial,
                 reason: snapshot.reason,
                 imageDataUrl: snapshot.imageDataUrl,
+                canvasCols: snapshot.canvasCols || DEFAULT_GRID_COLS,
+                canvasRows: snapshot.canvasRows || DEFAULT_GRID_ROWS,
                 colorScheme: snapshot.colorScheme,
                 referenceRulePrecision: snapshot.referenceRulePrecision,
                 colorSchemeOffsetRange: snapshot.colorSchemeOffsetRange,
@@ -7227,6 +8182,8 @@ new p5(function(p) {
                     serial: item.serial,
                     reason: item.reason,
                     imageDataUrl: item.imageDataUrl,
+                    canvasCols: item.canvasCols || DEFAULT_GRID_COLS,
+                    canvasRows: item.canvasRows || DEFAULT_GRID_ROWS,
                     colorScheme: item.colorScheme || [],
                     referenceRulePrecision: item.referenceRulePrecision || REFERENCE_RULE_PRECISION,
                     colorSchemeOffsetRange: item.colorSchemeOffsetRange || COLOR_SCHEME_OFFSET_RANGE,
@@ -7253,6 +8210,11 @@ new p5(function(p) {
             if (generationHistory.length > 0) {
                 let maxSerial = Math.max(...generationHistory.map(item => item.serial || 0));
                 generationSerial = Math.max(generationSerial, maxSerial + 1);
+
+                let latestSnapshot = generationHistory[generationHistory.length - 1];
+                if (latestSnapshot && typeof latestSnapshot.referencePath === 'string' && latestSnapshot.referencePath.trim()) {
+                    currentReferenceSpritePath = latestSnapshot.referencePath;
+                }
             }
         } catch(e) {}
     }
@@ -7282,6 +8244,10 @@ new p5(function(p) {
                 ownedStudioWallThemeIds,
                 activeStudioWallThemeId,
                 ownedStudioDecorThemeIds,
+                activePotStyleThemeId,
+                ownedPotStyleThemeIds,
+                ownedCanvasPresetIds,
+                ownedCustomCanvasDraft,
                 ownedShopMusicTrackIds,
                 activeShopMusicTrackId,
                 favouriteGenerationSerial,
@@ -7301,7 +8267,6 @@ new p5(function(p) {
             c.totalVisits = (data.totalVisits || 0) + 1;
             galleryCoins  = data.galleryCoins || 0;
             paletteUpgradeCount = Math.max(0, Math.floor(Number(data.paletteUpgradeCount) || 0));
-            COLOR_SCHEME_COUNT = Math.min(SHOP_PALETTE_MAX_SLOTS, BASE_COLOR_SCHEME_COUNT + paletteUpgradeCount);
             hasComputerUpgrade = !!data.hasComputerUpgrade;
             easyStyleProfile = normalizeEasyStyleProfile(data.easyStyleProfile);
             if (data.colourPreference && typeof data.colourPreference === 'object') {
@@ -7328,6 +8293,19 @@ new p5(function(p) {
             ownedStudioWallThemeIds = Array.isArray(data.ownedStudioWallThemeIds) ? data.ownedStudioWallThemeIds.slice() : ['cloud'];
             activeStudioWallThemeId = typeof data.activeStudioWallThemeId === 'string' ? data.activeStudioWallThemeId : 'cloud';
             ownedStudioDecorThemeIds = Array.isArray(data.ownedStudioDecorThemeIds) ? data.ownedStudioDecorThemeIds.slice() : [];
+            activePotStyleThemeId = typeof data.activePotStyleThemeId === 'string' ? data.activePotStyleThemeId : 'brown';
+            ownedPotStyleThemeIds = Array.isArray(data.ownedPotStyleThemeIds) ? data.ownedPotStyleThemeIds.slice() : ['brown'];
+            if (!ownedPotStyleThemeIds.includes('brown')) ownedPotStyleThemeIds.unshift('brown');
+            if (!ownedPotStyleThemeIds.includes(activePotStyleThemeId)) activePotStyleThemeId = 'brown';
+            ownedCanvasPresetIds = Array.isArray(data.ownedCanvasPresetIds) && data.ownedCanvasPresetIds.length > 0
+                ? data.ownedCanvasPresetIds.slice()
+                : ['default'];
+            ownedCustomCanvasDraft = data.ownedCustomCanvasDraft && typeof data.ownedCustomCanvasDraft === 'object'
+                ? {
+                    cols: Math.max(10, Math.min(GRID_MAX_COLS, Math.floor(Number(data.ownedCustomCanvasDraft.cols) || 0))),
+                    rows: Math.max(10, Math.min(GRID_MAX_ROWS, Math.floor(Number(data.ownedCustomCanvasDraft.rows) || 0))),
+                }
+                : null;
             if (typeof data.activeStudioDecorThemeId === 'string') {
                 ownedStudioDecorThemeIds.push(data.activeStudioDecorThemeId);
             }
@@ -7340,6 +8318,7 @@ new p5(function(p) {
             activeShopMusicTrackId = null;
             applyActiveGalleryWallTheme();
             applyActiveStudioWallTheme();
+            applyActivePotStyleTheme();
             frozenSchemeSlots = Array.isArray(data.frozenSchemeSlots) ? data.frozenSchemeSlots.map(v => !!v) : [];
             frozenSchemeValues = Array.isArray(data.frozenSchemeValues)
                 ? data.frozenSchemeValues.map(col => (Array.isArray(col) && col.length === 3 ? [...col] : null))
@@ -7367,6 +8346,8 @@ new p5(function(p) {
                     .filter(Boolean)
                 : null;
             lastEnergyStyleInfluence = clamp01(Number(data.lastEnergyStyleInfluence) || 0);
+
+            syncPaletteStateToCount();
 
             if (!isLongRestActive() && !isShortRestActive()) {
                 restState.longRestUntil = 0;
@@ -7417,6 +8398,22 @@ new p5(function(p) {
         ui.energyBar.style.backgroundColor =
             c.energy < 30 ? '#788c5d' :
             c.energy < 70 ? '#c9973a' : '#c0522a';
+
+        // Mic volume bar
+        if (ui.micBar) {
+            let micLevel = micActive ? p.constrain(Number(c.micLevel) || 0, 0, 1) : 0;
+            ui.micBar.style.width = (micLevel * 100) + '%';
+            ui.micBar.style.opacity = micActive ? '1' : '0.4';
+        }
+        if (ui.micBarThresholdWake) {
+            ui.micBarThresholdWake.style.left = (p.constrain(Number(MIC_THRESHOLD) || 0, 0, 1) * 100) + '%';
+        }
+        if (ui.micBarThresholdSpeed) {
+            ui.micBarThresholdSpeed.style.left = (p.constrain(Number(MIC_SPEEDUP_THRESHOLD) || 0, 0, 1) * 100) + '%';
+        }
+        if (ui.micBarThresholdGen) {
+            ui.micBarThresholdGen.style.left = (p.constrain(Number(MIC_GENERATION_SPEEDUP_THRESHOLD) || 0, 0, 1) * 100) + '%';
+        }
     }
 
 
@@ -7467,6 +8464,8 @@ new p5(function(p) {
     window._dislikeStyleImmediate = () => { onDislikeStyleFeedbackImmediate(); };
     window._onRadialQuestionAnswered = (actionKey, questionType) => {
         if (!creatureQuestionState.active) return;
+        clearCreatureQuestionDialogueAutoHide();
+        hideNpcDialogueBox();
         creatureQuestionState.active = false;
         creatureQuestionState.type = null;
         creatureQuestionState.prompt = '';

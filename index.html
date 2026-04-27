@@ -10,6 +10,91 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- ════════════════════ LOADING SCREEN ════════════════════ -->
+<div id="loading-screen" aria-live="polite" aria-label="Loading">
+    <div class="loading-inner">
+        <div class="loading-icon">👾</div>
+        <div class="loading-title">Setting up the studio…</div>
+        <div class="loading-bar-track">
+            <div class="loading-bar-fill" id="loading-bar-fill"></div>
+        </div>
+        <div class="loading-status" id="loading-status">Loading sprites…</div>
+    </div>
+</div>
+<script>
+(function() {
+    // All image paths that should be preloaded before the scene appears.
+    // Add or remove paths here to adjust what the loading screen waits for.
+    const PRELOAD_IMAGES = [
+        'Animations/FamiliarPaintingAnimation.png',
+        'Animations/FamiliarSleepingAnimation.png',
+        'Environment/PaintbrushButton.png',
+        'Environment/ExitButton.png',
+        'Environment/ShopButton.png',
+        'Environment/GalleryButton.png',
+        'Environment/Tabel.png',
+        'Environment/BrownPot.png',
+        'Environment/GuideBookLaying.png',
+        'Environment/Canvas.png',
+        'Environment/SearchComputerIdle.png',
+        'Environment/SearchComputerSearch.png',
+        'Environment/SearchComputerDisplay.png',
+        'References/QuestionMark.png',
+        'UI/NewPlayerMenu.png',
+        'UI/TutorialBookFront.png',
+        'TextArt/FamiliarTextArt-Happy.png',
+        'TextArt/FamiliarTextArt-Pride.png',
+        'TextArt/FamiliarTextArt-Sad.png',
+        'TextArt/FamiliarTextArt-Nervous.png',
+        'TextArt/FamiliarTextArt-Yawn.png',
+        'References/FamiliarBallReference.png',
+        'References/FamiliarBirdReference.png',
+        'FoodSprites/Apple.png',
+        'FoodSprites/Burger.png',
+        'FoodSprites/Sandwhich.png',
+        'FoodSprites/EnergyDrink.png',
+    ];
+
+    const screen  = document.getElementById('loading-screen');
+    const barFill = document.getElementById('loading-bar-fill');
+    const statusEl = document.getElementById('loading-status');
+
+    let loaded = 0;
+    const total = PRELOAD_IMAGES.length;
+
+    function tick(path) {
+        loaded++;
+        const pct = Math.round((loaded / total) * 100);
+        if (barFill)  barFill.style.width = pct + '%';
+        if (statusEl) statusEl.textContent = loaded < total
+            ? `Loading… (${loaded}/${total})`
+            : 'Ready!';
+        if (loaded >= total) dismiss();
+    }
+
+    function dismiss() {
+        if (!screen) return;
+        screen.classList.add('loading-done');
+        // Remove from DOM after CSS transition ends
+        screen.addEventListener('transitionend', () => screen.remove(), { once: true });
+        // Safety fallback in case transition never fires
+        setTimeout(() => { if (screen.parentNode) screen.remove(); }, 1200);
+    }
+
+    if (total === 0) { dismiss(); return; }
+
+    PRELOAD_IMAGES.forEach(function(src) {
+        const img = new Image();
+        img.onload  = () => tick(src);
+        img.onerror = () => tick(src); // count failures too so bar still completes
+        img.src = src;
+    });
+
+    // Hard timeout — never block the user for more than 6 seconds regardless
+    setTimeout(dismiss, 6000);
+})();
+</script>
 <div class="generation-strip" id="generation-strip" aria-label="Previous generations">
     <div class="generation-strip-header-row">
         <div class="generation-strip-title">Previous generations</div>
@@ -202,6 +287,23 @@
                     </div>
                 </div>
             </div>
+            <div class="scene-meter-card">
+                <div class="scene-meter-title">Mic Volume</div>
+                <div class="mic-wrap">
+                    <div class="mic-track">
+                        <div class="mic-fill" id="ui-mic-bar" style="width:0%"></div>
+                        <!-- Threshold markers (positioned via JS) -->
+                        <div class="mic-threshold mic-threshold--speed"  id="ui-mic-bar-threshold-speed"  title="Anim speed threshold"></div>
+                        <div class="mic-threshold mic-threshold--wake"   id="ui-mic-bar-threshold-wake"   title="Wake threshold"></div>
+                        <div class="mic-threshold mic-threshold--gen"    id="ui-mic-bar-threshold-gen"    title="Generation speed threshold"></div>
+                    </div>
+                    <div class="mic-labels">
+                        <span class="mic-legend mic-legend--speed">anim</span>
+                        <span class="mic-legend mic-legend--wake">wake</span>
+                        <span class="mic-legend mic-legend--gen">gen</span>
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="canvas-container"></div>
         <div class="scene-cash-display" id="ui-scene-cash">Cash: 0</div>
@@ -218,6 +320,11 @@
         <button class="reopen-grid-btn area-sprite-btn" id="ui-reopen-grid-btn" type="button" aria-label="Open Canvas Tab">
             <span class="area-sprite-stage area-sprite-stage--canvas" aria-hidden="true">
                 <img class="area-sprite-frame" id="ui-reopen-grid-sprite" src="Environment/Canvas.png" alt="">
+            </span>
+        </button>
+        <button class="guidebook-open-btn area-sprite-btn" id="ui-guidebook-open-btn" type="button" aria-label="Open Guide Book">
+            <span class="area-sprite-stage" aria-hidden="true">
+                <img class="area-sprite-frame" id="ui-guidebook-open-sprite" src="Environment/GuideBookLaying.png" alt="">
             </span>
         </button>
 
@@ -254,6 +361,7 @@
 
                     <section class="shop-section">
                         <div class="shop-subtitle">New Canvases</div>
+                        <div class="shop-status">Buy a canvas once, then click it again here to use it.</div>
                         <div class="shop-item-list">
                             <button class="shop-item-btn" id="ui-shop-buy-canvas-long" type="button">Long canvas</button>
                             <button class="shop-item-btn" id="ui-shop-buy-canvas-wide" type="button">Wide canvas</button>
@@ -298,7 +406,19 @@
                             <button class="shop-item-btn" id="ui-shop-studio-decor-golden-statue" type="button">Golden Statue</button>
                             <button class="shop-item-btn" id="ui-shop-studio-decor-pet-mush" type="button">Pet Mush</button>
                             <button class="shop-item-btn" id="ui-shop-studio-decor-lamp" type="button">Lamp</button>
-                            <button class="shop-item-btn" id="ui-shop-studio-decor-expensive_painting" type="button">Expensive Artwork</button>
+                            <button class="shop-item-btn" id="ui-shop-studio-decor-expensive-painting" type="button">Expensive Artwork</button>
+                        </div>
+                    </section>
+
+                    <section class="shop-section">
+                        <div class="shop-subtitle">Pot Colours</div>
+                        <div class="shop-item-list">
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-pot-clay" type="button" style="--shop-preview-color: rgb(193, 140, 100);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Clay Pot</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-pot-cement" type="button" style="--shop-preview-color: rgb(168, 166, 162);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Cement Pot</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-pot-green" type="button" style="--shop-preview-color: rgb(110, 158, 100);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Green Pot</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-pot-blue" type="button" style="--shop-preview-color: rgb(90, 130, 190);"><span class="shop-preview-swatch"></span><span class="shop-item-label">Blue Pot</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-pot-warm-grad" type="button" style="--shop-preview-color: rgb(220, 140, 80);"><span class="shop-preview-swatch shop-preview-swatch--grad" style="background: linear-gradient(135deg, rgb(240,180,80), rgb(200,90,60));"></span><span class="shop-item-label">Warm Gradient Pot</span></button>
+                            <button class="shop-item-btn shop-preview-btn" id="ui-shop-pot-cool-grad" type="button" style="--shop-preview-color: rgb(80, 150, 210);"><span class="shop-preview-swatch shop-preview-swatch--grad" style="background: linear-gradient(135deg, rgb(100,190,240), rgb(70,100,200));"></span><span class="shop-item-label">Cool Gradient Pot</span></button>
                         </div>
                     </section>
 
@@ -379,6 +499,7 @@
                 dialogueBlipPath: 'SoundEffects/DialogueBlip.wav',
                 dialogueBlipVolume: 0.16,
                 dialogueBlipIntervalMs: 52,
+                zIndex: '12250',
             };
 
             // ═══════════════════════════════════════════════════
@@ -655,7 +776,7 @@
                     border:         VN.border,
                     backdropFilter: `blur(${VN.backdropBlur})`,
                     boxSizing:      'border-box',
-                    zIndex:         '200',
+                    zIndex:         VN.zIndex,
                     display:        'none',
                     overflow:       'visible',
                     cursor:         'pointer',
@@ -808,26 +929,28 @@
 
             // ── Ring 1 sectors ──────────────────────────────────
             const R1 = [
-                { s: -90, e: -18,  label: ['I Like'],           fill: FILL1  },
-                { s: -18, e:  54,  label: ['I Dislike'],         fill: FILL1b },
-                { s:  54, e: 126,  label: ['Check', 'Up'],       fill: FILL1  },
-                { s: 126, e: 198,  label: ['Suggest', 'Style'],  fill: FILL1b },
-                { s: 198, e: 270,  label: ['Take a', 'Break'],   fill: FILL1  },
+                { s: -90, e: -30,  label: ['I Like'],            fill: FILL1  },
+                { s: -30, e:  30,  label: ['I Dislike'],          fill: FILL1b },
+                { s:  30, e:  90,  label: ['Next', 'Generation'], fill: FILL1  },
+                { s:  90, e: 150,  label: ['Check', 'Up'],        fill: FILL1b },
+                { s: 150, e: 210,  label: ['Suggest', 'Style'],   fill: FILL1  },
+                { s: 210, e: 270,  label: ['Take a', 'Break'],    fill: FILL1b },
             ];
 
             // ── Ring 2 sub-wedges (keyed by R1 index) ───────────
             const R2_DATA = {
-                0: { subs: ['Colours', 'Style'],         fills: [FILL2, FILL2b], actions: ['like-colours',    'like-style']    },
-                1: { subs: ['Colours', 'Style'],         fills: [FILL2, FILL2b], actions: ['dislike-colours', 'dislike-style'] },
-                2: { subs: ['Check Up', 'Next\nGeneration'], fills: [FILL2, FILL2b], actions: ['check-up', 'next-generation'] },
-                3: { subs: ['Precision', 'Noise'],       fills: [FILL2, FILL2b], actions: [null, null]                        },
-                4: { subs: ['Long Rest', 'Short Rest'],  fills: [FILL2, FILL2b], actions: ['break-long',      'break-short']   },
+                0: { subs: ['Colours', 'Style'],        fills: [FILL2, FILL2b], actions: ['like-colours',    'like-style']    },
+                1: { subs: ['Colours', 'Style'],        fills: [FILL2, FILL2b], actions: ['dislike-colours', 'dislike-style'] },
+                // index 2 = Next Generation: direct R1 action, no R2 subs
+                // index 3 = Check Up: direct R1 action, no R2 subs
+                4: { subs: ['Precision', 'Noise'],      fills: [FILL2, FILL2b], actions: [null, null]                        },
+                5: { subs: ['Long Rest', 'Short Rest'], fills: [FILL2, FILL2b], actions: ['break-long',      'break-short']   },
             };
 
             // ── Ring 3 sub-sub-wedges (keyed by "r1idx-r2idx") ──
             const R3_DATA = {
-                '3-0': { subs: ['More\nPrecise', 'More\nAbstract'], fills: [FILL3, FILL3b], actions: ['more-precise',  'more-abstract'] },
-                '3-1': { subs: ['Noisier',       'Cleaner'       ], fills: [FILL3, FILL3b], actions: ['noisier',       'cleaner'      ] },
+                '4-0': { subs: ['More\nPrecise', 'More\nAbstract'], fills: [FILL3, FILL3b], actions: ['more-precise',  'more-abstract'] },
+                '4-1': { subs: ['Noisier',       'Cleaner'       ], fills: [FILL3, FILL3b], actions: ['noisier',       'cleaner'      ] },
             };
 
             let radialQuestionMode = null;
@@ -1106,8 +1229,16 @@
                     const t = makeText(sec.label, tx, ty, 11.5, TEXT1);
 
                     path.addEventListener('mouseenter', () => { if (R2_DATA[i]) showR2(i); else hideR2(); });
-                    if (i === 2) path.addEventListener('click', () => runAction('check-up'));
-                    if (i === 2) registerActionPath(path, 'check-up', sec.fill);
+
+                    // Direct Ring-1 actions (no sub-ring needed)
+                    if (i === 2) {
+                        path.addEventListener('click', () => runAction('next-generation'));
+                        registerActionPath(path, 'next-generation', sec.fill);
+                    }
+                    if (i === 3) {
+                        path.addEventListener('click', () => runAction('check-up'));
+                        registerActionPath(path, 'check-up', sec.fill);
+                    }
 
                     g.appendChild(path);
                     g.appendChild(t);

@@ -73,24 +73,23 @@ Also make it so aswell as the preview the user can also go to a gallery where al
 
 Required Before Submission:
 
-- Make the creature automatically start another generation after 1 minute of finishing.
+
 - Add question for trying again or continuing, which will force a new generation.
-- Make the new user menu match the aesthetic of the website better as a sprite based menu.
+
 - Remove free money.
-- Add gallery and shop sprite buttons
-- Make sprite table and properly place decorations
+
 
 - Fix bugs
-- Add a guide book for new user's and make the book permanently in the room to open the guide book.
-- Fix the messy canvas tab menu so their isn't the large gap and wierd empty button.
-- Make questioning use actual sprite, with more clear controls.
+
+
+
 - Write over new text box text to make them better.
 - Write READ ME
 
 - Make the shop menu more like a catalogue with sprite art to match the style of the site.
 - Add confidence meter which will cause the creature to ask more or less questions, and will effect the general mood of the text.
 - Add more animation to the creature for eating, multiple painting, questioning.
-- Make the pot a disconnected thing which is layered on top of the mushroom (or remove the pot from the animations) letting you customise the pot and making it feel more like it's in the pot.
+
 - Add more music or sound design.
 - Add more portraits
 
