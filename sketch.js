@@ -35,12 +35,12 @@ new p5(function(p) {
         shakeWake: 'SoundEffects/ShakeWake.wav',
     };
     const SHOP_MUSIC_TRACKS = [
-        { id: 'classical-background', label: 'Classical Background Music', price: 60, path: 'SoundEffects/ClassicalBackgroundMusic.mp3' },
+        { id: 'classical-background', label: 'Classical Background Music', price: 80, path: 'SoundEffects/ClassicalBackgroundMusic.mp3' },
     ];
     const FIRST_TIME_VISITOR_PROMPT_KEY = 'first_time_visitor_prompt_v1';
     const NEW_PLAYER_MENU_SPRITE_PATH = 'UI/NewPlayerMenu.png';
     const GUIDE_BOOK_BUTTON_SPRITE_PATH = 'Environment/GuideBookLaying.png';
-    const AUTO_NEXT_GENERATION_IDLE_MS = 2 * 60 * 1000;
+    const AUTO_NEXT_GENERATION_IDLE_MS = 1.5 * 60 * 1000;
     const DEFAULT_GRID_COLS = 30;
     const DEFAULT_GRID_ROWS = 30;
     // Tutorial pages are configured here. Add new pages by appending an object.
@@ -413,7 +413,7 @@ new p5(function(p) {
 
     // --- Search / rest tuning ---
     let OPENVERSE_SEARCH_RESULT_COUNT = 20;
-    let OPENVERSE_RANDOM_POOL_SIZE = 6;
+    let OPENVERSE_RANDOM_POOL_SIZE = 15;
     let BASE_LONG_REST_DURATION_MS = 0.5 * 60 * 1000;
     let SHORT_REST_DURATION_MS = BASE_LONG_REST_DURATION_MS;
     let LONG_REST_DURATION_MS = BASE_LONG_REST_DURATION_MS * 10;
@@ -721,6 +721,7 @@ new p5(function(p) {
     let studioFavoritePaintingImage = null;
     let studioFavoritePaintingSerial = null;
     let studioFavoritePaintingPendingSerial = null;
+    let studioFavoritePaintingCanvasSize = null;
     let favouriteGenerationSerial = null;
     let frozenSchemeSlots = [];
     let frozenSchemeValues = [];
@@ -1310,6 +1311,7 @@ new p5(function(p) {
         if (!c || creatureQuestionState.active) return;
         if (generationPaused || isRestingNow()) return;
         if (!c.isWatched) return;
+        ensureCurrentColorSchemeSafe();
         let now = p.millis();
         if (now < creatureQuestionState.nextAtMs) return;
 
@@ -1383,23 +1385,25 @@ new p5(function(p) {
     }
 
     function onLikeColoursFeedbackImmediate() {
+        ensureCurrentColorSchemeSafe();
         if (colourPreference.mode === 'like' && Array.isArray(colourPreference.targetScheme)) {
             colourPreference.targetScheme = blendSchemeToward(colourPreference.targetScheme, colorScheme, 0.5);
             colourPreference.likeStreak = Math.min(10, (colourPreference.likeStreak || 0) + 1);
         } else {
-            colourPreference.targetScheme = colorScheme.map(col => [...col]);
+            colourPreference.targetScheme = sanitizeSchemeClone(colorScheme, COLOR_SCHEME_COUNT);
             colourPreference.likeStreak = 1;
         }
         colourPreference.mode = 'like';
         // Keep current colours unchanged for in-generation question feedback.
-        colorScheme = colorScheme.map(col => [...col]);
+        colorScheme = sanitizeSchemeClone(colorScheme, COLOR_SCHEME_COUNT);
         applyFrozenSchemeConstraints();
         lastFeedbackAction = 'like-colours-now';
     }
 
     function onDislikeColoursFeedbackImmediate() {
+        ensureCurrentColorSchemeSafe();
         colourPreference.mode = 'dislike';
-        colourPreference.targetScheme = colorScheme.map(col => [...col]);
+        colourPreference.targetScheme = sanitizeSchemeClone(colorScheme, COLOR_SCHEME_COUNT);
         colourPreference.likeStreak = 0;
         colorScheme = buildDislikedScheme(colorScheme);
         applyFrozenSchemeConstraints();
@@ -1430,10 +1434,12 @@ new p5(function(p) {
     }
 
     function onDislikeStyleFeedbackImmediate() {
-        stylePreference.mode = 'dislike';
-        stylePreference.target = captureCurrentStyleSnapshot();
+        // Clear style preference so generation style settings stop persisting
+        stylePreference.mode = null;
+        stylePreference.target = null;
         stylePreference.likeStreak = 0;
-        applyStyleSnapshot(buildDislikedStyleSnapshot(stylePreference.target));
+        // Apply the disliked style to current generation only
+        applyStyleSnapshot(buildDislikedStyleSnapshot(captureCurrentStyleSnapshot()));
         lastFeedbackAction = 'dislike-style-now';
     }
 
@@ -1598,6 +1604,18 @@ new p5(function(p) {
                 frozenSchemeValues[i] = [...colorScheme[i]];
             }
         }
+    }
+
+    function sanitizeSchemeClone(sourceScheme, desiredCount = COLOR_SCHEME_COUNT) {
+        let safeCount = Math.max(1, Math.floor(Number(desiredCount) || 1));
+        let fallback = randomUniqueColourScheme(safeCount);
+        let normalized = normalizeColourSchemeLength(sourceScheme, safeCount, fallback);
+        return normalized.map(col => [...col]);
+    }
+
+    function ensureCurrentColorSchemeSafe() {
+        colorScheme = sanitizeSchemeClone(colorScheme, COLOR_SCHEME_COUNT);
+        applyFrozenSchemeConstraints();
     }
 
     function getActiveSchemeColours() {
@@ -1776,10 +1794,13 @@ new p5(function(p) {
     }
 
     function getPaintPaletteChoices() {
+        let safeScheme = colorScheme
+            .filter(col => Array.isArray(col) && col.length === 3)
+            .map(col => [clampByte(col[0]), clampByte(col[1]), clampByte(col[2])]);
         return [
             [...PAINT_BLACK],
             [...PAINT_WHITE],
-            ...colorScheme.map(col => [...col]),
+            ...safeScheme,
         ];
     }
 
@@ -2949,6 +2970,7 @@ new p5(function(p) {
         ui.shopStatus = document.getElementById('ui-shop-status');
         ui.coins = document.getElementById('ui-coins');
         ui.sceneCash = document.getElementById('ui-scene-cash');
+        ensureSaleOverlayDom();
 
         if (ui.generationPopupInStyle) {
             ui.generationPopupInStyle.addEventListener('click', onInThisStyleClicked);
@@ -3024,10 +3046,10 @@ new p5(function(p) {
             ui.shopBuyFoodEnergyDrinkButton.addEventListener('click', () => buyFoodItem('energy-drink'));
         }
         if (ui.shopBuyCanvasLongButton) {
-            ui.shopBuyCanvasLongButton.addEventListener('click', () => buyCanvasPreset('long', 52, 24, SHOP_CANVAS_LONG_PRICE));
+            ui.shopBuyCanvasLongButton.addEventListener('click', () => buyCanvasPreset('long', 24, 52, SHOP_CANVAS_LONG_PRICE));
         }
         if (ui.shopBuyCanvasWideButton) {
-            ui.shopBuyCanvasWideButton.addEventListener('click', () => buyCanvasPreset('wide', 24, 52, SHOP_CANVAS_WIDE_PRICE));
+            ui.shopBuyCanvasWideButton.addEventListener('click', () => buyCanvasPreset('wide', 52, 24, SHOP_CANVAS_WIDE_PRICE));
         }
         if (ui.shopBuyCanvasBigButton) {
             ui.shopBuyCanvasBigButton.addEventListener('click', () => buyCanvasPreset('big', 44, 44, SHOP_CANVAS_BIG_PRICE));
@@ -3273,7 +3295,14 @@ new p5(function(p) {
         drawLongRestMeter(creature);
         drawMicDebugBar(creature);
         randomizeGridSquareOverTime();
-        drawSaleAnnouncementOverlay();
+        try {
+            drawSaleAnnouncementOverlay();
+        } catch (err) {
+            // Keep the main scene responsive even if overlay DOM/state is malformed.
+            saleAnnouncement = null;
+            bulkSaleCredits = null;
+            console.warn('Sale overlay draw failed:', err);
+        }
         updateNpcActionButtonsPosition(creature);
         maybeAutoStartNextGenerationAfterIdle(Date.now());
 
@@ -3301,47 +3330,42 @@ new p5(function(p) {
     }
 
     function drawSingleSaleAnnouncementOverlay(now) {
-        if (!saleAnnouncement) return;
+        ensureSaleOverlayDom();
+        if (!ui.saleOverlaySingle) return;
+
+        if (!saleAnnouncement) {
+            ui.saleOverlaySingle.hidden = true;
+            return;
+        }
 
         let alpha01 = currentAnnouncementAlpha(now, saleAnnouncement);
         if (alpha01 <= 0) {
             if (now - saleAnnouncement.startAt > saleAnnouncement.durationMs) {
                 saleAnnouncement = null;
             }
+            ui.saleOverlaySingle.hidden = true;
             return;
         }
 
-        let alpha = Math.round(255 * alpha01);
-        p.push();
-        p.textAlign(p.CENTER, p.CENTER);
-        p.noStroke();
-
-        let titleSize = p.constrain(p.width * 0.05, 26, 56);
-        let subtitleSize = p.constrain(p.width * 0.028, 16, 30);
-        let centerX = p.width * 0.5;
-        let centerY = p.height * 0.5;
-
-        p.textSize(titleSize);
-        p.fill(20, 20, 20, alpha);
-        p.text(`SOLD ${saleAnnouncement.amount} coins`, centerX + 2, centerY + 2);
-        p.fill(255, 245, 160, alpha);
-        p.text(`SOLD ${saleAnnouncement.amount} coins`, centerX, centerY);
-
-        p.textSize(subtitleSize);
-        p.fill(20, 20, 20, alpha);
-        p.text(`Buyer: ${saleAnnouncement.buyer}`, centerX + 1, centerY + titleSize * 0.85 + 1);
-        p.fill(235, 255, 255, alpha);
-        p.text(`Buyer: ${saleAnnouncement.buyer}`, centerX, centerY + titleSize * 0.85);
-        p.pop();
+        ui.saleOverlaySingle.hidden = false;
+        ui.saleOverlaySingle.style.opacity = `${alpha01}`;
+        ui.saleOverlaySingleTitle.textContent = `SOLD ${saleAnnouncement.amount} coins`;
+        ui.saleOverlaySingleSubtitle.textContent = `Buyer: ${saleAnnouncement.buyer}`;
     }
 
     function drawBulkSaleCreditsOverlay(now) {
-        if (!bulkSaleCredits) return;
+        ensureSaleOverlayDom();
+        if (!ui.saleOverlayBulkLines || !ui.saleOverlayBulkTotal) return;
 
-        let baseX = p.width * 0.5;
-        let baseY = p.height * 0.46;
+        if (!bulkSaleCredits) {
+            ui.saleOverlayBulkLines.innerHTML = '';
+            ui.saleOverlayBulkTotal.hidden = true;
+            return;
+        }
+
         let scrollAmount = p.constrain(p.height * 0.28, 120, 220);
         let anyVisible = false;
+        ui.saleOverlayBulkLines.innerHTML = '';
 
         for (let i = 0; i < bulkSaleCredits.entries.length; i++) {
             let entry = bulkSaleCredits.entries[i];
@@ -3358,27 +3382,25 @@ new p5(function(p) {
             let fadeIn = p.constrain(elapsed / 240, 0, 1);
             let fadeOut = p.constrain((BULK_SALE_ENTRY_LIFETIME_MS - elapsed) / 620, 0, 1);
             let alpha01 = Math.min(fadeIn, fadeOut);
-            let alpha = Math.round(255 * alpha01);
             let scale = p.lerp(1, 0.66, progress);
-            // Spawn every sold line from the same anchor position, then scroll upward.
-            let y = baseY - progress * scrollAmount;
+            let y = -progress * scrollAmount;
 
-            p.push();
-            p.translate(baseX, y);
-            p.scale(scale);
-            p.textAlign(p.CENTER, p.CENTER);
-            p.noStroke();
-            p.textSize(p.constrain(p.width * 0.028, 16, 30));
-            p.fill(10, 10, 10, alpha);
-            p.text(`SOLD ${entry.amount} coins`, 1.5, 1.5);
-            p.fill(255, 244, 168, alpha);
-            p.text(`SOLD ${entry.amount} coins`, 0, 0);
-            p.textSize(p.constrain(p.width * 0.018, 11, 18));
-            p.fill(10, 10, 10, alpha);
-            p.text(`Buyer: ${entry.buyer}`, 1.5, 18);
-            p.fill(230, 255, 255, alpha);
-            p.text(`Buyer: ${entry.buyer}`, 0, 16.5);
-            p.pop();
+            let line = document.createElement('div');
+            line.className = 'sale-overlay-bulk-line';
+            line.style.opacity = `${alpha01}`;
+            line.style.transform = `translate(-50%, ${y}px) scale(${scale})`;
+
+            let title = document.createElement('div');
+            title.className = 'sale-overlay-bulk-line-title';
+            title.textContent = `SOLD ${entry.amount} coins`;
+
+            let subtitle = document.createElement('div');
+            subtitle.className = 'sale-overlay-bulk-line-subtitle';
+            subtitle.textContent = `Buyer: ${entry.buyer}`;
+
+            line.appendChild(title);
+            line.appendChild(subtitle);
+            ui.saleOverlayBulkLines.appendChild(line);
         }
 
         if (now >= bulkSaleCredits.totalStartAt) {
@@ -3386,27 +3408,23 @@ new p5(function(p) {
             let fadeIn = p.constrain(elapsed / 300, 0, 1);
             let fadeOut = p.constrain((bulkSaleCredits.endAt - now) / 520, 0, 1);
             let alpha01 = Math.min(fadeIn, fadeOut);
-            let alpha = Math.round(255 * alpha01);
 
-            if (alpha > 0) {
+            if (alpha01 > 0) {
                 anyVisible = true;
-                let totalSize = p.constrain(p.width * 0.06, 30, 62);
-                let totalY = p.height * 0.66;
-
-                p.push();
-                p.textAlign(p.CENTER, p.CENTER);
-                p.noStroke();
-                p.textSize(totalSize);
-                p.fill(20, 20, 20, alpha);
-                p.text(`Total Earnings : ${bulkSaleCredits.total} coins`, baseX + 2, totalY + 2);
-                p.fill(255, 240, 145, alpha);
-                p.text(`Total Earnings : ${bulkSaleCredits.total} coins`, baseX, totalY);
-                p.pop();
+                ui.saleOverlayBulkTotal.hidden = false;
+                ui.saleOverlayBulkTotal.style.opacity = `${alpha01}`;
+                ui.saleOverlayBulkTotal.textContent = `Total Earnings : ${bulkSaleCredits.total} coins`;
+            } else {
+                ui.saleOverlayBulkTotal.hidden = true;
             }
+        } else {
+            ui.saleOverlayBulkTotal.hidden = true;
         }
 
         if (!anyVisible && now > bulkSaleCredits.endAt) {
             bulkSaleCredits = null;
+            ui.saleOverlayBulkLines.innerHTML = '';
+            ui.saleOverlayBulkTotal.hidden = true;
         }
     }
 
@@ -4032,19 +4050,31 @@ new p5(function(p) {
 
     function getStudioDecorRenderRect(theme) {
         if (theme.id === 'frame-favorite') {
-            let baseSide = Math.max(STUDIO_FAVORITE_FRAME_W, STUDIO_FAVORITE_FRAME_H);
-            if (studioFavoritePaintingImage) {
-                let sourceSide = Math.max(studioFavoritePaintingImage.width || 0, studioFavoritePaintingImage.height || 0);
-                if (sourceSide > 0) {
-                    baseSide = sourceSide;
-                }
+            let aspect = 1;
+            if (studioFavoritePaintingCanvasSize
+                && studioFavoritePaintingCanvasSize.cols > 0
+                && studioFavoritePaintingCanvasSize.rows > 0) {
+                aspect = studioFavoritePaintingCanvasSize.cols / studioFavoritePaintingCanvasSize.rows;
+            } else if (studioFavoritePaintingImage && studioFavoritePaintingImage.height > 0) {
+                aspect = (studioFavoritePaintingImage.width || 1) / (studioFavoritePaintingImage.height || 1);
             }
-            let side = Math.max(32, Math.round(baseSide * STUDIO_FAVORITE_FRAME_SIZE_SCALE));
+
+            let baseHeight = Math.max(32, Math.round(STUDIO_FAVORITE_FRAME_H * STUDIO_FAVORITE_FRAME_SIZE_SCALE));
+            let w = Math.max(32, Math.round(baseHeight * aspect));
+            let h = baseHeight;
+
+            let maxW = Math.max(80, Math.round(p.width * 0.44));
+            if (w > maxW) {
+                let scale = maxW / w;
+                w = Math.max(32, Math.round(w * scale));
+                h = Math.max(32, Math.round(h * scale));
+            }
+
             return {
                 x: p.width * STUDIO_FAVORITE_FRAME_X,
                 y: p.height * STUDIO_FAVORITE_FRAME_Y,
-                w: side,
-                h: side,
+                w,
+                h,
             };
         }
 
@@ -4062,12 +4092,18 @@ new p5(function(p) {
             studioFavoritePaintingImage = null;
             studioFavoritePaintingSerial = null;
             studioFavoritePaintingPendingSerial = null;
+            studioFavoritePaintingCanvasSize = null;
             return;
         }
         if (studioFavoritePaintingSerial === favouriteGenerationSerial || studioFavoritePaintingPendingSerial === favouriteGenerationSerial) return;
 
         let snapshot = generationHistory.find(item => item.serial === favouriteGenerationSerial);
         if (!snapshot || !snapshot.imageDataUrl) return;
+
+        studioFavoritePaintingCanvasSize = {
+            cols: Math.max(1, Math.floor(Number(snapshot.canvasCols) || DEFAULT_GRID_COLS)),
+            rows: Math.max(1, Math.floor(Number(snapshot.canvasRows) || DEFAULT_GRID_ROWS)),
+        };
 
         studioFavoritePaintingPendingSerial = favouriteGenerationSerial;
         p.loadImage(snapshot.imageDataUrl, (img) => {
@@ -4401,7 +4437,9 @@ new p5(function(p) {
 
         colorScheme = [];
         let seen = new Set();
+        let failsafeMax = COLOR_SCHEME_COUNT * 3; // Prevent infinite loops
 
+        // First, preserve frozen slots
         for (let i = 0; i < COLOR_SCHEME_COUNT; i++) {
             if (frozenSchemeSlots[i] && previousScheme[i]) {
                 colorScheme.push([...previousScheme[i]]);
@@ -4411,20 +4449,61 @@ new p5(function(p) {
             }
         }
 
-        for (let i = 0; i < COLOR_SCHEME_COUNT; i++) {
-            if (Array.isArray(colorScheme[i])) continue;
-            let candidate = [
-                p.floor(p.random(256)),
-                p.floor(p.random(256)),
-                p.floor(p.random(256)),
-            ];
-            let key = candidate.join(',');
-            if (seen.has(key)) {
-                i -= 1;
-                continue;
+        // Check if we have any frozen slots
+        let hasFrozenSlots = frozenSchemeSlots.some(f => f);
+
+        // Collect available colors for reuse
+        let availableColors = [];
+        for (let i = 0; i < previousScheme.length; i++) {
+            if (Array.isArray(previousScheme[i])) {
+                let key = previousScheme[i].join(',');
+                if (!seen.has(key)) {
+                    availableColors.push([...previousScheme[i]]);
+                    seen.add(key);
+                }
             }
-            seen.add(key);
-            colorScheme[i] = candidate;
+        }
+
+        // Fill unfrozen slots
+        let availableIdx = 0;
+        let attempts = 0;
+        for (let i = 0; i < COLOR_SCHEME_COUNT && attempts < failsafeMax; i++) {
+            if (Array.isArray(colorScheme[i])) continue;
+            
+            let candidate = null;
+            let candidateKey = '';
+            let attempts_for_this_slot = 0;
+            
+            // Try to find a unique color
+            while (attempts_for_this_slot < 10 && attempts < failsafeMax) {
+                attempts++;
+                attempts_for_this_slot++;
+                
+                // If we have frozen slots, prioritize reusing available colors
+                if (hasFrozenSlots && availableColors.length > 0) {
+                    candidate = [...availableColors[availableIdx % availableColors.length]];
+                    availableIdx++;
+                } else if (availableColors.length > 0 && p.random() < 0.7) {
+                    // Without frozen slots, still prefer reusing colors 70% of the time
+                    candidate = [...availableColors[availableIdx % availableColors.length]];
+                    availableIdx++;
+                } else {
+                    // Generate new color
+                    candidate = [
+                        p.floor(p.random(256)),
+                        p.floor(p.random(256)),
+                        p.floor(p.random(256)),
+                    ];
+                }
+                
+                candidateKey = candidate.join(',');
+                if (!seen.has(candidateKey)) break;
+            }
+            
+            if (!seen.has(candidateKey)) {
+                seen.add(candidateKey);
+                colorScheme[i] = candidate;
+            }
         }
 
         applyFrozenSchemeConstraints();
@@ -4487,7 +4566,60 @@ new p5(function(p) {
         paletteUpgradeCount = Math.max(0, Math.floor(Number(paletteUpgradeCount) || 0));
         COLOR_SCHEME_COUNT = Math.min(SHOP_PALETTE_MAX_SLOTS, BASE_COLOR_SCHEME_COUNT + paletteUpgradeCount);
 
-        colorScheme = normalizeColourSchemeLength(colorScheme, COLOR_SCHEME_COUNT);
+        // Store which slots are frozen and their values before normalizing
+        ensureSchemeLockArraysLength();
+        let frozenColorsBackup = [];
+        for (let i = 0; i < frozenSchemeSlots.length; i++) {
+            if (frozenSchemeSlots[i] && frozenSchemeValues[i]) {
+                frozenColorsBackup[i] = [...frozenSchemeValues[i]];
+            }
+        }
+
+        // Normalize the color scheme while preserving frozen slots
+        let normalized = [];
+        let seen = new Set();
+        
+        // First, add existing colors and mark frozen ones
+        for (let i = 0; i < colorScheme.length && normalized.length < COLOR_SCHEME_COUNT; i++) {
+            let col = colorScheme[i];
+            if (!Array.isArray(col) || col.length !== 3) continue;
+            let safe = [clampByte(col[0]), clampByte(col[1]), clampByte(col[2])];
+            let key = safe.join(',');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            normalized.push(safe);
+        }
+
+        // Fill remaining slots with new colors, avoiding duplicates
+        while (normalized.length < COLOR_SCHEME_COUNT) {
+            let candidate = [
+                p.floor(p.random(256)),
+                p.floor(p.random(256)),
+                p.floor(p.random(256)),
+            ];
+            let key = candidate.join(',');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            normalized.push(candidate);
+        }
+        
+        colorScheme = normalized;
+
+        // Ensure frozen arrays are the right size and restore frozen colors
+        frozenSchemeSlots = frozenSchemeSlots.slice(0, COLOR_SCHEME_COUNT);
+        frozenSchemeValues = frozenSchemeValues.slice(0, COLOR_SCHEME_COUNT);
+        
+        while (frozenSchemeSlots.length < COLOR_SCHEME_COUNT) {
+            frozenSchemeSlots.push(false);
+            frozenSchemeValues.push(null);
+        }
+        
+        // Restore frozen colors
+        for (let i = 0; i < frozenColorsBackup.length && i < COLOR_SCHEME_COUNT; i++) {
+            if (frozenColorsBackup[i]) {
+                frozenSchemeValues[i] = frozenColorsBackup[i];
+            }
+        }
 
         if (colourPreference && Array.isArray(colourPreference.targetScheme) && colourPreference.targetScheme.length > 0) {
             colourPreference.targetScheme = normalizeColourSchemeLength(colourPreference.targetScheme, COLOR_SCHEME_COUNT, colorScheme);
@@ -5202,8 +5334,10 @@ new p5(function(p) {
         let img = document.createElement('img');
         img.src = snapshot.imageDataUrl;
         img.alt = generatedSnapshotTitle(snapshot);
-        img.style.width = `${GENERATION_THUMB_WIDTH}px`;
-        img.style.height = `${GENERATION_THUMB_HEIGHT}px`;
+        let thumbSize = getSnapshotThumbnailSize(snapshot);
+        img.style.width = `${thumbSize.w}px`;
+        img.style.height = `${thumbSize.h}px`;
+        card.style.width = `${thumbSize.w + 4}px`;
 
         let label = document.createElement('div');
         label.className = 'generation-thumb-label';
@@ -5222,6 +5356,22 @@ new p5(function(p) {
         card.appendChild(img);
         card.appendChild(label);
         return card;
+    }
+
+    function getSnapshotCanvasDimensions(snapshot) {
+        let cols = Math.max(1, Math.floor(Number(snapshot && snapshot.canvasCols) || DEFAULT_GRID_COLS));
+        let rows = Math.max(1, Math.floor(Number(snapshot && snapshot.canvasRows) || DEFAULT_GRID_ROWS));
+        return { cols, rows };
+    }
+
+    function getSnapshotThumbnailSize(snapshot) {
+        let dims = getSnapshotCanvasDimensions(snapshot);
+        let aspect = dims.cols / dims.rows;
+        let h = Math.max(32, Math.floor(Number(GENERATION_THUMB_HEIGHT) || 100));
+        let w = Math.max(32, Math.round(h * aspect));
+        let maxW = Math.max(h, Math.round(h * 3));
+        w = Math.min(w, maxW);
+        return { w, h };
     }
 
     function refreshGenerationCardUI(snapshot) {
@@ -5473,19 +5623,20 @@ new p5(function(p) {
 
         let snap = pendingFeedback.snapshot;
         if (pendingFeedback.type === 'like') {
-            colorScheme = buildLikedScheme(snap.colorScheme);
+            colorScheme = sanitizeSchemeClone(buildLikedScheme(sanitizeSchemeClone(snap.colorScheme, COLOR_SCHEME_COUNT)), COLOR_SCHEME_COUNT);
         } else if (pendingFeedback.type === 'dislike') {
-            colorScheme = buildDislikedScheme(snap.colorScheme);
+            colorScheme = sanitizeSchemeClone(buildDislikedScheme(sanitizeSchemeClone(snap.colorScheme, COLOR_SCHEME_COUNT)), COLOR_SCHEME_COUNT);
         }
 
         pendingFeedback = null;
     }
 
     function captureFeedback(type) {
+        ensureCurrentColorSchemeSafe();
         pendingFeedback = {
             type,
             snapshot: {
-                colorScheme: colorScheme.map(col => [...col]),
+                colorScheme: sanitizeSchemeClone(colorScheme, COLOR_SCHEME_COUNT),
                 referenceRulePrecision: REFERENCE_RULE_PRECISION,
                 colorSchemeOffsetRange: COLOR_SCHEME_OFFSET_RANGE,
                 neighborSimilarRange: NEIGHBOR_SIMILAR_RANGE,
@@ -5538,11 +5689,12 @@ new p5(function(p) {
     }
 
     function onLikeColoursFeedback() {
+        ensureCurrentColorSchemeSafe();
         if (colourPreference.mode === 'like' && Array.isArray(colourPreference.targetScheme)) {
             colourPreference.targetScheme = blendSchemeToward(colourPreference.targetScheme, colorScheme, 0.5);
             colourPreference.likeStreak = Math.min(10, (colourPreference.likeStreak || 0) + 1);
         } else {
-            colourPreference.targetScheme = colorScheme.map(col => [...col]);
+            colourPreference.targetScheme = sanitizeSchemeClone(colorScheme, COLOR_SCHEME_COUNT);
             colourPreference.likeStreak = 1;
         }
         colourPreference.mode = 'like';
@@ -5551,8 +5703,9 @@ new p5(function(p) {
     }
 
     function onDislikeColoursFeedback() {
+        ensureCurrentColorSchemeSafe();
         colourPreference.mode = 'dislike';
-        colourPreference.targetScheme = colorScheme.map(col => [...col]);
+        colourPreference.targetScheme = sanitizeSchemeClone(colorScheme, COLOR_SCHEME_COUNT);
         colourPreference.likeStreak = 0;
         lastFeedbackAction = 'dislike-colours';
         resetGeneration();
@@ -5582,8 +5735,9 @@ new p5(function(p) {
     }
 
     function onDislikeStyleFeedback() {
-        stylePreference.mode = 'dislike';
-        stylePreference.target = captureCurrentStyleSnapshot();
+        // Clear style preference so generation style settings stop persisting
+        stylePreference.mode = null;
+        stylePreference.target = null;
         stylePreference.likeStreak = 0;
         lastFeedbackAction = 'dislike-style';
         resetGeneration();
@@ -5602,6 +5756,10 @@ new p5(function(p) {
             0,
             255
         );
+        // Persist suggestion to next generation via stylePreference
+        stylePreference.mode = 'like';
+        stylePreference.target = captureCurrentStyleSnapshot();
+        stylePreference.likeStreak = 1;
         lastFeedbackAction = 'more-precise';
     }
 
@@ -5618,6 +5776,10 @@ new p5(function(p) {
             0,
             255
         );
+        // Persist suggestion to next generation via stylePreference
+        stylePreference.mode = 'like';
+        stylePreference.target = captureCurrentStyleSnapshot();
+        stylePreference.likeStreak = 1;
         lastFeedbackAction = 'more-abstract';
     }
 
@@ -5641,6 +5803,10 @@ new p5(function(p) {
         );
         ADJACENT_SCHEME_OVERRIDE_CHANCE = clamp01(ADJACENT_SCHEME_OVERRIDE_CHANCE + chanceDelta);
         GLOBAL_RANDOM_COLOR_CHANCE = clamp01(GLOBAL_RANDOM_COLOR_CHANCE + chanceDelta);
+        // Persist suggestion to next generation via stylePreference
+        stylePreference.mode = 'like';
+        stylePreference.target = captureCurrentStyleSnapshot();
+        stylePreference.likeStreak = 1;
         lastFeedbackAction = 'noisier';
     }
 
@@ -5664,6 +5830,10 @@ new p5(function(p) {
         );
         ADJACENT_SCHEME_OVERRIDE_CHANCE = clamp01(ADJACENT_SCHEME_OVERRIDE_CHANCE - chanceDelta);
         GLOBAL_RANDOM_COLOR_CHANCE = clamp01(GLOBAL_RANDOM_COLOR_CHANCE - chanceDelta);
+        // Persist suggestion to next generation via stylePreference
+        stylePreference.mode = 'like';
+        stylePreference.target = captureCurrentStyleSnapshot();
+        stylePreference.likeStreak = 1;
         lastFeedbackAction = 'cleaner';
     }
 
@@ -5923,15 +6093,7 @@ new p5(function(p) {
         }
 
         logicalCtx.putImageData(imageData, 0, 0);
-
-        let exportCanvas = document.createElement('canvas');
-        exportCanvas.width = GENERATION_THUMB_WIDTH;
-        exportCanvas.height = GENERATION_THUMB_HEIGHT;
-        let exportCtx = exportCanvas.getContext('2d');
-        exportCtx.imageSmoothingEnabled = false;
-        exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
-        exportCtx.drawImage(logicalCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
-        return exportCanvas.toDataURL('image/png');
+        return logicalCanvas.toDataURL('image/png');
     }
 
     function inferReferenceKeywordFromPath(path) {
@@ -6026,6 +6188,18 @@ new p5(function(p) {
 
     function resetGeneration(options = {}) {
         let keepCurrentReference = !!options.keepCurrentReference;
+
+        if (creatureQuestionState.active) {
+            clearCreatureQuestionDialogueAutoHide();
+            hideNpcDialogueBox();
+            creatureQuestionState.active = false;
+            creatureQuestionState.type = null;
+            creatureQuestionState.prompt = '';
+            generationPaused = false;
+            scheduleNextCreatureQuestion();
+        }
+
+        ensureCurrentColorSchemeSafe();
         clearGenerationEndedIdleAutoNext();
         archiveCurrentGeneration('interrupted');
         generationSerial += 1;
@@ -6576,6 +6750,7 @@ new p5(function(p) {
         }
 
         for (let i = 0; i < colorScheme.length; i++) {
+            if (!Array.isArray(colorScheme[i]) || colorScheme[i].length !== 3) continue;
             let sx = schemeRect.x;
             let sy = schemeRect.y + i * (SCHEME_TILE_SIZE + SCHEME_GAP);
             p.fill(...colorScheme[i]);
@@ -6933,6 +7108,7 @@ new p5(function(p) {
                 if (point.x >= x && point.x <= x + cellSize && point.y >= y && point.y <= y + cellSize) {
                     let paintPalette = getPaintPaletteChoices();
                     let choice = paintPalette[selectedPaintColourIndex] || paintPalette[0];
+                    if (!Array.isArray(choice) || choice.length !== 3) return false;
                     gridColors[r][c] = [...choice];
                     markGridChanged(r, c);
                     return true;
@@ -7282,6 +7458,43 @@ new p5(function(p) {
         return SHOP_PALETTE_UPGRADE_BASE_PRICE + paletteUpgradeCount * SHOP_PALETTE_UPGRADE_STEP_PRICE;
     }
 
+    function ensureSaleOverlayDom() {
+        if (ui.saleOverlayRoot && document.body.contains(ui.saleOverlayRoot)) return;
+
+        let root = document.createElement('div');
+        root.className = 'sale-overlay-root';
+
+        let single = document.createElement('div');
+        single.className = 'sale-overlay-single';
+        single.hidden = true;
+
+        let singleTitle = document.createElement('div');
+        singleTitle.className = 'sale-overlay-title';
+        let singleSubtitle = document.createElement('div');
+        singleSubtitle.className = 'sale-overlay-subtitle';
+        single.appendChild(singleTitle);
+        single.appendChild(singleSubtitle);
+
+        let bulkLines = document.createElement('div');
+        bulkLines.className = 'sale-overlay-bulk-lines';
+
+        let bulkTotal = document.createElement('div');
+        bulkTotal.className = 'sale-overlay-total';
+        bulkTotal.hidden = true;
+
+        root.appendChild(single);
+        root.appendChild(bulkLines);
+        root.appendChild(bulkTotal);
+        document.body.appendChild(root);
+
+        ui.saleOverlayRoot = root;
+        ui.saleOverlaySingle = single;
+        ui.saleOverlaySingleTitle = singleTitle;
+        ui.saleOverlaySingleSubtitle = singleSubtitle;
+        ui.saleOverlayBulkLines = bulkLines;
+        ui.saleOverlayBulkTotal = bulkTotal;
+    }
+
     function getCustomCanvasDraft() {
         let cols = ui.shopCustomColsInput ? Number(ui.shopCustomColsInput.value) : GRID_COLS;
         let rows = ui.shopCustomRowsInput ? Number(ui.shopCustomRowsInput.value) : GRID_ROWS;
@@ -7321,26 +7534,26 @@ new p5(function(p) {
             && ownedCustomCanvasDraft.rows === customDraft.rows;
 
         if (ui.shopBuyCanvasLongButton) {
-            if (GRID_COLS === 52 && GRID_ROWS === 24) {
+            if (GRID_COLS === 24 && GRID_ROWS === 52) {
                 ui.shopBuyCanvasLongButton.textContent = 'Long canvas (active)';
                 ui.shopBuyCanvasLongButton.disabled = true;
             } else if (ownedCanvasPresetIds.includes('long')) {
-                ui.shopBuyCanvasLongButton.textContent = 'Use long canvas (52x24)';
+                ui.shopBuyCanvasLongButton.textContent = 'Use long canvas (24x52)';
                 ui.shopBuyCanvasLongButton.disabled = false;
             } else {
-                ui.shopBuyCanvasLongButton.textContent = `Buy long canvas (52x24) · ${SHOP_CANVAS_LONG_PRICE} coins`;
+                ui.shopBuyCanvasLongButton.textContent = `Buy long canvas (24x52) · ${SHOP_CANVAS_LONG_PRICE} coins`;
                 ui.shopBuyCanvasLongButton.disabled = galleryCoins < SHOP_CANVAS_LONG_PRICE;
             }
         }
         if (ui.shopBuyCanvasWideButton) {
-            if (GRID_COLS === 24 && GRID_ROWS === 52) {
+            if (GRID_COLS === 52 && GRID_ROWS === 24) {
                 ui.shopBuyCanvasWideButton.textContent = 'Wide canvas (active)';
                 ui.shopBuyCanvasWideButton.disabled = true;
             } else if (ownedCanvasPresetIds.includes('wide')) {
-                ui.shopBuyCanvasWideButton.textContent = 'Use wide canvas (24x52)';
+                ui.shopBuyCanvasWideButton.textContent = 'Use wide canvas (52x24)';
                 ui.shopBuyCanvasWideButton.disabled = false;
             } else {
-                ui.shopBuyCanvasWideButton.textContent = `Buy wide canvas (24x52) · ${SHOP_CANVAS_WIDE_PRICE} coins`;
+                ui.shopBuyCanvasWideButton.textContent = `Buy wide canvas (52x24) · ${SHOP_CANVAS_WIDE_PRICE} coins`;
                 ui.shopBuyCanvasWideButton.disabled = galleryCoins < SHOP_CANVAS_WIDE_PRICE;
             }
         }
@@ -8142,29 +8355,82 @@ new p5(function(p) {
         } catch(e) {}
     }
 
+    function serializeGenerationHistorySnapshots(list) {
+        return list.map(snapshot => ({
+            serial: snapshot.serial,
+            reason: snapshot.reason,
+            imageDataUrl: snapshot.imageDataUrl,
+            canvasCols: snapshot.canvasCols || DEFAULT_GRID_COLS,
+            canvasRows: snapshot.canvasRows || DEFAULT_GRID_ROWS,
+            colorScheme: snapshot.colorScheme,
+            referenceRulePrecision: snapshot.referenceRulePrecision,
+            colorSchemeOffsetRange: snapshot.colorSchemeOffsetRange,
+            neighborSimilarRange: snapshot.neighborSimilarRange,
+            referenceMatchRgbRange: snapshot.referenceMatchRgbRange,
+            sold: !!snapshot.sold,
+            salePrice: snapshot.salePrice || 0,
+            soldTo: snapshot.soldTo || '',
+            saleFit: snapshot.saleFit || 0,
+            referencePath: snapshot.referencePath || '',
+            referenceKeyword: snapshot.referenceKeyword || '',
+            createdAtYear: snapshot.createdAtYear || new Date().getFullYear(),
+        }));
+    }
+
+    function isLocalStorageQuotaError(error) {
+        if (!error) return false;
+        if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') return true;
+        if (typeof error.code === 'number' && (error.code === 22 || error.code === 1014)) return true;
+        return false;
+    }
+
     function saveGenerationHistoryToStorage() {
-        try {
-            let serialized = generationHistory.map(snapshot => ({
-                serial: snapshot.serial,
-                reason: snapshot.reason,
-                imageDataUrl: snapshot.imageDataUrl,
-                canvasCols: snapshot.canvasCols || DEFAULT_GRID_COLS,
-                canvasRows: snapshot.canvasRows || DEFAULT_GRID_ROWS,
-                colorScheme: snapshot.colorScheme,
-                referenceRulePrecision: snapshot.referenceRulePrecision,
-                colorSchemeOffsetRange: snapshot.colorSchemeOffsetRange,
-                neighborSimilarRange: snapshot.neighborSimilarRange,
-                referenceMatchRgbRange: snapshot.referenceMatchRgbRange,
-                sold: !!snapshot.sold,
-                salePrice: snapshot.salePrice || 0,
-                soldTo: snapshot.soldTo || '',
-                saleFit: snapshot.saleFit || 0,
-                referencePath: snapshot.referencePath || '',
-                referenceKeyword: snapshot.referenceKeyword || '',
-                createdAtYear: snapshot.createdAtYear || new Date().getFullYear(),
-            }));
+        let tryWrite = (list) => {
+            let serialized = serializeGenerationHistorySnapshots(list);
             localStorage.setItem('generation_history_v1', JSON.stringify(serialized));
-        } catch(e) {}
+        };
+
+        try {
+            tryWrite(generationHistory);
+            return;
+        } catch (err) {
+            if (!isLocalStorageQuotaError(err)) return;
+        }
+
+        // First compaction pass: completely drop sold paintings to free storage.
+        let beforeSoldTrim = generationHistory.length;
+        generationHistory = generationHistory.filter(snapshot => !snapshot.sold);
+        if (beforeSoldTrim !== generationHistory.length) {
+            selectedSellSerials = new Set(
+                Array.from(selectedSellSerials).filter(serial => generationHistory.some(item => item.serial === serial))
+            );
+            if (selectedHistorySerial != null && !generationHistory.some(item => item.serial === selectedHistorySerial)) {
+                selectedHistorySerial = null;
+                closeGenerationPopup();
+            }
+            if (ui.generationStripList) rebuildGenerationStripFromHistory();
+            updateGenerationStripControls();
+        }
+
+        try {
+            tryWrite(generationHistory);
+            return;
+        } catch (err) {
+            if (!isLocalStorageQuotaError(err)) return;
+        }
+
+        // Second compaction pass: if still out of space, trim oldest remaining snapshots.
+        while (generationHistory.length > 1) {
+            generationHistory.shift();
+            try {
+                tryWrite(generationHistory);
+                if (ui.generationStripList) rebuildGenerationStripFromHistory();
+                updateGenerationStripControls();
+                return;
+            } catch (err) {
+                if (!isLocalStorageQuotaError(err)) return;
+            }
+        }
     }
 
     function loadGenerationHistoryFromStorage() {
@@ -8173,33 +8439,58 @@ new p5(function(p) {
             if (!raw) return;
             let data = JSON.parse(raw);
             if (!Array.isArray(data)) return;
-            
+
             generationHistory = [];
+            let usedSerials = new Set();
+            let nextSerial = 1;
+
             for (let item of data) {
-                if (!item.imageDataUrl) continue;
-                
+                if (!item || typeof item !== 'object') continue;
+                if (typeof item.imageDataUrl !== 'string' || !item.imageDataUrl.startsWith('data:image/')) continue;
+
+                let serial = Math.floor(Number(item.serial));
+                if (!Number.isFinite(serial) || serial <= 0) {
+                    serial = nextSerial;
+                }
+                while (usedSerials.has(serial)) serial += 1;
+                usedSerials.add(serial);
+                nextSerial = Math.max(nextSerial, serial + 1);
+
+                let cols = Math.max(10, Math.min(GRID_MAX_COLS, Math.floor(Number(item.canvasCols) || DEFAULT_GRID_COLS)));
+                let rows = Math.max(10, Math.min(GRID_MAX_ROWS, Math.floor(Number(item.canvasRows) || DEFAULT_GRID_ROWS)));
+
+                let safeScheme = Array.isArray(item.colorScheme)
+                    ? item.colorScheme
+                        .map(col => (Array.isArray(col) && col.length === 3
+                            ? [clampByte(col[0]), clampByte(col[1]), clampByte(col[2])]
+                            : null))
+                        .filter(Boolean)
+                    : [];
+
                 let snapshot = {
-                    serial: item.serial,
-                    reason: item.reason,
+                    serial,
+                    reason: typeof item.reason === 'string' ? item.reason : 'archived',
                     imageDataUrl: item.imageDataUrl,
-                    canvasCols: item.canvasCols || DEFAULT_GRID_COLS,
-                    canvasRows: item.canvasRows || DEFAULT_GRID_ROWS,
-                    colorScheme: item.colorScheme || [],
-                    referenceRulePrecision: item.referenceRulePrecision || REFERENCE_RULE_PRECISION,
-                    colorSchemeOffsetRange: item.colorSchemeOffsetRange || COLOR_SCHEME_OFFSET_RANGE,
-                    neighborSimilarRange: item.neighborSimilarRange || NEIGHBOR_SIMILAR_RANGE,
-                    referenceMatchRgbRange: item.referenceMatchRgbRange || REFERENCE_MATCH_RGB_RANGE,
+                    canvasCols: cols,
+                    canvasRows: rows,
+                    colorScheme: safeScheme,
+                    referenceRulePrecision: Number(item.referenceRulePrecision) || REFERENCE_RULE_PRECISION,
+                    colorSchemeOffsetRange: Number(item.colorSchemeOffsetRange) || COLOR_SCHEME_OFFSET_RANGE,
+                    neighborSimilarRange: Number(item.neighborSimilarRange) || NEIGHBOR_SIMILAR_RANGE,
+                    referenceMatchRgbRange: Number(item.referenceMatchRgbRange) || REFERENCE_MATCH_RGB_RANGE,
                     sold: !!item.sold,
-                    salePrice: item.salePrice || 0,
-                    soldTo: item.soldTo || '',
-                    saleFit: item.saleFit || 0,
-                    referencePath: item.referencePath || '',
-                    referenceKeyword: item.referenceKeyword || inferReferenceKeywordFromPath(item.referencePath || ''),
-                    createdAtYear: item.createdAtYear || new Date().getFullYear(),
+                    salePrice: Math.max(0, Number(item.salePrice) || 0),
+                    soldTo: typeof item.soldTo === 'string' ? item.soldTo : '',
+                    saleFit: Number(item.saleFit) || 0,
+                    referencePath: typeof item.referencePath === 'string' ? item.referencePath : '',
+                    referenceKeyword: (typeof item.referenceKeyword === 'string' && item.referenceKeyword.trim())
+                        ? item.referenceKeyword
+                        : inferReferenceKeywordFromPath(typeof item.referencePath === 'string' ? item.referencePath : ''),
+                    createdAtYear: Number(item.createdAtYear) || new Date().getFullYear(),
                 };
                 generationHistory.push(snapshot);
             }
-            
+
             // Rebuild the generation strip UI from history
             if (ui.generationStripList) {
                 rebuildGenerationStripFromHistory();
@@ -8208,14 +8499,19 @@ new p5(function(p) {
             updateGenerationStripControls();
 
             if (generationHistory.length > 0) {
-                let maxSerial = Math.max(...generationHistory.map(item => item.serial || 0));
-                generationSerial = Math.max(generationSerial, maxSerial + 1);
+                let maxSerial = Math.max(...generationHistory.map(item => Math.floor(Number(item.serial)) || 0));
+                if (Number.isFinite(maxSerial) && maxSerial > 0) {
+                    generationSerial = Math.max(generationSerial, maxSerial + 1);
+                }
 
                 let latestSnapshot = generationHistory[generationHistory.length - 1];
                 if (latestSnapshot && typeof latestSnapshot.referencePath === 'string' && latestSnapshot.referencePath.trim()) {
                     currentReferenceSpritePath = latestSnapshot.referencePath;
                 }
             }
+
+            // Rewrite storage with sanitized data so future loads remain stable.
+            saveGenerationHistoryToStorage();
         } catch(e) {}
     }
 
@@ -8253,7 +8549,43 @@ new p5(function(p) {
                 favouriteGenerationSerial,
             }));
             saveGenerationHistoryToStorage();
-        } catch(e) {}
+        } catch(e) {
+            if (!isLocalStorageQuotaError(e)) return;
+            try {
+                saveGenerationHistoryToStorage();
+                localStorage.setItem('creature_v2', JSON.stringify({
+                    need: c.need, lastVisit: Date.now(), totalVisits: c.totalVisits,
+                    energy: c.energy,
+                    galleryCoins,
+                    longRestUntil: restState.longRestUntil,
+                    shortRestActive: restState.shortActive,
+                    shortRestUntil: restState.shortRestUntil,
+                    paletteUpgradeCount,
+                    hasComputerUpgrade,
+                    easyStyleProfile,
+                    fullEnergyStyleSnapshot,
+                    fullEnergyColorScheme,
+                    lastEnergyStyleInfluence,
+                    colourPreference,
+                    stylePreference,
+                    frozenSchemeSlots,
+                    frozenSchemeValues,
+                    energyDrinkGridBoostActive,
+                    ownedGalleryWallThemeIds,
+                    activeGalleryWallThemeId,
+                    ownedStudioWallThemeIds,
+                    activeStudioWallThemeId,
+                    ownedStudioDecorThemeIds,
+                    activePotStyleThemeId,
+                    ownedPotStyleThemeIds,
+                    ownedCanvasPresetIds,
+                    ownedCustomCanvasDraft,
+                    ownedShopMusicTrackIds,
+                    activeShopMusicTrackId,
+                    favouriteGenerationSerial,
+                }));
+            } catch (_) {}
+        }
     }
 
     function loadState(c) {
@@ -8385,7 +8717,13 @@ new p5(function(p) {
         if (ui.neighborRange) ui.neighborRange.textContent = String(NEIGHBOR_SIMILAR_RANGE);
         if (ui.refRange) ui.refRange.textContent = String(REFERENCE_MATCH_RGB_RANGE);
         if (ui.randomRule) ui.randomRule.textContent = ENABLE_GLOBAL_RANDOM_COLOR_RULE ? 'on' : 'off';
-        if (ui.scheme) ui.scheme.textContent = colorScheme.map(col => `(${col[0]},${col[1]},${col[2]})`).join(' ');
+        if (ui.scheme) {
+            let safeScheme = colorScheme
+                .filter(col => Array.isArray(col) && col.length === 3)
+                .map(col => `(${col[0]},${col[1]},${col[2]})`)
+                .join(' ');
+            ui.scheme.textContent = safeScheme || '-';
+        }
         if (ui.coins) ui.coins.textContent = String(galleryCoins);
         if (ui.sceneCash) ui.sceneCash.textContent = `Cash: ${galleryCoins}`;
 
@@ -8463,6 +8801,7 @@ new p5(function(p) {
     window._likeStyleImmediate = () => { onLikeStyleFeedbackImmediate(); };
     window._dislikeStyleImmediate = () => { onDislikeStyleFeedbackImmediate(); };
     window._onRadialQuestionAnswered = (actionKey, questionType) => {
+        let hadActiveQuestion = creatureQuestionState.active;
         if (!creatureQuestionState.active) return;
         clearCreatureQuestionDialogueAutoHide();
         hideNpcDialogueBox();
@@ -8472,6 +8811,9 @@ new p5(function(p) {
         generationPaused = false;
         scheduleNextCreatureQuestion();
         saveState(creature);
+        if (!hadActiveQuestion) {
+            console.warn('Radial question answered without an active question state.');
+        }
     };
     window._checkUp = () => { return checkUpStatusMessage(); };
     window._prepareDialogueTextWithExpression = text => { return prepareDialogueTextWithExpression(String(text || '')); };

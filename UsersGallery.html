@@ -502,10 +502,16 @@
             return (offset + neighbor + ref) / 3;
         }
 
+        function getSnapshotCanvasDimensions(snapshot) {
+            return {
+                cols: Math.max(1, Math.floor(Number(snapshot.canvasCols) || DEFAULT_CANVAS_COLS)),
+                rows: Math.max(1, Math.floor(Number(snapshot.canvasRows) || DEFAULT_CANVAS_ROWS)),
+            };
+        }
+
         function getSnapshotCanvasArea(snapshot) {
-            let cols = Math.max(1, Math.floor(Number(snapshot.canvasCols) || DEFAULT_CANVAS_COLS));
-            let rows = Math.max(1, Math.floor(Number(snapshot.canvasRows) || DEFAULT_CANVAS_ROWS));
-            return cols * rows;
+            let dims = getSnapshotCanvasDimensions(snapshot);
+            return dims.cols * dims.rows;
         }
 
         function evaluateSnapshotAgainstBuyer(snapshot, buyer, useRandomBase = true) {
@@ -607,13 +613,14 @@
         }
 
         function trimmedFallbackForSnapshot(snapshot) {
+            let dims = getSnapshotCanvasDimensions(snapshot);
             return {
                 serial: Number(snapshot.serial),
                 imageDataUrl: snapshot.imageDataUrl,
-                width: 1,
-                height: 1,
-                area: 1,
-                aspect: 1,
+                width: dims.cols,
+                height: dims.rows,
+                area: dims.cols * dims.rows,
+                aspect: dims.cols / dims.rows,
             };
         }
 
@@ -683,8 +690,9 @@
 
             let promise = trimTransparentPadding(snapshot.imageDataUrl)
                 .then((trimmed) => {
-                    let width = Math.max(1, Number(trimmed.width) || 1);
-                    let height = Math.max(1, Number(trimmed.height) || 1);
+                    let dims = getSnapshotCanvasDimensions(snapshot);
+                    let width = dims.cols;
+                    let height = dims.rows;
                     return {
                         serial,
                         imageDataUrl: trimmed.imageDataUrl || snapshot.imageDataUrl,
