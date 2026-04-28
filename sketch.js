@@ -123,6 +123,11 @@ new p5(function(p) {
         'References/FamiliarBirdReference2.png',
         'References/FamiliarRealBirdReference.webp',
         'References/FamiliarRealBirdReference2.webp',
+        'References/QuestionMark.png',
+        'References/FamiliarTextArt-Happy.png',
+        'References/FamiliarTextArt-Confident.png',
+        'References/Familiar UI Design 1.png',
+        'References/Familiar UI Design 2.png',
         'TextArt/FamiliarTextArt-Happy.png',
         'TextArt/FamiliarTextArt-Pride.png',
         'TextArt/FamiliarTextArt-Sad.png',
@@ -169,7 +174,7 @@ new p5(function(p) {
     let SHORT_REST_ENERGY_RECOVERY = 0.0025; // energy gain per frame during short rest
     let LONG_REST_ENERGY_RECOVERY = 0.008;   // energy gain per frame during long rest
 
-    let AFK_PER_HOUR   = 5;      // extra need added per hour since last visit
+    let AFK_PER_HOUR   = 60;      // extra need added per hour since last visit
     let AFK_MAX_HOURS  = 168;    // cap time-away at 7 days
     let CLICK_FEED     = 20;     // how much a click increases need
     let MIC_THRESHOLD  = 0.3;   // how loud is "loud" (0–1)
@@ -614,6 +619,7 @@ new p5(function(p) {
     }
 
     let creature;
+    let studioBackgroundLayer = null;
     let micAnalyser = null;
     let micActive   = false;
     let micData     = null;   // reused buffer — allocated once when mic starts
@@ -647,6 +653,7 @@ new p5(function(p) {
     let referenceSearchPending = false;
     let queuedReferenceForNextGeneration = null;
     let queuedExpressionReferenceForNextGeneration = null;
+    let suppressExitPersistence = false;
     let paintingSpriteSheet = null;
     let paintingFrameIndex = 0;
     let lastPaintingFrameAt = 0;
@@ -778,6 +785,26 @@ new p5(function(p) {
 
     function recordUserInputTimestamp(nowMs = Date.now()) {
         lastUserInputAtMs = nowMs;
+    }
+
+    function attachStudioBackgroundLayer() {
+        let container = document.getElementById('canvas-container');
+        if (!container) return;
+
+        if (studioBackgroundLayer && studioBackgroundLayer.elt && studioBackgroundLayer.elt.parentNode) {
+            studioBackgroundLayer.elt.parentNode.removeChild(studioBackgroundLayer.elt);
+        }
+
+        let size = canvasSize();
+        studioBackgroundLayer = p.createGraphics(size.w, size.h);
+        studioBackgroundLayer.pixelDensity(1);
+        studioBackgroundLayer.clear();
+        studioBackgroundLayer.elt.style.position = 'absolute';
+        studioBackgroundLayer.elt.style.left = '0';
+        studioBackgroundLayer.elt.style.top = '0';
+        studioBackgroundLayer.elt.style.zIndex = '0';
+        studioBackgroundLayer.elt.style.pointerEvents = 'none';
+        container.insertBefore(studioBackgroundLayer.elt, container.firstChild);
     }
 
     function markGenerationEndedForIdleAutoNext(nowMs = Date.now()) {
@@ -2777,10 +2804,14 @@ new p5(function(p) {
         let sz  = canvasSize();
         let cnv = p.createCanvas(sz.w, sz.h);
         cnv.parent('canvas-container');
+        cnv.elt.style.position = 'relative';
+        cnv.elt.style.zIndex = '1';
+        cnv.elt.style.background = 'transparent';
         cnv.mousePressed(onCanvasPointerDown);
         cnv.elt.addEventListener('contextmenu', event => event.preventDefault());
         p.noSmooth();
         cnv.elt.style.imageRendering = 'pixelated';
+        attachStudioBackgroundLayer();
         applyAreaButtonLayoutVariables();
 
         let home = getCreatureHomePosition();
@@ -3157,6 +3188,61 @@ new p5(function(p) {
                 target.tagName === 'TEXTAREA' ||
                 target.isContentEditable
             );
+            if (!isTextInputTarget && (event.key === 'm' || event.key === 'M')) {
+                galleryCoins += 100;
+                refreshShopUI();
+                saveState(creature);
+                event.preventDefault();
+                return;
+            }
+            if (!isTextInputTarget && (event.key === 's' || event.key === 'S')) {
+                event.preventDefault();
+                try {
+                    suppressExitPersistence = true;
+                    let raw = localStorage.getItem('creature_v2');
+                    if (raw) {
+                        let data = JSON.parse(raw);
+                        data.lastVisit = Date.now() - 3600000;
+                        localStorage.setItem('creature_v2', JSON.stringify(data));
+                    } else if (creature) {
+                        localStorage.setItem('creature_v2', JSON.stringify({
+                            need: creature.need,
+                            lastVisit: Date.now() - 3600000,
+                            totalVisits: creature.totalVisits,
+                            energy: creature.energy,
+                            galleryCoins,
+                            longRestUntil: restState.longRestUntil,
+                            shortRestActive: restState.shortActive,
+                            shortRestUntil: restState.shortRestUntil,
+                            paletteUpgradeCount,
+                            hasComputerUpgrade,
+                            easyStyleProfile,
+                            fullEnergyStyleSnapshot,
+                            fullEnergyColorScheme,
+                            lastEnergyStyleInfluence,
+                            colourPreference,
+                            stylePreference,
+                            frozenSchemeSlots,
+                            frozenSchemeValues,
+                            energyDrinkGridBoostActive,
+                            ownedGalleryWallThemeIds,
+                            activeGalleryWallThemeId,
+                            ownedStudioWallThemeIds,
+                            activeStudioWallThemeId,
+                            ownedStudioDecorThemeIds,
+                            activePotStyleThemeId,
+                            ownedPotStyleThemeIds,
+                            ownedCanvasPresetIds,
+                            ownedCustomCanvasDraft,
+                            ownedShopMusicTrackIds,
+                            activeShopMusicTrackId,
+                            favouriteGenerationSerial,
+                        }));
+                    }
+                    window.location.reload();
+                    return;
+                } catch (_) {}
+            }
             if (event.code === 'Space') {
                 if (!isTextInputTarget) {
                     gridView.spaceDown = true;
@@ -3173,6 +3259,15 @@ new p5(function(p) {
         document.addEventListener('keyup', (event) => {
             if (event.code === 'Space') gridView.spaceDown = false;
         });
+        window.addEventListener('pagehide', () => {
+            if (!suppressExitPersistence) saveState(creature);
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !suppressExitPersistence) saveState(creature);
+        });
+        window.addEventListener('beforeunload', () => {
+            if (!suppressExitPersistence) saveState(creature);
+        });
         updateGenerationStripLayout();
         updateGenerationStripControls();
         refreshReferencePreviewCard();
@@ -3188,7 +3283,7 @@ new p5(function(p) {
                 clearSavedProgressStorage();
                 applyFullProgressResetState({
                     shouldPlayPurchaseSound: false,
-                    initialCoins: 5000,
+                    initialCoins: 100,
                     statusMessage: 'Fresh start ready. Progress and paintings were reset.',
                 });
             }
@@ -3236,7 +3331,6 @@ new p5(function(p) {
         window.addEventListener('blur',  () => { creature.isWatched = false; });
 
         setInterval(() => { saveState(creature); creature.hour = new Date().getHours(); }, 30000);
-        window.addEventListener('beforeunload', () => saveState(creature));
     };
 
 
@@ -3265,10 +3359,16 @@ new p5(function(p) {
     p.draw = function() {
         applyActiveGalleryWallTheme();
         applyActiveStudioWallTheme();
-        p.background(...bgColour);
+        if (studioBackgroundLayer) {
+            drawStudioEnvironment(creature, studioBackgroundLayer);
+        }
+
+        p.clear();
+        if (studioBackgroundLayer) {
+            p.image(studioBackgroundLayer, 0, 0);
+        }
 
         updateMic(creature);
-        drawStudioEnvironment(creature);
         updateCreature(creature);
         maybeStartCreatureQuestion(creature);
         updateFoodDragHoverState();
@@ -4119,27 +4219,28 @@ new p5(function(p) {
         });
     }
 
-    function drawStudioEnvironment(c) {
-        let splitY = p.height * p.constrain(STUDIO_WALL_FLOOR_SPLIT_Y, 0.2, 0.9);
+    function drawStudioEnvironment(c, g = p) {
+        let splitY = g.height * Math.max(0.2, Math.min(0.9, Number(STUDIO_WALL_FLOOR_SPLIT_Y) || 0.62));
         let floorColour = [
             clampByte(studioWallColour[0] * STUDIO_FLOOR_DARKEN),
             clampByte(studioWallColour[1] * STUDIO_FLOOR_DARKEN),
             clampByte(studioWallColour[2] * STUDIO_FLOOR_DARKEN),
         ];
 
-        p.push();
-        p.noStroke();
-        p.fill(...studioWallColour);
-        p.rect(0, 0, p.width, splitY);
-        drawStudioWallTexture(splitY);
-        p.fill(...floorColour);
-        p.rect(0, splitY, p.width, p.height - splitY);
-        p.pop();
+        g.clear();
+        g.push();
+        g.noStroke();
+        g.fill(...studioWallColour);
+        g.rect(0, 0, g.width, splitY);
+        drawStudioWallTexture(splitY, g);
+        g.fill(...floorColour);
+        g.rect(0, splitY, g.width, g.height - splitY);
+        g.pop();
 
         ensureStudioDecorSprites();
         syncStudioFavoritePaintingImage();
 
-        drawStudioDecorByZRange(Number.NEGATIVE_INFINITY, STATIC_TABLE_Z_INDEX);
+        drawStudioDecorByZRange(Number.NEGATIVE_INFINITY, STATIC_TABLE_Z_INDEX, g);
     }
 
     function getSortedOwnedStudioDecorThemes() {
@@ -4154,11 +4255,11 @@ new p5(function(p) {
             });
     }
 
-    function drawStudioDecorByZRange(minZInclusive, maxZExclusive) {
+    function drawStudioDecorByZRange(minZInclusive, maxZExclusive, g = p) {
         let ownedDecorThemes = getSortedOwnedStudioDecorThemes();
 
-        p.push();
-        p.noStroke();
+        g.push();
+        g.noStroke();
 
         for (let i = 0; i < ownedDecorThemes.length; i++) {
             let theme = ownedDecorThemes[i];
@@ -4167,96 +4268,96 @@ new p5(function(p) {
             let rect = getStudioDecorRenderRect(theme);
 
             if (theme.id === 'frame-favorite') {
-                p.fill(255, 255, 255, 152);
-                p.rect(rect.x - 8, rect.y - 8, rect.w + 16, rect.h + 16, 0);
-                p.fill(30, 30, 30, 120);
-                p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
+                g.fill(255, 255, 255, 152);
+                g.rect(rect.x - 8, rect.y - 8, rect.w + 16, rect.h + 16, 0);
+                g.fill(30, 30, 30, 120);
+                g.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
                 if (studioFavoritePaintingImage) {
-                    p.tint(255, 145);
-                    p.imageMode(p.CORNER);
-                    p.image(studioFavoritePaintingImage, rect.x, rect.y, rect.w, rect.h);
-                    p.noTint();
+                    g.tint(255, 145);
+                    g.imageMode(g.CORNER);
+                    g.image(studioFavoritePaintingImage, rect.x, rect.y, rect.w, rect.h);
+                    g.noTint();
                 } else {
-                    p.fill(...studioWallColour, 180);
-                    p.rect(rect.x, rect.y, rect.w, rect.h, 0);
-                    p.fill(20, 20, 20, 120);
-                    p.textAlign(p.CENTER, p.CENTER);
-                    p.textSize(11);
-                    p.text('Favourite', rect.x + rect.w / 2, rect.y + rect.h / 2 - 6);
-                    p.text('painting', rect.x + rect.w / 2, rect.y + rect.h / 2 + 8);
+                    g.fill(...studioWallColour, 180);
+                    g.rect(rect.x, rect.y, rect.w, rect.h, 0);
+                    g.fill(20, 20, 20, 120);
+                    g.textAlign(g.CENTER, g.CENTER);
+                    g.textSize(11);
+                    g.text('Favourite', rect.x + rect.w / 2, rect.y + rect.h / 2 - 6);
+                    g.text('painting', rect.x + rect.w / 2, rect.y + rect.h / 2 + 8);
                 }
-                p.noFill();
-                p.stroke(130, 98, 52, 220);
-                p.strokeWeight(8);
-                p.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
-                p.noStroke();
+                g.noFill();
+                g.stroke(130, 98, 52, 220);
+                g.strokeWeight(8);
+                g.rect(rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4, 0);
+                g.noStroke();
                 continue;
             }
 
             let sprite = studioDecorSprites.get(theme.id);
             if (sprite) {
-                p.imageMode(p.CORNER);
-                p.image(sprite, rect.x, rect.y, rect.w, rect.h);
+                g.imageMode(g.CORNER);
+                g.image(sprite, rect.x, rect.y, rect.w, rect.h);
             } else {
-                p.fill(255, 255, 255, 105);
-                p.rect(rect.x, rect.y, rect.w, rect.h, 8);
-                p.fill(30, 30, 30, 150);
-                p.textAlign(p.CENTER, p.CENTER);
-                p.textSize(10);
-                p.text(theme.label, rect.x + rect.w / 2, rect.y + rect.h / 2);
+                g.fill(255, 255, 255, 105);
+                g.rect(rect.x, rect.y, rect.w, rect.h, 8);
+                g.fill(30, 30, 30, 150);
+                g.textAlign(g.CENTER, g.CENTER);
+                g.textSize(10);
+                g.text(theme.label, rect.x + rect.w / 2, rect.y + rect.h / 2);
             }
         }
 
-        p.pop();
+        g.pop();
     }
 
-    function drawStudioWallTexture(splitY) {
+    function drawStudioWallTexture(splitY, g = p) {
         if (activeStudioWallThemeId === 'ink') {
-            drawBrickWallTexture(splitY);
+            drawBrickWallTexture(splitY, g);
             return;
         }
 
         if (activeStudioWallThemeId === 'rose') {
-            p.push();
-            p.stroke(196, 136, 136, 78);
-            p.strokeWeight(1.2);
-            for (let x = -p.height; x < p.width + p.height; x += 24) {
-                p.line(x, 0, x + splitY * 0.75, splitY);
+            g.push();
+            g.stroke(196, 136, 136, 78);
+            g.strokeWeight(1.2);
+            for (let x = -g.height; x < g.width + g.height; x += 24) {
+                g.line(x, 0, x + splitY * 0.75, splitY);
             }
-            p.pop();
+            g.pop();
             return;
         }
 
         if (activeStudioWallThemeId === 'moss') {
-            p.push();
-            p.stroke(120, 154, 118, 62);
-            p.strokeWeight(1.5);
+            g.push();
+            g.stroke(120, 154, 118, 62);
+            g.strokeWeight(1.5);
             for (let y = 10; y < splitY; y += 22) {
-                p.line(0, y, p.width, y);
+                g.line(0, y, g.width, y);
             }
-            p.pop();
+            g.pop();
         }
     }
 
-    function drawBrickWallTexture(splitY) {
+    function drawBrickWallTexture(splitY, g = p) {
         let brickH = 24;
         let brickW = 68;
 
-        p.push();
-        p.stroke(114, 120, 132, 82);
-        p.strokeWeight(1.4);
+        g.push();
+        g.stroke(114, 120, 132, 82);
+        g.strokeWeight(1.4);
 
         for (let y = brickH; y < splitY; y += brickH) {
-            p.line(0, y, p.width, y);
+            g.line(0, y, g.width, y);
         }
 
         for (let row = 0, y = 0; y < splitY; row += 1, y += brickH) {
             let xOffset = (row % 2) * (brickW * 0.5);
-            for (let x = xOffset; x < p.width; x += brickW) {
-                p.line(x, y, x, p.min(splitY, y + brickH));
+            for (let x = xOffset; x < g.width; x += brickW) {
+                g.line(x, y, x, Math.min(splitY, y + brickH));
             }
         }
-        p.pop();
+        g.pop();
     }
 
     function drawStaticPotBehindCreature(c) {
@@ -8591,11 +8692,11 @@ new p5(function(p) {
     function loadState(c) {
         try {
             let raw = localStorage.getItem('creature_v2');
-            if (!raw) { c.totalVisits = 1; return; }
+            if (!raw) { c.totalVisits = 1; c.lastVisit = Date.now(); return; }
             let data = JSON.parse(raw);
             c.need        = data.need ?? 50;
             c.energy      = data.energy ?? 100;
-            c.lastVisit   = data.lastVisit;
+            c.lastVisit   = Number.isFinite(Number(data.lastVisit)) ? Number(data.lastVisit) : Date.now();
             c.totalVisits = (data.totalVisits || 0) + 1;
             galleryCoins  = data.galleryCoins || 0;
             paletteUpgradeCount = Math.max(0, Math.floor(Number(data.paletteUpgradeCount) || 0));
@@ -8686,7 +8787,7 @@ new p5(function(p) {
                 restState.shortRestUntil = 0;
             }
             if (c.lastVisit) {
-                let hours = Math.min((Date.now() - c.lastVisit) / 3600000, AFK_MAX_HOURS);
+                let hours = Math.max(0, Math.min((Date.now() - c.lastVisit) / 3600000, AFK_MAX_HOURS));
                 c.energy = Math.min(c.energy + hours * AFK_PER_HOUR, 100);
             }
             ensureEasyStyleProfile();
@@ -8762,6 +8863,7 @@ new p5(function(p) {
     p.windowResized = function() {
         let sz = canvasSize();
         p.resizeCanvas(sz.w, sz.h);
+        attachStudioBackgroundLayer();
         let home = getCreatureHomePosition();
         creature.originX = home.x;
         creature.originY = home.y;
