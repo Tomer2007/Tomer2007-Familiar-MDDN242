@@ -82,7 +82,6 @@ I wasn't too sure how to code a menu like this, so I drew up some example images
 
 I asked both the co-pilot and Claude to try to recreate. Eventually, after a lot of attempts and iterations, I was finally able to make it work, which I'm pretty proud of, as the radial menu makes interacting with the creature feel more like communication than just pressing buttons.
 
-![Image of radial menu]()
 
 ### Letting the Familiar Rest
 I also added a resting mechanic as the only way to get back energy by sleeping. This helped limit the number of generations made, but I didn't really like just stopping the generation until the familiar rests. So I decided to make something a bit more punishing for trying to make the creature continue working when exhausted, so I made every new user generate an "easy style", a randomly generated style that represents the style the creature can do without much effort. As the creature gets more tired his art will start to drift back to this easier style as they run out of energy, meaning the style you set for a generation can completely change while it's being made, resulting in something unwanted and taking control away from users.
@@ -136,7 +135,7 @@ And then got Co-Pilot to add them to the store, and to make the food sprites app
 
 ![ShopUpdate](ProcessImages/ShopUpdate.png) 
 
-![inset food in scene photo]()
+![Room of New food](ProcessImages/UpdatedFood.png)
 
 There was one decoration I didn't draw, though, and that's the "Favourite Painting," which I got co-pilot to make in p5 so the user could see their favourite past painting in the studio. 
 

@@ -125,13 +125,10 @@ new p5(function(p) {
         'References/FamiliarRealBirdReference2.webp',
         'References/QuestionMark.png',
         'References/FamiliarTextArt-Happy.png',
-        'References/FamiliarTextArt-Confident.png',
         'References/FamiliarUIDesign1.png',
         'References/FamiliarUIDesign2.png',
-        'TextArt/FamiliarTextArt-Happy.png',
         'TextArt/FamiliarTextArt-Pride.png',
         'TextArt/FamiliarTextArt-Sad.png',
-        'TextArt/FamiliarTextArt-Nervous.png',
         'TextArt/FamiliarTextArt-Yawn.png',
     ];
 
@@ -142,10 +139,10 @@ new p5(function(p) {
         'References/FamiliarRealBirdReference.webp',
         'References/FamiliarRealBirdReference2.webp',
         'References/QuestionMark.png',
-        'TextArt/FamiliarTextArt-Pride.png',
         'TextArt/FamiliarTextArt-Sad.png',
         'TextArt/FamiliarTextArt-Nervous.png',
         'TextArt/FamiliarTextArt-Yawn.png',
+        'References/FamiliarTextArt-Confident.png',
     ];
 
     const TEXTART_EXPRESSION_KEYWORDS = {
@@ -177,7 +174,10 @@ new p5(function(p) {
     const SHOW_UI      = true;   // set false to hide the sidebar while designing
 
     // --- Creature core ---
-    let CREATURE_SIZE  = 300;    // body diameter in pixels
+    let CREATURE_SIZE_PERCENT = 0.39;    // body diameter as % of min viewport dimension
+    let CREATURE_SIZE_MIN = 170;
+    let CREATURE_SIZE_MAX = 460;
+    let CREATURE_SIZE  = 300;            // resolved pixel size (auto-updated on setup/resize)
     let CREATURE_HOME_X = 0.65;   // normalized home position (0..1)
     let CREATURE_HOME_Y = 0.48;   // normalized home position (0..1)
 
@@ -205,13 +205,12 @@ new p5(function(p) {
     let MIC_DEBUG_BAR_W = 220;
     let MIC_DEBUG_BAR_H = 12;
 
-    // --- UI Positioning (static/manual) ---
-    // Set these to position the radial menu and canvas button directly.
-    // These are screen coordinates relative to the canvas-area container.
-    let RADIAL_MENU_CENTER_X = 350;   // center X of radial menu
-    let RADIAL_MENU_CENTER_Y = -30;   // center Y of radial menu
-    let CANVAS_BUTTON_X = 850;        // button X position
-    let CANVAS_BUTTON_Y = 340;        // button Y position
+    // --- UI Positioning (responsive percentages) ---
+    // Coordinates are normalized against each element's offset parent.
+    let RADIAL_MENU_CENTER_X_PERCENT = 0.32;
+    let RADIAL_MENU_CENTER_Y_PERCENT = -0.05;
+    let CANVAS_BUTTON_X_PERCENT = 0.58;
+    let CANVAS_BUTTON_Y_PERCENT = 0.55;
     
     // --- Grid generation ---
     let GRID_COLS      = DEFAULT_GRID_COLS;
@@ -387,10 +386,11 @@ new p5(function(p) {
     let GALLERY_BUTTON_SIZE = 286;
 
     // --- Static pot behind creature ---
-    let STATIC_POT_OFFSET_X = 0;
-    let STATIC_POT_OFFSET_Y = -5;
-    let STATIC_POT_WIDTH = 408;
-    let STATIC_POT_HEIGHT = 408;
+    // Pot dimensions/offset are percentages of the resolved creature size.
+    let STATIC_POT_OFFSET_X_PERCENT = 0;
+    let STATIC_POT_OFFSET_Y_PERCENT = -0.0167;
+    let STATIC_POT_WIDTH_PERCENT = 1.36;
+    let STATIC_POT_HEIGHT_PERCENT = 1.36;
 
     // --- Static table object ---
     let STATIC_TABLE_CENTER_X = 0.27; // normalized screen position (0..1)
@@ -1223,6 +1223,24 @@ new p5(function(p) {
             w: p.windowWidth - 20,
             h: p.windowHeight - 20,
         };
+    }
+
+    function getElementPositioningBounds(element) {
+        let parent = element && element.offsetParent;
+        let width = parent ? parent.clientWidth : p.width;
+        let height = parent ? parent.clientHeight : p.height;
+        return {
+            w: Math.max(1, Number(width) || 1),
+            h: Math.max(1, Number(height) || 1),
+        };
+    }
+
+    function updateResponsiveCreatureSize() {
+        let minViewportDimension = Math.max(1, Math.min(p.width || 1, p.height || 1));
+        let sizePercent = Math.max(0.05, Number(CREATURE_SIZE_PERCENT) || 0.39);
+        let minSize = Math.max(32, Number(CREATURE_SIZE_MIN) || 32);
+        let maxSize = Math.max(minSize, Number(CREATURE_SIZE_MAX) || minSize);
+        CREATURE_SIZE = p.constrain(minViewportDimension * sizePercent, minSize, maxSize);
     }
 
     function applyAreaButtonLayoutVariables() {
@@ -2886,6 +2904,7 @@ new p5(function(p) {
         cnv.elt.style.imageRendering = 'pixelated';
         attachStudioBackgroundLayer();
         applyAreaButtonLayoutVariables();
+        updateResponsiveCreatureSize();
 
         let home = getCreatureHomePosition();
         creature = createCreature(home.x, home.y);
@@ -4232,25 +4251,25 @@ new p5(function(p) {
 
     function getStudioDecorRenderRect(theme) {
         if (theme.id === 'frame-favorite') {
-            let aspect = 1;
-            if (studioFavoritePaintingCanvasSize
+            let sourceW = 1;
+            let sourceH = 1;
+            if (studioFavoritePaintingImage
+                && studioFavoritePaintingImage.width > 0
+                && studioFavoritePaintingImage.height > 0) {
+                sourceW = studioFavoritePaintingImage.width;
+                sourceH = studioFavoritePaintingImage.height;
+            } else if (studioFavoritePaintingCanvasSize
                 && studioFavoritePaintingCanvasSize.cols > 0
                 && studioFavoritePaintingCanvasSize.rows > 0) {
-                aspect = studioFavoritePaintingCanvasSize.cols / studioFavoritePaintingCanvasSize.rows;
-            } else if (studioFavoritePaintingImage && studioFavoritePaintingImage.height > 0) {
-                aspect = (studioFavoritePaintingImage.width || 1) / (studioFavoritePaintingImage.height || 1);
+                sourceW = studioFavoritePaintingCanvasSize.cols;
+                sourceH = studioFavoritePaintingCanvasSize.rows;
             }
 
-            let baseHeight = Math.max(32, Math.round(STUDIO_FAVORITE_FRAME_H * STUDIO_FAVORITE_FRAME_SIZE_SCALE));
-            let w = Math.max(32, Math.round(baseHeight * aspect));
-            let h = baseHeight;
-
-            let maxW = Math.max(80, Math.round(p.width * 0.44));
-            if (w > maxW) {
-                let scale = maxW / w;
-                w = Math.max(32, Math.round(w * scale));
-                h = Math.max(32, Math.round(h * scale));
-            }
+            let maxW = Math.max(80, Math.round(STUDIO_FAVORITE_FRAME_W * STUDIO_FAVORITE_FRAME_SIZE_SCALE));
+            let maxH = Math.max(80, Math.round(STUDIO_FAVORITE_FRAME_H * STUDIO_FAVORITE_FRAME_SIZE_SCALE));
+            let fitScale = Math.min(maxW / Math.max(1, sourceW), maxH / Math.max(1, sourceH));
+            let w = Math.max(32, Math.round(sourceW * fitScale));
+            let h = Math.max(32, Math.round(sourceH * fitScale));
 
             return {
                 x: p.width * STUDIO_FAVORITE_FRAME_X,
@@ -4445,10 +4464,10 @@ new p5(function(p) {
     function drawStaticPotBehindCreature(c) {
         if (!c || !staticPotSprite) return;
 
-        let x = c.x + STATIC_POT_OFFSET_X;
-        let y = c.y + STATIC_POT_OFFSET_Y;
-        let w = Math.max(16, Number(STATIC_POT_WIDTH) || 16);
-        let h = Math.max(16, Number(STATIC_POT_HEIGHT) || 16);
+        let x = c.x + (CREATURE_SIZE * (Number(STATIC_POT_OFFSET_X_PERCENT) || 0));
+        let y = c.y + (CREATURE_SIZE * (Number(STATIC_POT_OFFSET_Y_PERCENT) || 0));
+        let w = Math.max(16, CREATURE_SIZE * Math.max(0.1, Number(STATIC_POT_WIDTH_PERCENT) || 0.1));
+        let h = Math.max(16, CREATURE_SIZE * Math.max(0.1, Number(STATIC_POT_HEIGHT_PERCENT) || 0.1));
 
         p.push();
         p.imageMode(p.CENTER);
@@ -8399,19 +8418,24 @@ new p5(function(p) {
 
     function updateRadialMenuPosition(creature) {
         if (!ui || !ui.radialMenu) return;
-        
-        // Use static positioning variables set at startup
-        ui.radialMenu.style.left = RADIAL_MENU_CENTER_X + 'px';
-        ui.radialMenu.style.top = RADIAL_MENU_CENTER_Y + 'px';
+
+        let bounds = getElementPositioningBounds(ui.radialMenu);
+        let centerX = bounds.w * (Number(RADIAL_MENU_CENTER_X_PERCENT) || 0);
+        let centerY = bounds.h * (Number(RADIAL_MENU_CENTER_Y_PERCENT) || 0);
+        ui.radialMenu.style.left = centerX + 'px';
+        ui.radialMenu.style.top = centerY + 'px';
     }
 
     function updateNpcActionButtonsPosition(creature) {
         if (!ui || !ui.reopenGridButton) return;
 
-        // Use static positioning variables set at startup
+        let bounds = getElementPositioningBounds(ui.reopenGridButton);
+        let buttonX = bounds.w * (Number(CANVAS_BUTTON_X_PERCENT) || 0);
+        let buttonY = bounds.h * (Number(CANVAS_BUTTON_Y_PERCENT) || 0);
+
         ui.reopenGridButton.style.display = 'inline-flex';
-        ui.reopenGridButton.style.left = CANVAS_BUTTON_X + 'px';
-        ui.reopenGridButton.style.top = CANVAS_BUTTON_Y + 'px';
+        ui.reopenGridButton.style.left = buttonX + 'px';
+        ui.reopenGridButton.style.top = buttonY + 'px';
 
         // Update grid anchor if creature exists
         if (creature && creature.x !== undefined && creature.y !== undefined) {
@@ -8960,6 +8984,7 @@ new p5(function(p) {
         let sz = canvasSize();
         p.resizeCanvas(sz.w, sz.h);
         attachStudioBackgroundLayer();
+        updateResponsiveCreatureSize();
         let home = getCreatureHomePosition();
         creature.originX = home.x;
         creature.originY = home.y;

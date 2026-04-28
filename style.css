@@ -38,12 +38,12 @@
     --canvas-hitbox-right: 24%;
     --canvas-hitbox-bottom: 4%;
     --canvas-hitbox-left: 24%;
-    --open-area-buttons-z-index: 1500;      /* legacy fallback — not used directly */
-    --search-open-button-z-index: 1505;     /* search area button layer */
-    --canvas-open-button-z-index: 1504;     /* canvas area button layer */
-    --guide-book-button-z-index: 1506;      /* guide book sprite button layer */
+    --open-area-buttons-z-index: 1000;      /* legacy fallback — not used directly */
+    --search-open-button-z-index: 1005;     /* search area button layer */
+    --canvas-open-button-z-index: 1004;     /* canvas area button layer */
+    --guide-book-button-z-index: 1006;      /* guide book sprite button layer */
     --area-sprite-z-index: 1500;
-    --grid-canvas-z-index: 1304;
+    --grid-canvas-z-index: 1704;
     --canvas-tab-button-z-index: 2;
     --shop-modal-z-index: 121;
     --radial-menu-z-index: 120;
