@@ -126,9 +126,22 @@ new p5(function(p) {
         'References/QuestionMark.png',
         'References/FamiliarTextArt-Happy.png',
         'References/FamiliarTextArt-Confident.png',
-        'References/Familiar UI Design 1.png',
-        'References/Familiar UI Design 2.png',
+        'References/FamiliarUIDesign1.png',
+        'References/FamiliarUIDesign2.png',
         'TextArt/FamiliarTextArt-Happy.png',
+        'TextArt/FamiliarTextArt-Pride.png',
+        'TextArt/FamiliarTextArt-Sad.png',
+        'TextArt/FamiliarTextArt-Nervous.png',
+        'TextArt/FamiliarTextArt-Yawn.png',
+    ];
+
+    const OFFLINE_REFERENCE_SPRITE_PATHS = [
+        'References/FamiliarBallReference.png',
+        'References/FamiliarBirdReference.png',
+        'References/FamiliarBirdReference2.png',
+        'References/FamiliarRealBirdReference.webp',
+        'References/FamiliarRealBirdReference2.webp',
+        'References/QuestionMark.png',
         'TextArt/FamiliarTextArt-Pride.png',
         'TextArt/FamiliarTextArt-Sad.png',
         'TextArt/FamiliarTextArt-Nervous.png',
@@ -174,7 +187,8 @@ new p5(function(p) {
     let SHORT_REST_ENERGY_RECOVERY = 0.0025; // energy gain per frame during short rest
     let LONG_REST_ENERGY_RECOVERY = 0.008;   // energy gain per frame during long rest
 
-    let AFK_PER_HOUR   = 60;      // extra need added per hour since last visit
+    let AFK_PER_HOUR   = 1;      // extra need added per hour since last visit
+    let AFK_GENERATIONS_PER_HOUR = 2; // offline generations created per hour away
     let AFK_MAX_HOURS  = 168;    // cap time-away at 7 days
     let CLICK_FEED     = 20;     // how much a click increases need
     let MIC_THRESHOLD  = 0.3;   // how loud is "loud" (0–1)
@@ -190,6 +204,14 @@ new p5(function(p) {
     let MIC_DEBUG_BAR_Y = 18;
     let MIC_DEBUG_BAR_W = 220;
     let MIC_DEBUG_BAR_H = 12;
+
+    // --- UI Positioning (static/manual) ---
+    // Set these to position the radial menu and canvas button directly.
+    // These are screen coordinates relative to the canvas-area container.
+    let RADIAL_MENU_CENTER_X = 350;   // center X of radial menu
+    let RADIAL_MENU_CENTER_Y = -30;   // center Y of radial menu
+    let CANVAS_BUTTON_X = 850;        // button X position
+    let CANVAS_BUTTON_Y = 340;        // button Y position
     
     // --- Grid generation ---
     let GRID_COLS      = DEFAULT_GRID_COLS;
@@ -357,8 +379,8 @@ new p5(function(p) {
     let GRID_CLOSE_BUTTON_OFFSET_Y = -(GRID_CANVAS_TAB_BUTTON_SIZE + GRID_GAP);
 
     // --- Canvas sprite buttons (shop / gallery) ---
-    let SHOP_BUTTON_CENTER_X = 0.85;
-    let SHOP_BUTTON_CENTER_Y = 0.72;
+    let SHOP_BUTTON_CENTER_X = 0.87;
+    let SHOP_BUTTON_CENTER_Y = 0.73;
     let SHOP_BUTTON_SIZE = 286;
     let GALLERY_BUTTON_CENTER_X = 0.85;
     let GALLERY_BUTTON_CENTER_Y = 0.32;
@@ -785,6 +807,16 @@ new p5(function(p) {
 
     function recordUserInputTimestamp(nowMs = Date.now()) {
         lastUserInputAtMs = nowMs;
+    }
+
+    function loadImageAsync(path) {
+        return new Promise(resolve => {
+            p.loadImage(
+                path,
+                image => resolve(image),
+                () => resolve(null)
+            );
+        });
     }
 
     function attachStudioBackgroundLayer() {
@@ -1501,12 +1533,15 @@ new p5(function(p) {
         return [[20, 20, 20], [255, 255, 255]];
     }
 
-    function synthesizeOfflinePaintingHours(hoursAway) {
-        let paintingsToCreate = Math.max(0, Math.floor(Number(hoursAway) || 0));
+    async function synthesizeOfflinePaintingHours(hoursAway) {
+        let paintingsPerHour = Math.max(0, Number(AFK_GENERATIONS_PER_HOUR) || 0);
+        let paintingsToCreate = Math.max(0, Math.floor((Number(hoursAway) || 0) * paintingsPerHour));
         if (paintingsToCreate <= 0 || !ui.generationStripList) return 0;
 
         let offlineSeed = getOfflineReferenceLikeSnapshot(3);
-        let recentSnapshots = getRecentGenerationSnapshots(3);
+        let offlineReferencePaths = OFFLINE_REFERENCE_SPRITE_PATHS.length > 0
+            ? shuffledReferencePaths().filter(path => OFFLINE_REFERENCE_SPRITE_PATHS.includes(path))
+            : shuffledReferencePaths();
 
         let styleBackup = captureCurrentStyleSnapshot();
         let schemeBackup = Array.isArray(colorScheme) ? colorScheme.map(col => [...col]) : [];
@@ -1518,26 +1553,32 @@ new p5(function(p) {
         let referenceRuleReadyBackup = referenceRuleReady;
 
         for (let i = 0; i < paintingsToCreate; i++) {
-            let sourceSnapshot = recentSnapshots.length > 0 ? recentSnapshots[i % recentSnapshots.length] : null;
-            let sourceStyle = sourceSnapshot ? snapshotToStyleSnapshot(sourceSnapshot) : offlineSeed.style;
-            let sourceScheme = sourceSnapshot && Array.isArray(sourceSnapshot.colorScheme) && sourceSnapshot.colorScheme.length > 0
-                ? normalizeColourSchemeLength(sourceSnapshot.colorScheme, COLOR_SCHEME_COUNT, offlineSeed.colorScheme)
-                : offlineSeed.colorScheme;
+            let referencePath = offlineReferencePaths.length > 0
+                ? offlineReferencePaths[i % offlineReferencePaths.length]
+                : REFERENCE_SPRITE_PATHS[i % REFERENCE_SPRITE_PATHS.length];
+            if (!referencePath) continue;
 
-            applyStyleSnapshot(blendStyleSnapshots(offlineSeed.style, sourceStyle, 0.22));
-            colorScheme = normalizeColourSchemeLength(
-                blendSchemeToward(offlineSeed.colorScheme, sourceScheme, 0.32),
-                COLOR_SCHEME_COUNT,
-                offlineSeed.colorScheme
-            );
+            applyStyleSnapshot(offlineSeed.style);
+            colorScheme = normalizeColourSchemeLength(offlineSeed.colorScheme, COLOR_SCHEME_COUNT, offlineSeed.colorScheme);
+
+            let loadedReference = await loadImageAsync(referencePath);
+            if (!loadedReference) continue;
+
+            referenceSprite = loadedReference;
+            currentReferenceSpritePath = referencePath;
+            if (!buildReferenceRuleData()) continue;
+
             initColorGrid();
-            currentReferenceSpritePath = sourceSnapshot && typeof sourceSnapshot.referencePath === 'string' && sourceSnapshot.referencePath.trim()
-                ? sourceSnapshot.referencePath
-                : offlineSeed.referencePath;
-
             for (let r = 0; r < GRID_ROWS; r++) {
                 for (let c = 0; c < GRID_COLS; c++) {
-                    gridColors[r][c] = schemeConstrainedColour(COLOR_SCHEME_OFFSET_RANGE);
+                    let associationIndex = referenceAssociations && referenceAssociations[r]
+                        ? referenceAssociations[r][c]
+                        : -1;
+                    if (associationIndex >= 0 && associationIndex < referenceColourMap.length) {
+                        gridColors[r][c] = similarTo(referenceColourMap[associationIndex], REFERENCE_MATCH_RGB_RANGE);
+                    } else {
+                        gridColors[r][c] = schemeConstrainedColour(COLOR_SCHEME_OFFSET_RANGE);
+                    }
                     markGridChanged(r, c);
                 }
             }
@@ -2800,7 +2841,39 @@ new p5(function(p) {
         }
     }
 
+    // ============================================================
+    //  STORAGE VALIDATION  —  detect and fix corrupted saves
+    // ============================================================
+    
+    function validateAndCleanupLocalStorage() {
+        const storageKeys = [
+            { key: 'creature_v2', name: 'creature state' },
+            { key: 'generation_history_v1', name: 'generation history' },
+            { key: 'grid_dimensions_v1', name: 'grid dimensions' },
+        ];
+        
+        for (let { key, name } of storageKeys) {
+            try {
+                let raw = localStorage.getItem(key);
+                if (!raw) continue; // Not stored, that's fine
+                
+                // Try to parse - will throw if corrupted
+                JSON.parse(raw);
+            } catch (parseError) {
+                console.warn(`Detected corrupted ${name} in localStorage. Clearing it to prevent cascading failures.`);
+                try {
+                    localStorage.removeItem(key);
+                } catch (removeError) {
+                    console.error(`Failed to clear corrupted ${name}:`, removeError);
+                }
+            }
+        }
+    }
+
     p.setup = function() {
+        // Validate storage first - this prevents corrupted saves from cascading
+        validateAndCleanupLocalStorage();
+        
         let sz  = canvasSize();
         let cnv = p.createCanvas(sz.w, sz.h);
         cnv.parent('canvas-container');
@@ -2891,10 +2964,14 @@ new p5(function(p) {
         loadRandomReferenceSpriteAndApply();
         lastGridRandomizeAt = p.millis();
 
-        if (!SHOW_UI) document.querySelector('.sidebar').style.display = 'none';
+        // Hide sidebar if needed (with null check)
+        let sidebar = document.querySelector('.sidebar');
+        if (!SHOW_UI && sidebar) sidebar.style.display = 'none';
 
         // Cache sidebar DOM refs once — no per-frame getElementById calls
-        ui.hour    = document.getElementById('ui-hour');
+        // Wrap in try-catch to handle elements that may not exist during load
+        try {
+            ui.hour    = document.getElementById('ui-hour');
         ui.period  = document.getElementById('ui-period');
         ui.state   = document.getElementById('ui-state');
         ui.desc    = document.getElementById('ui-desc');
@@ -3268,6 +3345,11 @@ new p5(function(p) {
         window.addEventListener('beforeunload', () => {
             if (!suppressExitPersistence) saveState(creature);
         });
+        } catch (domError) {
+            // DOM elements may not all exist during early load stages.
+            // This is normal and safe to ignore — missing UI elements will be handled gracefully.
+            console.warn('Some DOM elements not available during setup (normal):', domError.message);
+        }
         updateGenerationStripLayout();
         updateGenerationStripControls();
         refreshReferencePreviewCard();
@@ -3294,7 +3376,7 @@ new p5(function(p) {
             }
             if (!shouldFreshStartReset && creature && creature.lastVisit) {
                 let hoursAway = Math.min((Date.now() - creature.lastVisit) / 3600000, AFK_MAX_HOURS);
-                synthesizeOfflinePaintingHours(hoursAway);
+                void synthesizeOfflinePaintingHours(hoursAway);
             }
 
         };
@@ -8316,63 +8398,28 @@ new p5(function(p) {
     }
 
     function updateRadialMenuPosition(creature) {
-        if (!ui.radialMenu) return;
+        if (!ui || !ui.radialMenu) return;
         
-        // Get the canvas DOM element
-        let canvasEl = document.querySelector('#canvas-container canvas');
-        if (!canvasEl) return;
-        
-        // Get canvas position and size in DOM
-        let canvasRect = canvasEl.getBoundingClientRect();
-        let canvasAreaRect = document.querySelector('.canvas-area').getBoundingClientRect();
-        
-        // Calculate canvas width and height (p5.js dimensions)
-        let canvasWidth = canvasRect.width;
-        let canvasHeight = canvasRect.height;
-        
-        // Convert creature's p5.js coordinates (creature.x, creature.y) to DOM coordinates
-        let creatureDOMX = canvasRect.left + (creature.x / p.width) * canvasWidth;
-        let creatureDOMY = canvasRect.top + (creature.y / p.height) * canvasHeight;
-        
-        // Position relative to canvas-area (which is the parent with position: relative)
-        let relativeX = creatureDOMX - canvasAreaRect.left;
-        let relativeY = creatureDOMY - canvasAreaRect.top;
-        
-        // CSS centers the menu with translate(-50%, -50%), so write center coordinates directly.
-        ui.radialMenu.style.left = (relativeX + RADIAL_CENTER_OFFSET_X) + 'px';
-        ui.radialMenu.style.top = (relativeY + RADIAL_CENTER_OFFSET_Y) + 'px';
+        // Use static positioning variables set at startup
+        ui.radialMenu.style.left = RADIAL_MENU_CENTER_X + 'px';
+        ui.radialMenu.style.top = RADIAL_MENU_CENTER_Y + 'px';
     }
 
     function updateNpcActionButtonsPosition(creature) {
-        if (!ui.reopenGridButton) return;
+        if (!ui || !ui.reopenGridButton) return;
 
-        let canvasEl = document.querySelector('#canvas-container canvas');
-        if (!canvasEl) {
-            ui.reopenGridButton.style.display = 'none';
-            return;
-        }
-
-        let canvasRect = canvasEl.getBoundingClientRect();
-        let canvasArea = document.querySelector('.canvas-area');
-        if (!canvasArea) {
-            ui.reopenGridButton.style.display = 'none';
-            return;
-        }
-        let canvasAreaRect = canvasArea.getBoundingClientRect();
-
-        let creatureDOMX = canvasRect.left + (creature.x / p.width) * canvasRect.width;
-        let creatureDOMY = canvasRect.top + (creature.y / p.height) * canvasRect.height;
-        let relativeX = creatureDOMX - canvasAreaRect.left;
-        let relativeY = creatureDOMY - canvasAreaRect.top;
-        let buttonOffsetX = CREATURE_SIZE * AREA_BUTTON_LAYOUT.canvasButtonOffsetX;
-        let buttonOffsetY = CREATURE_SIZE * AREA_BUTTON_LAYOUT.canvasButtonOffsetY;
-
+        // Use static positioning variables set at startup
         ui.reopenGridButton.style.display = 'inline-flex';
-        ui.reopenGridButton.style.left = `${Math.round(relativeX + buttonOffsetX)}px`;
-        ui.reopenGridButton.style.top = `${Math.round(relativeY + buttonOffsetY)}px`;
+        ui.reopenGridButton.style.left = CANVAS_BUTTON_X + 'px';
+        ui.reopenGridButton.style.top = CANVAS_BUTTON_Y + 'px';
 
-        gridView.canvasButtonAnchorX = creature.x + buttonOffsetX;
-        gridView.canvasButtonAnchorY = creature.y + buttonOffsetY;
+        // Update grid anchor if creature exists
+        if (creature && creature.x !== undefined && creature.y !== undefined) {
+            let buttonOffsetX = CREATURE_SIZE * AREA_BUTTON_LAYOUT.canvasButtonOffsetX;
+            let buttonOffsetY = CREATURE_SIZE * AREA_BUTTON_LAYOUT.canvasButtonOffsetY;
+            gridView.canvasButtonAnchorX = creature.x + buttonOffsetX;
+            gridView.canvasButtonAnchorY = creature.y + buttonOffsetY;
+        }
     }
 
 
@@ -8453,7 +8500,10 @@ new p5(function(p) {
             if (data.cols && data.rows) {
                 setGridDimensions(data.cols, data.rows);
             }
-        } catch(e) {}
+        } catch(e) {
+            console.error('loadGridDimensions failed - grid dimensions may be corrupted. Using defaults. Error:', e.message);
+            // Grid dims are corrupted - use defaults (already set in variable initialization)
+        }
     }
 
     function serializeGenerationHistorySnapshots(list) {
@@ -8613,7 +8663,11 @@ new p5(function(p) {
 
             // Rewrite storage with sanitized data so future loads remain stable.
             saveGenerationHistoryToStorage();
-        } catch(e) {}
+        } catch(e) {
+            console.error('loadGenerationHistoryFromStorage failed - generation history may be corrupted. Error:', e.message);
+            // History file is corrupted - generationHistory stays as empty array, which is safe
+            generationHistory = [];
+        }
     }
 
     function saveState(c) {
@@ -8792,7 +8846,49 @@ new p5(function(p) {
             }
             ensureEasyStyleProfile();
         } catch(e) {
+            console.error('loadState failed - save file may be corrupted. Resetting to defaults. Error:', e.message);
+            // Save file is corrupted - reset to safe defaults to prevent cascading failures
             c.totalVisits = 1;
+            c.lastVisit = Date.now();
+            c.need = 50;
+            c.energy = 100;
+            galleryCoins = 0;
+            paletteUpgradeCount = 0;
+            hasComputerUpgrade = false;
+            easyStyleProfile = null;
+            ensureEasyStyleProfile();
+            colourPreference = { mode: null, targetScheme: null, likeStreak: 0 };
+            stylePreference = { mode: null, target: null, likeStreak: 0 };
+            energyDrinkGridBoostActive = false;
+            ownedGalleryWallThemeIds = ['sage'];
+            activeGalleryWallThemeId = 'sage';
+            favouriteGenerationSerial = null;
+            ensureGalleryWallState();
+            ownedStudioWallThemeIds = ['cloud'];
+            activeStudioWallThemeId = 'cloud';
+            ownedStudioDecorThemeIds = [];
+            activePotStyleThemeId = 'brown';
+            ownedPotStyleThemeIds = ['brown'];
+            ownedCanvasPresetIds = ['default'];
+            ownedCustomCanvasDraft = null;
+            ownedShopMusicTrackIds = [];
+            activeShopMusicTrackId = null;
+            ensureStudioWallState();
+            ensureStudioDecorState();
+            ensureShopMusicState();
+            frozenSchemeSlots = [];
+            frozenSchemeValues = [];
+            ensureSchemeLockArraysLength();
+            restState.shortActive = false;
+            restState.shortRestUntil = 0;
+            restState.longRestUntil = 0;
+            fullEnergyStyleSnapshot = null;
+            fullEnergyColorScheme = null;
+            lastEnergyStyleInfluence = 0;
+            syncPaletteStateToCount();
+            applyActiveGalleryWallTheme();
+            applyActiveStudioWallTheme();
+            applyActivePotStyleTheme();
         }
     }
 

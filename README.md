@@ -2,26 +2,6 @@
 
 ## Design Process
 
-The original writing for the tutorial book was a lot more unhinged, as I wanted to better show the insane ramblings of Dr Duxelles, who wrote an entire book on a hypothetical creature that could be used to paint for profit. But I thought it would contrast too much with the more calm experience of the site, so I changed some things :
-
-            'This scientific hypothesis was written by Dr. Duxelles, to analyse the possibility of teaching a mushroom to paint. \n Of course, in the scientific community, we all know this is impossible as mushrooms lack the limbs, eyes, and brain necessary to paint, but this paper aims to solve how a hypothetical mushroom with the ability to paint would learn to do so.',
-            
-            "Firstly in order to paint, the mushroom would need some basic equipment of a studio, canvas, paintbrush, and of course a teacher. \n Although it is possible for the mutated mushroom to paint on its own, without human knowledge, it would be unable to determine what is good and bad.",
-            'Hence the importance of a teacher, by CLICKING on the mushroom, the teacher could find a way to communicate with the mushroom and give it guidance to teach it how to paint with a style and colour that a human would find appealing.',
-    
-            "However, if this hypothetical mushroom had a brain, it would actively seek out advice by asking questions to the teacher, represented by a large? over its head. When seeing this, the teacher should listen to the creature's worries and questions to not only guide it, but to help it develop its own judgement in the future.",
-            "Like every artist, the mushroom would need to rest its overworked mind to regain its energy. Not letting it get enough rest can result in it slipping back in to it's old style, creating art that can be unappealing to the human eye. However, substances like energy drinks could give a temporary boost to its energy and even enhance the creature's speed.",
-
-            "This hypothetical creature's biology would also change greatly, as controlling brains and limbs would require far more ENERGY than a standard mmushroomcould attain through absorption. As a result, it would be sensible to FEED this creature human FOOD, which it would of course have the required organs to digest.",
-            "Now this all might seem like a lot of work just to teach a mushroom to paint, but you need to consider the potential. This creature could create something which vaguely resembles human art, all by itself, meaning someone could create 'art' without skill, effort, or ever needing to risk their own feelings when sharing it. As I always say, Art is but a product to be sold and bought, with no further value.",
-
-            "As a matter of fact, you should hypothetically teach this lesson to your creature, by selling its paintings to buyers to get money for yourself, which can be used to pay off the creature's expenses. As you'll never know what buyers can show up when you go to sell, make sure to create a variety of paintings that use different styles and colours to match a variety of tastes. This would be the most optimal way to gain money.",
-            "You could even spend this money to improve the creature's skill, giving it a cozy environment to let it make more profits for you!",
-
-Also, the name Dr. Duxelles comes from the French cuisine with the same name, being a mince made of mushrooms, onions, and herbs. 
-
-
-
 ### Ideation
 
 To start this project, I originally planned to just make a simple chat bot who would write generated responses and could do other generation-based activities like playing through games and painting. So, to start this off, I tried to add at least one of these activities, so I started with painting as I was inspired by John Conway's game of life, where a system would recolor pixels with a series of rules.
@@ -78,8 +58,6 @@ After this, I wanted to give the user even more control, so I made a series of v
 
 The solution for this was to split it into more specific buttons. From this I made the "More Precise" and "More Abstract" button which influence the chance of the squares following the reference rule, and later, whether the 5% compeltely random rule would even be applied, and the "Noisier" and "Cleaner" button which controls the limits a colour could go from it's chosen colour, which so happened to be great for create coloured Noise.
 
-![insert image if you can find one from this time]()
-
 ### Reference Image Search
 The next change I made was the ability to pick your own reference images, as limiting the number of reference images to what could be stored in the repository made the generations feel repetitive. So, for this, I got Co-Pilot to make an image search system that would take in a text input and use its keywords to find a pool of images on OpenVerse, a royalty-free image database with millions of images. From this pool, it would then pick the images with the most contrast and randomly pick from them. This image would then go through the same resizing and posterizing system to make it a new reference image.
 
@@ -93,14 +71,14 @@ While I was working on this, I noticed that the past generations tab was filled 
 ### Buying Upgrades and Food
 However, this money was currently useless as there was nothing to buy, so I got Claude to code a shop menu where the user could buy food to feed the creature and upgrades to improve the generations, like more colour palette slots, bigger canvases, and the search button, which now needed to be brought to bring a sense of progression.
 
-![find old selling and buying screenshot]()
+![Selling Example From Later in Development](ProcessImages/SellingExampleNew.png)
 
 ### Improved Interaction UI
 Next, I worked on further improving the UI. The biggest problem I had was the disconnect between the generation and the creature, with all the options just being disconnected buttons. For this, I was recommended in class to use a radial menu system for all the settings, so that's what I did.
 I wasn't too sure how to code a menu like this, so I drew up some example images:
 
-![RadialDesign1](References/Familiar UI Design 1.png)
-![RadialDesign2](References/Familiar UI Design 2.png)
+![RadialDesign1](References/FamiliarUIDesign1.png)
+![RadialDesign2](References/FamiliarUIDesign2.png)
 
 I asked both the co-pilot and Claude to try to recreate. Eventually, after a lot of attempts and iterations, I was finally able to make it work, which I'm pretty proud of, as the radial menu makes interacting with the creature feel more like communication than just pressing buttons.
 
@@ -200,12 +178,12 @@ Actually, in my original planning, I wanted to use this confidence system as wel
 ### AFK Generation
 Since I wanted it to feel like the familiar was still improving while the user wasn't looking at it, I got Co-Pilot to check the amount of time the player is away from the website or the website is closed, and then quickly generate a couple of paintings for every hour the user was away. Originally, this came with some bugs where they would just create this same greenish noise, but after some troubleshooting, it is able to generate some paintings without any user input, trying to use the style and colour pallettes they had last been praised for by picking from a random set of saved style parameters.
 
-![Insert AFK Generation Examples]()
+![AFK Generation Examples](ProcessImages/AFKGenExample.png)
 
 ### Improving the Pot
 Currently, the pot and mushroom were just one sprite, and since it was using a modified version of the Templates creature, the sprite would bounce, grow, or shrink, making the pot look like it's floating around. So I split the sprite into the stationary pot and the moving and animating mushroom, which also meant I could add some character customisation by simply selling recoloured pots in the store.
 
-![Cool Pot Cosmetic]()
+![Cool Pot Cosmetic](ColoredPotExample.png)
 
 ### Microphone Inputs
 The final feature I added was microphone support. This was because I noticed I still hadn't removed the microphone checking feature from the original template. Though, since it was already implemented, I thought it would be fun to implement some secret microphone controls to give the player even more immersive input. This uses a pretty simple system, checking how much volume the microphone is getting and from that changing some variables. The two ways the mic input can affect the familiar currently are waking it up instantly if it receives a loud noise when sleeping, and also a generation and animation speed increase if it gets a sustained loud noise while generating, letting the user either encourage it or yell at it for not working fast enough.
@@ -222,7 +200,17 @@ The next major bug came from the canvas button and canvas tab, where no matter h
 Lastly, throughout their were many problems with saved files corrupting, the site struggling to load, and many things freezing. These were all generally fixed by co-pilot and Claude as they appeared pretty late into development when I had to work on other things, and this is why I added things like a loading screen and made the code completely erase all traces of sold paintings to not fill the websites' locally saved data with inaccessible images.
 
 ### Read Me / Bonus Planning
-I then finalised my Read Me, sorting it into more organised segments and adding images to areas that didn't currently have any. I also found some planning notes I had written down for features I unfortunately didn't, so I added them at the end as a little bonus:
+I then finalised my Read Me, sorting it into more organised segments and adding images to areas that didn't currently have any. 
+
+I also at the end added some debug keys to fully show the project and all it's mechanics so:
+
+Pressing the M key will instantly earn you $100 to test the shop
+Pressing the S key will reload the page, skipping forward one hour so you can see how the AFK Generations work.
+
+Also I would recommend using this on a larger moniter as the current laptop version can hide some things like the Mushroom Cat.
+
+
+I also found some planning notes I had written down for features I unfortunately didn't, so I added them at the end as a little bonus:
 
         Add an image search system that pulls an image from the internet and tries to match the tone or a difference of the colours of said image, hopefully create a recognisable shape.
 
